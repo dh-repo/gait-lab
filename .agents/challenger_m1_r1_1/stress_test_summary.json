@@ -1,0 +1,21 @@
+{
+  "passedCount": 33,
+  "failedCount": 2,
+  "findings": [
+    {
+      "id": "SIG-1.2b",
+      "category": "SIG",
+      "severity": "MEDIUM",
+      "description": "Constant vector filtering boundary artifact",
+      "evidence": "Max deviation from 42.5: 0.284135. Transient step response leak due to zero initial condition state in applyBiquad and padLen=12."
+    },
+    {
+      "id": "SIG-1.4b",
+      "category": "SIG",
+      "severity": "MEDIUM",
+      "description": "NaN propagation resistance",
+      "evidence": "Array contains NaN values after filtering: [null,null,null,null,null,null,null,null,null,null]"
+    }
+  ],
+  "timestamp": "2026-08-09T03:30:31.237Z"
+}

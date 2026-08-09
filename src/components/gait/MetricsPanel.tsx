@@ -67,6 +67,26 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
           unit="s"
         />
         <Stat
+          label="Symmetry Angle (SA)"
+          value={metrics.symmetryAngle != null ? metrics.symmetryAngle.toFixed(2) : "—"}
+          unit="%"
+        />
+        <Stat
+          label="Harmonic Ratio (HR)"
+          value={metrics.harmonicRatio != null ? metrics.harmonicRatio.toFixed(2) : "—"}
+          unit="idx"
+        />
+        <Stat
+          label="Stance Phase (L / R)"
+          value={`${(metrics.leftStancePct ?? 60).toFixed(0)} / ${(metrics.rightStancePct ?? 60).toFixed(0)}`}
+          unit="%"
+        />
+        <Stat
+          label="Double Support"
+          value={`${(metrics.doubleSupportPct ?? 20).toFixed(1)}`}
+          unit="%"
+        />
+        <Stat
           label="Step-time asymmetry"
           value={(metrics.stepTimeAsymmetry * 100).toFixed(0)}
           unit="%"

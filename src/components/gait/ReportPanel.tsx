@@ -107,6 +107,42 @@ export function ReportPanel({ result }: { result: AnalysisResult }) {
         </CardContent>
       </Card>
 
+      {/* Zeni Kinematic Gait Cycle Phase Breakdown */}
+      <Card className="border-[var(--color-border)] bg-[var(--color-surface-2)]">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-sm">Gait Cycle Phase Breakdown (Zeni Kinematics)</CardTitle>
+            <Badge tone="primary">SA: {(result.metrics.symmetryAngle ?? 0).toFixed(1)}%</Badge>
+          </div>
+          <CardDescription>
+            Stance phase, swing phase, and double support timing derived from foot AP position relative to pelvis (Zeni et al. 2008).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs font-medium">
+              <span>Left Stance / Swing</span>
+              <span>{(result.metrics.leftStancePct ?? 60).toFixed(1)}% / {(result.metrics.leftSwingPct ?? 40).toFixed(1)}%</span>
+            </div>
+            <Progress value={result.metrics.leftStancePct ?? 60} className="h-2" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs font-medium">
+              <span>Right Stance / Swing</span>
+              <span>{(result.metrics.rightStancePct ?? 60).toFixed(1)}% / {(result.metrics.rightSwingPct ?? 40).toFixed(1)}%</span>
+            </div>
+            <Progress value={result.metrics.rightStancePct ?? 60} className="h-2" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs font-medium">
+              <span>Double Support Time</span>
+              <span>{(result.metrics.doubleSupportPct ?? 20).toFixed(1)}% stride</span>
+            </div>
+            <Progress value={result.metrics.doubleSupportPct ?? 20} className="h-2" />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Dual-task block */}
       {report.dualTask && (
         <Card className="border-[color-mix(in_oklab,var(--color-accent)_35%,var(--color-border))]">

@@ -134,6 +134,121 @@ export function buildEducatedGuesses(
     });
   }
 
+  // --- SOTA Rule 1: Zifchock Symmetry Angle (SA) Deviation ---
+  if ((m.symmetryAngle ?? 0) > 5.0) {
+    guesses.push({
+      id: "zifchock-sa-deviation",
+      title: "Inter-limb symmetry angle deviation",
+      summary:
+        "Zifchock Symmetry Angle (SA) exceeds normal reference boundary (5.0%). Indicates significant asymmetry between left and right limb loading or step timing.",
+      evidence: [
+        `Overall Symmetry Angle (SA): ${(m.symmetryAngle ?? 0).toFixed(1)}%`,
+        `Step-time asymmetry: ${(m.stepTimeAsymmetry * 100).toFixed(0)}%`,
+        `Knee flex asymmetry: ${(m.kneeAsymmetry * 100).toFixed(0)}%`,
+      ],
+      confidence: clamp(0.4 + (m.symmetryAngle ?? 0) * 0.04, 0.4, 0.92),
+      severity: (m.symmetryAngle ?? 0) > 10.0 ? "elevated" : "moderate",
+      category: "symmetry",
+      patternTag: "symmetry angle deviation (Zifchock SOTA)",
+      alternatives: [
+        "Unilateral joint discomfort / antalgic stance",
+        "Leg length disparity / structural asymmetry",
+        "Carrying load on one side",
+        "Camera perspective distortion",
+      ],
+    });
+  }
+
+  // --- SOTA Rule 2: Trunk Harmonic Ratio (HR) / Dysrhythmia ---
+  if ((m.harmonicRatio ?? 2.0) < 1.8) {
+    guesses.push({
+      id: "fft-hr-dysrhythmia",
+      title: "Reduced trunk harmonic smoothness (dysrhythmia)",
+      summary:
+        "FFT spectral analysis reveals reduced Harmonic Ratio (HR < 1.8). Even-to-odd harmonic power ratio indicates reduced trunk rhythmicity and loss of smooth center-of-mass trajectory control.",
+      evidence: [
+        `Overall Harmonic Ratio: ${(m.harmonicRatio ?? 0).toFixed(2)}`,
+        `Vertical HR: ${(m.harmonicRatioVertical ?? 0).toFixed(2)}`,
+        `Lateral HR: ${(m.harmonicRatioLateral ?? 0).toFixed(2)}`,
+      ],
+      confidence: clamp(0.85 - (m.harmonicRatio ?? 2.0) * 0.25, 0.45, 0.88),
+      severity: (m.harmonicRatio ?? 2.0) < 1.3 ? "elevated" : "moderate",
+      category: "neuromotor",
+      patternTag: "trunk dysrhythmia (FFT HR)",
+      alternatives: [
+        "Balance instability / trunk wobbling",
+        "Cognitive dual-task distraction",
+        "Surface irregularity",
+        "Pose tracking noise",
+      ],
+    });
+  }
+
+  // --- SOTA Rule 3: Zeni Kinematic Stance/Swing Asymmetry & Prolonged Double Support ---
+  const stanceDiff = Math.abs((m.leftStancePct ?? 60) - (m.rightStancePct ?? 60));
+  if (stanceDiff > 6.0 || (m.doubleSupportPct ?? 20) > 26.0) {
+    guesses.push({
+      id: "zeni-stance-breakdown",
+      title: stanceDiff > 6.0 ? "Asymmetric stance phase duration" : "Prolonged double support phase",
+      summary:
+        "Zeni kinematic algorithm detected altered stance/swing phase proportions. Prolonged stance on one side or extended double support time reflects cautious gait or antalgic weight unloading.",
+      evidence: [
+        `Left stance phase: ${(m.leftStancePct ?? 60).toFixed(1)}%`,
+        `Right stance phase: ${(m.rightStancePct ?? 60).toFixed(1)}%`,
+        `Double support time: ${(m.doubleSupportPct ?? 20).toFixed(1)}%`,
+      ],
+      confidence: clamp(0.45 + stanceDiff * 0.03, 0.45, 0.85),
+      severity: stanceDiff > 10.0 || (m.doubleSupportPct ?? 20) > 30.0 ? "elevated" : "moderate",
+      category: "pattern",
+      patternTag: "Zeni stance phase kinematics",
+      alternatives: [
+        "Antalgic limb avoidance",
+        "Fear of falling / cautious gait strategy",
+        "Footwear or flooring variation",
+      ],
+    });
+  }
+
+  // --- SOTA Rule 4: Plummer & Eskes Cognitive-Motor Interference (CMI) Taxonomy ---
+  if (dtc && dtc.cmiClassification && dtc.cmiClassification !== "no_interference") {
+    const cmiMap = {
+      mutual_interference: {
+        title: "Mutual Cognitive-Motor Interference",
+        summary: "Both motor cadence and step-time regularity degraded significantly during dual-task walking (Plummer & Eskes 2015).",
+        severity: "elevated" as const,
+      },
+      cognitive_prioritization: {
+        title: "Cognitive Prioritization / Motor Cost",
+        summary: "Gait performance declined while cognitive task was prioritized during dual-task condition.",
+        severity: "moderate" as const,
+      },
+      motor_prioritization: {
+        title: "Motor Prioritization Strategy",
+        summary: "Walking pace accelerated or stabilized during secondary task execution.",
+        severity: "low" as const,
+      },
+    };
+
+    const info = cmiMap[dtc.cmiClassification as keyof typeof cmiMap];
+    if (info) {
+      guesses.push({
+        id: "cmi-classification",
+        title: info.title,
+        summary: info.summary,
+        evidence: [
+          `CMI Taxonomy: ${dtc.cmiClassification}`,
+          `Cadence DTE: ${dtc.cadenceDTE?.toFixed(1) ?? dtc.cadenceCostPct.toFixed(1)}%`,
+          `Step-Time CV DTE: ${dtc.stepTimeCvDTE?.toFixed(1) ?? dtc.stepTimeCvCostPct.toFixed(1)}%`,
+        ],
+        confidence: 0.82,
+        severity: info.severity,
+        category: "cognitive_adjacent",
+        patternTag: `CMI: ${dtc.cmiClassification}`,
+        alternatives: ["Task difficulty effect", "Secondary task engagement variability"],
+      });
+    }
+  }
+
   // --- Variability / automaticity (stronger research signal than mean speed) ---
   if (m.stepTimeCV > 0.12 && m.stepCount >= 4) {
     guesses.push({

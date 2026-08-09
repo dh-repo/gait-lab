@@ -1,4 +1,4 @@
-import type { Landmark } from "./types";
+import type { Landmark, PoseFrame } from "./types";
 
 export type PoseDetectionResult = {
   landmarks: Array<Array<{ x: number; y: number; z: number; visibility?: number }>>;
@@ -254,4 +254,87 @@ export async function seekAndDetect(
     res = detectPosesOnVideoFrame(landmarker, video);
   }
   return res;
+}
+
+/**
+ * Resamples non-uniform or missing PoseFrame trajectories onto an exact uniform
+ * target time grid using Catmull-Rom cubic spline coordinate interpolation.
+ *
+ * @param frames Raw collected pose frames with timeMs timestamps
+ * @param targetFps Desired uniform frame rate (default: 30.0 Hz)
+ * @returns Array of PoseFrame uniformly spaced at 1000 / targetFps ms
+ */
+export function resamplePoseFrames(
+  frames: PoseFrame[],
+  targetFps = 30.0,
+): PoseFrame[] {
+  if (!frames || frames.length < 4) return frames;
+
+  // Sort frames by timeMs ascending
+  const sorted = [...frames].sort((a, b) => a.timeMs - b.timeMs);
+  const t0 = sorted[0].timeMs;
+  const tEnd = sorted[sorted.length - 1].timeMs;
+  const durationMs = tEnd - t0;
+  if (durationMs <= 0) return sorted;
+
+  const dtMs = 1000.0 / targetFps;
+  const numSteps = Math.floor(durationMs / dtMs) + 1;
+  const uniformFrames: PoseFrame[] = [];
+
+  const numLandmarks = sorted[0].landmarks.length;
+
+  for (let step = 0; step < numSteps; step++) {
+    const targetT = t0 + step * dtMs;
+
+    // Find interval [idx, idx+1] containing targetT
+    let idx = 0;
+    while (idx < sorted.length - 2 && sorted[idx + 1].timeMs <= targetT) {
+      idx++;
+    }
+
+    const tCurrent = sorted[idx].timeMs;
+    const tNext = sorted[Math.min(idx + 1, sorted.length - 1)].timeMs;
+    const interval = tNext - tCurrent;
+    const u = interval > 0 ? (targetT - tCurrent) / interval : 0;
+
+    const p0 = sorted[Math.max(0, idx - 1)].landmarks;
+    const p1 = sorted[idx].landmarks;
+    const p2 = sorted[Math.min(sorted.length - 1, idx + 1)].landmarks;
+    const p3 = sorted[Math.min(sorted.length - 1, idx + 2)].landmarks;
+
+    const interpolatedLM: Landmark[] = new Array(numLandmarks);
+
+    for (let l = 0; l < numLandmarks; l++) {
+      const interpCoord = (coord: "x" | "y" | "z"): number => {
+        const v0 = p0[l] ? p0[l][coord] : 0;
+        const v1 = p1[l] ? p1[l][coord] : 0;
+        const v2 = p2[l] ? p2[l][coord] : 0;
+        const v3 = p3[l] ? p3[l][coord] : 0;
+        // Catmull-Rom formula
+        const a = -0.5 * v0 + 1.5 * v1 - 1.5 * v2 + 0.5 * v3;
+        const b = v0 - 2.5 * v1 + 2.0 * v2 - 0.5 * v3;
+        const c = -0.5 * v0 + 0.5 * v2;
+        const d = v1;
+        return a * u * u * u + b * u * u + c * u + d;
+      };
+
+      const vis1 = p1[l] ? (p1[l].visibility ?? 1.0) : 1.0;
+      const vis2 = p2[l] ? (p2[l].visibility ?? 1.0) : 1.0;
+      const vis = (1 - u) * vis1 + u * vis2;
+
+      interpolatedLM[l] = {
+        x: interpCoord("x"),
+        y: interpCoord("y"),
+        z: interpCoord("z"),
+        visibility: vis,
+      };
+    }
+
+    uniformFrames.push({
+      timeMs: targetT,
+      landmarks: interpolatedLM,
+    });
+  }
+
+  return uniformFrames;
 }

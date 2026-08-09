@@ -239,9 +239,14 @@ export function buildStructuredReport(
       "Symmetry",
       m.symmetryScore,
       m.symmetryScore >= 65
-        ? "Left–right timing and motion proxies are reasonably matched."
-        : "Asymmetry elevated — limp-like pattern, camera, or true side difference.",
+        ? "Inter-limb timing and movement symmetry angles (Zifchock SA) are well matched."
+        : "Asymmetry elevated — Zifchock symmetry angle or step time ratio indicates side difference.",
       [
+        {
+          label: "Symmetry Angle (SA)",
+          value: `${(m.symmetryAngle ?? 0).toFixed(1)}%`,
+          hint: (m.symmetryAngle ?? 0) > 5.0 ? "down" : "up",
+        },
         {
           label: "Step-time asym",
           value: `${(m.stepTimeAsymmetry * 100).toFixed(0)}%`,
@@ -257,9 +262,14 @@ export function buildStructuredReport(
       "Rhythm",
       m.rhythmScore,
       m.rhythmScore >= 65
-        ? "Step timing is relatively regular."
-        : "Irregular intervals — turns, dual-task, obstacles, or timing variability.",
+        ? "Step timing and trunk rhythmicity (Harmonic Ratio) show good periodicity."
+        : "Irregular intervals — reduced harmonic ratio or timing variability detected.",
       [
+        {
+          label: "Harmonic Ratio (HR)",
+          value: (m.harmonicRatio ?? 1.0).toFixed(2),
+          hint: (m.harmonicRatio ?? 1.0) < 1.8 ? "down" : "up",
+        },
         {
           label: "Step-time CV",
           value: `${(m.stepTimeCV * 100).toFixed(0)}%`,
@@ -278,14 +288,18 @@ export function buildStructuredReport(
         : "Slower or more constrained mobility signals in this segment.",
       [
         { label: "Cadence", value: `${m.cadenceSpm.toFixed(0)} spm` },
+        {
+          label: "Stance phase (L/R)",
+          value: `${(m.leftStancePct ?? 60).toFixed(0)}% / ${(m.rightStancePct ?? 60).toFixed(0)}%`,
+        },
         { label: "Arm swing L/R", value: `${m.armSwingLeft.toFixed(2)} / ${m.armSwingRight.toFixed(2)}` },
         {
           label: "Knee flex L/R",
           value: `${m.kneeFlexLeft.toFixed(0)}° / ${m.kneeFlexRight.toFixed(0)}°`,
         },
         {
-          label: "Double-support hint",
-          value: `${(m.doubleSupportHint * 100).toFixed(0)}%`,
+          label: "Double support",
+          value: `${(m.doubleSupportPct ?? 20).toFixed(0)}%`,
         },
       ],
     ),
@@ -300,7 +314,7 @@ export function buildStructuredReport(
         { label: "Step-time CV", value: `${(m.stepTimeCV * 100).toFixed(0)}%` },
         { label: "Stride-time CV", value: `${(m.strideTimeCV * 100).toFixed(0)}%` },
         { label: "Path smoothness", value: `${(m.pathSmoothness * 100).toFixed(0)}%` },
-        { label: "Lateral sway", value: m.lateralSway.toFixed(3) },
+        { label: "Lateral HR", value: (m.harmonicRatioLateral ?? 1.0).toFixed(2) },
       ],
     ),
     domain(
@@ -324,6 +338,36 @@ export function buildStructuredReport(
       favorability: clamp(100 - Math.abs(m.cadenceSpm - 110) * 1.2, 10, 95),
       band: bandFromScore(clamp(100 - Math.abs(m.cadenceSpm - 110) * 1.2, 10, 95)),
       note: "Typical casual walk often ~100–120 spm; context matters.",
+    },
+    {
+      id: "symmetryAngle",
+      group: "Symmetry",
+      label: "Zifchock Symmetry Angle (SA)",
+      display: (m.symmetryAngle ?? 0).toFixed(1),
+      unit: "%",
+      favorability: clamp(100 - (m.symmetryAngle ?? 0) * 10, 5, 98),
+      band: bandFromBurden(clamp((m.symmetryAngle ?? 0) / 10, 0, 1)),
+      note: "Reference-free symmetry angle (Zifchock et al. 2008). 0% = perfect symmetry.",
+    },
+    {
+      id: "harmonicRatio",
+      group: "Smoothness",
+      label: "Trunk Harmonic Ratio (HR)",
+      display: (m.harmonicRatio ?? 1.0).toFixed(2),
+      unit: "idx",
+      favorability: clamp((m.harmonicRatio ?? 1.0) * 25, 5, 98),
+      band: bandFromScore(clamp((m.harmonicRatio ?? 1.0) * 25, 5, 98)),
+      note: "FFT harmonic power ratio (Menz et al. 2003). Higher indicates smoother gait rhythm.",
+    },
+    {
+      id: "zeniStance",
+      group: "Kinematics",
+      label: "Stance Phase % (L / R)",
+      display: `${(m.leftStancePct ?? 60).toFixed(0)}% / ${(m.rightStancePct ?? 60).toFixed(0)}%`,
+      unit: "% stride",
+      favorability: clamp(100 - Math.abs((m.leftStancePct ?? 60) - 60) * 5, 10, 95),
+      band: bandFromScore(clamp(100 - Math.abs((m.leftStancePct ?? 60) - 60) * 5, 10, 95)),
+      note: "Zeni kinematic event algorithm (Zeni et al. 2008). Normal adult stance ~60%.",
     },
     {
       id: "stepTimeCV",
@@ -459,11 +503,11 @@ export function buildStructuredReport(
       id: "ds",
       group: "Timing",
       label: "Double-support hint",
-      display: (m.doubleSupportHint * 100).toFixed(0),
-      unit: "% frames",
-      favorability: clamp(100 - m.doubleSupportHint * 80, 10, 95),
-      band: bandFromBurden(m.doubleSupportHint),
-      note: "Higher can mean more cautious/planted walking.",
+      display: `${(m.doubleSupportPct ?? (m.doubleSupportHint * 100)).toFixed(0)}`,
+      unit: "%",
+      favorability: clamp(100 - (m.doubleSupportPct ?? (m.doubleSupportHint * 100)) * 2, 10, 95),
+      band: bandFromBurden((m.doubleSupportPct ?? (m.doubleSupportHint * 100)) / 100),
+      note: "Percentage of stride spent in double-limb support.",
     },
   ];
 

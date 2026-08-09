@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type DragEvent } from "react";
 import {
   Activity,
+  Bookmark,
+  Check,
+  Clock,
   Upload,
   UserRound,
   Film,
@@ -21,13 +24,15 @@ import { MetricsPanel } from "./MetricsPanel";
 import { GuessesPanel } from "./GuessesPanel";
 import { GuidePanel } from "./GuidePanel";
 import { ReportPanel } from "./ReportPanel";
+import { SessionHistoryDrawer } from "./SessionHistoryDrawer";
 import { computeDualTaskCost, computeGaitMetrics, matchPeople, tracksToPeople } from "@/lib/gait/analysis";
 import { buildEducatedGuesses } from "@/lib/gait/guesses";
 import { PERSON_COLORS, boundingBox } from "@/lib/gait/landmarks";
+import { saveGaitSession } from "@/lib/gait/persistence";
 import {
   getPoseLandmarker,
+  resamplePoseFrames,
   seekAndDetect,
-  seekVideo,
   toLandmarks,
   waitForVideoData,
   waitForVideoMetadata,
@@ -74,6 +79,9 @@ export function GaitApp() {
   const [dragOver, setDragOver] = useState(false);
   const [taskMode, setTaskMode] = useState<TaskMode>("single");
   const [baselineSingle, setBaselineSingle] = useState<GaitMetrics | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const personColors = useMemo(() => {
     const map: Record<number, string> = {};
@@ -280,10 +288,10 @@ export function GaitApp() {
       setResult(null);
 
       const duration = video.duration || 1;
-      // denser sampling for analysis
-      const targetFps = duration > 25 ? 7 : duration > 15 ? 8 : 10;
-      const sampleCount = Math.min(100, Math.max(24, Math.floor(duration * targetFps)));
-      const frames: PoseFrame[] = [];
+      // High-density 30 Hz sampling target
+      const targetFps = 30;
+      const sampleCount = Math.min(300, Math.max(30, Math.floor(duration * targetFps)));
+      const rawFrames: PoseFrame[] = [];
 
       // Maintain tracking to stick to selected person
       const selectedMeta = people.find((p) => p.id === selectedPersonId);
@@ -301,12 +309,11 @@ export function GaitApp() {
         const res = await seekAndDetect(landmarker, video, t);
         const dets = (res.landmarks || []).map(toLandmarks);
         if (!dets.length) {
-          setProgress(55 + Math.round((i / sampleCount) * 40));
+          setProgress(55 + Math.round((i / sampleCount) * 35));
           continue;
         }
 
         // Stick to selected subject: nearest hip within gate, break ties by size.
-        // Prevents swapping onto other shoppers mid-aisle.
         let best = -1;
         let bestScore = -Infinity;
         for (let di = 0; di < dets.length; di++) {
@@ -319,7 +326,7 @@ export function GaitApp() {
           const area = b.w * b.h;
           if (lastHip) {
             const d = Math.hypot(hip.x - lastHip.x, hip.y - lastHip.y);
-            if (d > 0.2) continue; // too far → different person
+            if (d > 0.2) continue;
             const score = area * 2 - d * 3;
             if (score > bestScore) {
               bestScore = score;
@@ -334,8 +341,7 @@ export function GaitApp() {
         }
 
         if (best < 0) {
-          // lost track this frame — skip rather than latch onto someone else
-          setProgress(55 + Math.round((i / sampleCount) * 40));
+          setProgress(55 + Math.round((i / sampleCount) * 35));
           continue;
         }
 
@@ -345,16 +351,20 @@ export function GaitApp() {
           y: (lm[23].y + lm[24].y) / 2,
           z: 0,
         };
-        frames.push({ timeMs: t * 1000, landmarks: lm });
+        rawFrames.push({ timeMs: t * 1000, landmarks: lm });
         setScanPoses([{ id: selectedPersonId, landmarks: lm }]);
-        setProgress(55 + Math.round((i / sampleCount) * 40));
+        setProgress(55 + Math.round((i / sampleCount) * 35));
       }
 
-      if (frames.length < 8) {
+      if (rawFrames.length < 8) {
         throw new Error(
           "Not enough pose frames for the selected person. Try a longer clip or better lighting.",
         );
       }
+
+      setMessage("Resampling trajectory onto uniform 30 Hz grid & filtering…");
+      setProgress(92);
+      const frames = resamplePoseFrames(rawFrames, 30.0);
 
       setMessage("Computing metrics and educated guesses…");
       setProgress(96);
@@ -375,12 +385,12 @@ export function GaitApp() {
         taskMode,
         dualTaskCost,
         notes: [
-          `Analyzed ${frames.length} frames over ${metrics.durationSec.toFixed(1)}s`,
+          `Analyzed ${frames.length} uniform 30Hz frames over ${metrics.durationSec.toFixed(1)}s`,
           `Effective sample rate ~${metrics.fpsEffective.toFixed(1)} fps`,
           `View angle estimate: ${metrics.viewAngle}`,
           `Task mode: ${taskMode === "dual" ? "walk + cognitive" : "walk only"}`,
           dualTaskCost
-            ? `Dual-task cadence cost ${dualTaskCost.cadenceCostPct.toFixed(0)}%`
+            ? `Dual-task cadence DTE ${dualTaskCost.cadenceDTE?.toFixed(1)}% (${dualTaskCost.cmiClassification})`
             : taskMode === "single"
               ? "Saved as walk-only baseline for dual-task pairing"
               : "No walk-only baseline in session yet",
@@ -397,6 +407,26 @@ export function GaitApp() {
       setPhase("error");
     }
   }, [selectedPersonId, people, taskMode, baselineSingle]);
+
+  const handleSaveSession = useCallback(async () => {
+    if (!result) return;
+    setIsSaving(true);
+    try {
+      const sessionName = fileName ? fileName.replace(/\.[^/.]+$/, "") : "Gait Session";
+      await saveGaitSession({
+        data: {
+          sessionName,
+          result,
+        },
+      });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e) {
+      console.error("Failed to save session:", e);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [result, fileName]);
 
   const loadSample = useCallback(async () => {
     try {
@@ -443,12 +473,21 @@ export function GaitApp() {
               then offers several <em>educated guesses</em> with clear uncertainty.
             </p>
           </div>
-          {(phase !== "idle" || videoUrl) && (
-            <Button variant="secondary" onClick={resetAll} className="shrink-0 self-start">
-              <RotateCcw className="size-4" />
-              New video
+          <div className="flex flex-wrap items-center gap-2 shrink-0 self-start">
+            <Button
+              variant="secondary"
+              onClick={() => setIsHistoryOpen(true)}
+            >
+              <Clock className="size-4" />
+              History
             </Button>
-          )}
+            {(phase !== "idle" || videoUrl) && (
+              <Button variant="secondary" onClick={resetAll}>
+                <RotateCcw className="size-4" />
+                New video
+              </Button>
+            )}
+          </div>
         </header>
 
         {/* Upload */}
@@ -600,9 +639,25 @@ export function GaitApp() {
                     </div>
                   )}
                   {phase === "results" && (
-                    <Button variant="secondary" onClick={() => void runAnalysis()}>
-                      Re-run analysis
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        onClick={() => void handleSaveSession()}
+                        disabled={isSaving}
+                      >
+                        {isSaving ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : saveSuccess ? (
+                          <Check className="size-4 text-[var(--color-success)]" />
+                        ) : (
+                          <Bookmark className="size-4" />
+                        )}
+                        {saveSuccess ? "Saved!" : "Save Session"}
+                      </Button>
+                      <Button variant="secondary" onClick={() => void runAnalysis()}>
+                        Re-run analysis
+                      </Button>
+                    </div>
                   )}
                 </div>
               </Card>
@@ -733,6 +788,17 @@ export function GaitApp() {
           Gait Lab · browser-side pose analysis · not a medical device
         </footer>
       </div>
+
+      <SessionHistoryDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onLoadSession={(loadedResult, name) => {
+          setResult(loadedResult);
+          setPhase("results");
+          setTab("report");
+          if (name) setFileName(name);
+        }}
+      />
     </div>
   );
 }

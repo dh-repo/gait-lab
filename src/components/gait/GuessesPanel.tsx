@@ -31,14 +31,21 @@ export function GuessesPanel({
       {dualTaskCost && (
         <Card className="border-[color-mix(in_oklab,var(--color-accent)_35%,var(--color-border))]">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Dual-task cost (paired session)</CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-sm">Dual-task cost (paired session)</CardTitle>
+              {dualTaskCost.cmiClassification && (
+                <Badge tone="accent">
+                  CMI: {dualTaskCost.cmiClassification.replace("_", " ")}
+                </Badge>
+              )}
+            </div>
             <CardDescription>{dualTaskCost.summary}</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <DtcStat label="Cadence cost" value={`${dualTaskCost.cadenceCostPct.toFixed(0)}%`} />
+            <DtcStat label="Cadence DTE" value={`${(dualTaskCost.cadenceDTE ?? -dualTaskCost.cadenceCostPct).toFixed(1)}%`} />
             <DtcStat
-              label="Variability cost"
-              value={`${dualTaskCost.stepTimeCvCostPct.toFixed(0)}%`}
+              label="Step Time CV DTE"
+              value={`${(dualTaskCost.stepTimeCvDTE ?? -dualTaskCost.stepTimeCvCostPct).toFixed(1)}%`}
             />
             <DtcStat
               label="Stability Δ"

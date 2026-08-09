@@ -1,3 +1,6 @@
+import type { GaitEvent } from "./events";
+import type { DTEAnalysis } from "./dte";
+
 export type ViewAngle = "sagittal" | "frontal" | "oblique" | "unknown";
 
 export type Landmark = {
@@ -44,6 +47,18 @@ export type GaitMetrics = {
   kneeAsymmetry: number;
   stepWidthVariability: number;
   doubleSupportHint: number;
+  /** Zeni Gait Phase Breakdown (Stance % and Swing %) */
+  leftStancePct?: number;
+  rightStancePct?: number;
+  leftSwingPct?: number;
+  rightSwingPct?: number;
+  doubleSupportPct?: number;
+  /** Zifchock Symmetry Angle (SA) in % [0, 50]% (0% = perfect symmetry) */
+  symmetryAngle?: number;
+  /** Trunk Harmonic Ratios via FFT */
+  harmonicRatioVertical?: number;
+  harmonicRatioLateral?: number;
+  harmonicRatio?: number;
   /** Coefficient of variation of step intervals (std/mean) — key research marker. */
   stepTimeCV: number;
   /** Same-side stride interval CV when available. */
@@ -74,7 +89,8 @@ export type GaitMetrics = {
     leftKneeAngle: number;
     rightKneeAngle: number;
   }[];
-  stepEvents: { t: number; side: "L" | "R" }[];
+  /** Classified gait events (Heel Strike & Toe Off) with side and timestamp */
+  stepEvents: GaitEvent[];
 };
 
 export type GuessSeverity = "low" | "moderate" | "elevated";
@@ -109,6 +125,11 @@ export type DualTaskCost = {
   stabilityCostPts: number;
   automaticityCostPts: number;
   summary: string;
+  /** Standardized DTE metrics (Plummer & Eskes 2015, Kelly et al. 2010) */
+  cadenceDTE?: number;
+  stepTimeCvDTE?: number;
+  symmetryDTE?: number;
+  cmiClassification?: DTEAnalysis["cmiClassification"];
 };
 
 export type AnalysisResult = {
