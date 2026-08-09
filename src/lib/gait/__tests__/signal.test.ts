@@ -237,5 +237,41 @@ describe("Signal Processing Module (signal.ts)", () => {
         expect(res.harmonicRatio).toBeGreaterThan(0);
       }
     });
+
+    it("uses explicit strideFreq and fps parameters to calculate f0Bin", () => {
+      const fps = 30;
+      const n = 64; // fftSize = 64
+      const strideFreq = 1.0; // f0 = 1.0 Hz -> f0Bin = round(1.0 * 64 / 30) = 2
+
+      // Signal with pure energy at harmonic 2 (2.0 Hz) and 4 (4.0 Hz)
+      const data: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const t = i / fps;
+        data.push(Math.sin(2 * Math.PI * 2.0 * t) + 0.8 * Math.sin(2 * Math.PI * 4.0 * t));
+      }
+
+      const res = computeFFTHarmonics(data, fps, strideFreq, 10);
+      expect(res.evenSum).toBeGreaterThan(res.oddSum * 2);
+      expect(res.harmonicRatio).toBeGreaterThan(2.0);
+    });
+
+    it("captures Hann window spectral leakage via +/- 1 bin neighborhood summation", () => {
+      const fps = 30;
+      const n = 64; // fftSize = 64
+      // Pick a non-integer bin frequency, e.g., strideFreq = 1.15 Hz -> bin = 1.15 * 64 / 30 = 2.45
+      const strideFreq = 1.15;
+      const data: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const t = i / fps;
+        // Even harmonics of stride frequency: 2.3 Hz (2*f0) and 4.6 Hz (4*f0)
+        data.push(Math.sin(2 * Math.PI * 2.3 * t) + 0.7 * Math.sin(2 * Math.PI * 4.6 * t));
+      }
+
+      const res = computeFFTHarmonics(data, fps, strideFreq, 10);
+      // Because 2.3 Hz falls between bin 4 and bin 5, single bin reading would miss energy.
+      // +/- 1 bin neighborhood captures the leaked energy into both bins.
+      expect(res.evenSum).toBeGreaterThan(0.5);
+      expect(res.harmonicRatio).toBeGreaterThan(2.0);
+    });
   });
 });

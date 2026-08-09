@@ -31,14 +31,14 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>Composite scores</CardTitle>
+            <CardTitle>Exploratory composite scores</CardTitle>
             <Badge tone="primary">{metrics.viewAngle} view</Badge>
             <Badge tone="neutral">
               {(metrics.viewConfidence * 100).toFixed(0)}% view confidence
             </Badge>
           </div>
           <CardDescription>
-            Normalized 0–100 scores from pose kinematics in this clip (not clinical grades).
+            Secondary exploratory indices (0–100) — non-diagnostic research scores.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -54,7 +54,12 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Cadence" value={`${metrics.cadenceSpm.toFixed(0)}`} unit="spm" />
+        <Stat
+          label="Cadence"
+          value={`${metrics.cadenceSpm.toFixed(0)}`}
+          unit="spm"
+          ci={metrics.confidenceIntervals?.cadenceSpm}
+        />
         <Stat label="Steps detected" value={`${metrics.stepCount}`} unit="steps" />
         <Stat
           label="Avg step time"
@@ -70,21 +75,33 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
           label="Symmetry Angle (SA)"
           value={metrics.symmetryAngle != null ? metrics.symmetryAngle.toFixed(2) : "—"}
           unit="%"
+          ci={metrics.confidenceIntervals?.symmetryAngle}
         />
         <Stat
           label="Harmonic Ratio (HR)"
           value={metrics.harmonicRatio != null ? metrics.harmonicRatio.toFixed(2) : "—"}
           unit="idx"
+          ci={metrics.confidenceIntervals?.harmonicRatio}
         />
         <Stat
           label="Stance Phase (L / R)"
-          value={`${(metrics.leftStancePct ?? 60).toFixed(0)} / ${(metrics.rightStancePct ?? 60).toFixed(0)}`}
-          unit="%"
+          value={
+            metrics.leftStancePct != null && metrics.rightStancePct != null
+              ? `${metrics.leftStancePct.toFixed(0)} / ${metrics.rightStancePct.toFixed(0)}`
+              : "N/A (Requires Side View)"
+          }
+          unit={metrics.leftStancePct != null ? "%" : ""}
+          ci={metrics.confidenceIntervals?.leftStancePct}
         />
         <Stat
           label="Double Support"
-          value={`${(metrics.doubleSupportPct ?? 20).toFixed(1)}`}
-          unit="%"
+          value={
+            metrics.doubleSupportPct != null
+              ? `${metrics.doubleSupportPct.toFixed(1)}`
+              : "N/A (Requires Side View)"
+          }
+          unit={metrics.doubleSupportPct != null ? "%" : ""}
+          ci={metrics.confidenceIntervals?.doubleSupportPct}
         />
         <Stat
           label="Step-time asymmetry"
@@ -93,19 +110,58 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
         />
         <Stat
           label="Stride asymmetry"
-          value={(metrics.strideAsymmetry * 100).toFixed(0)}
-          unit="%"
+          value={
+            metrics.strideAsymmetry != null
+              ? (metrics.strideAsymmetry * 100).toFixed(0)
+              : "N/A (Requires Side View)"
+          }
+          unit={metrics.strideAsymmetry != null ? "%" : ""}
         />
-        <Stat label="Lateral sway" value={metrics.lateralSway.toFixed(3)} unit="idx" />
+        <Stat
+          label="Lateral sway"
+          value={metrics.lateralSway != null ? metrics.lateralSway.toFixed(3) : "N/A (Requires Front View)"}
+          unit={metrics.lateralSway != null ? "idx" : ""}
+          ci={metrics.confidenceIntervals?.lateralSway}
+        />
         <Stat label="Vertical bounce" value={metrics.verticalBounce.toFixed(3)} unit="idx" />
         <Stat label="Arm swing L" value={metrics.armSwingLeft.toFixed(2)} unit="rng" />
         <Stat label="Arm swing R" value={metrics.armSwingRight.toFixed(2)} unit="rng" />
-        <Stat label="Knee flex L" value={metrics.kneeFlexLeft.toFixed(0)} unit="°" />
-        <Stat label="Knee flex R" value={metrics.kneeFlexRight.toFixed(0)} unit="°" />
-        <Stat label="Step-time CV" value={(metrics.stepTimeCV * 100).toFixed(0)} unit="%" />
-        <Stat label="Stride-time CV" value={(metrics.strideTimeCV * 100).toFixed(0)} unit="%" />
-        <Stat label="Pelvic obliquity" value={metrics.pelvicObliquity.toFixed(3)} unit="idx" />
-        <Stat label="Mean step width" value={metrics.meanStepWidth.toFixed(3)} unit="idx" />
+        <Stat
+          label="Knee flex L"
+          value={metrics.kneeFlexLeft != null ? metrics.kneeFlexLeft.toFixed(0) : "N/A (Requires Side View)"}
+          unit={metrics.kneeFlexLeft != null ? "°" : ""}
+          ci={metrics.confidenceIntervals?.kneeFlexLeft}
+        />
+        <Stat
+          label="Knee flex R"
+          value={metrics.kneeFlexRight != null ? metrics.kneeFlexRight.toFixed(0) : "N/A (Requires Side View)"}
+          unit={metrics.kneeFlexRight != null ? "°" : ""}
+          ci={metrics.confidenceIntervals?.kneeFlexRight}
+        />
+        <Stat
+          label="Step-time CV"
+          value={(metrics.stepTimeCV * 100).toFixed(0)}
+          unit="%"
+          ci={metrics.confidenceIntervals?.stepTimeCV}
+        />
+        <Stat
+          label="Stride-time CV"
+          value={(metrics.strideTimeCV * 100).toFixed(0)}
+          unit="%"
+          ci={metrics.confidenceIntervals?.strideTimeCV}
+        />
+        <Stat
+          label="Pelvic obliquity"
+          value={metrics.pelvicObliquity != null ? metrics.pelvicObliquity.toFixed(3) : "N/A (Requires Front View)"}
+          unit={metrics.pelvicObliquity != null ? "idx" : ""}
+          ci={metrics.confidenceIntervals?.pelvicObliquity}
+        />
+        <Stat
+          label="Mean step width"
+          value={metrics.meanStepWidth != null ? metrics.meanStepWidth.toFixed(3) : "N/A (Requires Front View)"}
+          unit={metrics.meanStepWidth != null ? "idx" : ""}
+          ci={metrics.confidenceIntervals?.meanStepWidth}
+        />
         <Stat label="Path smoothness" value={(metrics.pathSmoothness * 100).toFixed(0)} unit="%" />
         <Stat label="Automaticity" value={metrics.automaticityScore.toFixed(0)} unit="/100" />
       </div>
@@ -214,49 +270,59 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
           <Card>
             <CardHeader>
               <CardTitle>Knee flexion angle</CardTitle>
-              <CardDescription>Degrees at hip–knee–ankle. Larger range often means freer swing.</CardDescription>
+              <CardDescription>
+                {metrics.kneeFlexLeft != null
+                  ? "Degrees at hip–knee–ankle. Larger range often means freer swing."
+                  : "Suppressed for frontal camera view (requires side view)."}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={series}>
-                  <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="t"
-                    tick={{ fill: "var(--color-subtle)", fontSize: 11 }}
-                    stroke="var(--color-border)"
-                  />
-                  <YAxis
-                    tick={{ fill: "var(--color-subtle)", fontSize: 11 }}
-                    stroke="var(--color-border)"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-surface-2)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 8,
-                      color: "var(--color-fg)",
-                    }}
-                  />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="Lknee"
-                    name="Left knee"
-                    stroke="var(--color-primary)"
-                    dot={false}
-                    strokeWidth={2}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="Rknee"
-                    name="Right knee"
-                    stroke="var(--color-accent)"
-                    dot={false}
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
+            {metrics.kneeFlexLeft != null ? (
+              <CardContent className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={series}>
+                    <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="t"
+                      tick={{ fill: "var(--color-subtle)", fontSize: 11 }}
+                      stroke="var(--color-border)"
+                    />
+                    <YAxis
+                      tick={{ fill: "var(--color-subtle)", fontSize: 11 }}
+                      stroke="var(--color-border)"
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--color-surface-2)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: 8,
+                        color: "var(--color-fg)",
+                      }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="Lknee"
+                      name="Left knee"
+                      stroke="var(--color-primary)"
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="Rknee"
+                      name="Right knee"
+                      stroke="var(--color-accent)"
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            ) : (
+              <CardContent className="h-24 flex items-center justify-center text-xs text-[var(--color-subtle)]">
+                Knee flexion kinematic chart suppressed for frontal camera perspective.
+              </CardContent>
+            )}
           </Card>
         </>
       )}
@@ -264,15 +330,31 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
   );
 }
 
-function Stat({ label, value, unit }: { label: string; value: string; unit: string }) {
+function Stat({
+  label,
+  value,
+  unit,
+  ci,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  ci?: { ci95Lower: number | null; ci95Upper: number | null };
+}) {
+  const hasCI = ci && ci.ci95Lower != null && ci.ci95Upper != null;
   return (
     <Card>
       <CardContent className="flex flex-col gap-1 p-4">
         <span className="text-xs font-medium text-[var(--color-muted)]">{label}</span>
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex items-baseline gap-1.5 flex-wrap">
           <span className="tabular text-2xl font-semibold tracking-tight">{value}</span>
-          <span className="text-xs text-[var(--color-subtle)]">{unit}</span>
+          {unit ? <span className="text-xs text-[var(--color-subtle)]">{unit}</span> : null}
         </div>
+        {hasCI && (
+          <span className="tabular text-[10px] text-[var(--color-subtle)] font-normal">
+            [95% CI: {ci.ci95Lower?.toFixed(1)} - {ci.ci95Upper?.toFixed(1)}]
+          </span>
+        )}
       </CardContent>
     </Card>
   );

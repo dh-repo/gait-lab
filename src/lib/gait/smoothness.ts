@@ -25,6 +25,7 @@ export function computeHarmonicRatio(
   hipY: number[],
   hipX: number[],
   fps: number,
+  meanStrideSec?: number,
 ): { hrVertical: number; hrLateral: number; overallHR: number } {
   const defaultResult = { hrVertical: 1.0, hrLateral: 1.0, overallHR: 1.0 };
 
@@ -32,12 +33,14 @@ export function computeHarmonicRatio(
     return defaultResult;
   }
 
+  const strideFreq = meanStrideSec && meanStrideSec > 0 ? 1 / meanStrideSec : undefined;
+
   // Calculate vertical harmonics (evenSum / oddSum)
-  const vertHarmonics = computeFFTHarmonics(hipY, 10);
+  const vertHarmonics = computeFFTHarmonics(hipY, fps, strideFreq, 10);
   const hrVertical = Math.max(0.1, Number(vertHarmonics.harmonicRatio.toFixed(2)));
 
   // Calculate lateral harmonics (oddSum / evenSum)
-  const latHarmonics = computeFFTHarmonics(hipX, 10);
+  const latHarmonics = computeFFTHarmonics(hipX, fps, strideFreq, 10);
   const rawHrLateral = latHarmonics.oddSum / (latHarmonics.evenSum + 1e-6);
   const hrLateral = Math.max(0.1, Number(rawHrLateral.toFixed(2)));
 

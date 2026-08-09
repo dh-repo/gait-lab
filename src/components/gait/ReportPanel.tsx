@@ -122,23 +122,47 @@ export function ReportPanel({ result }: { result: AnalysisResult }) {
           <div className="space-y-1">
             <div className="flex justify-between text-xs font-medium">
               <span>Left Stance / Swing</span>
-              <span>{(result.metrics.leftStancePct ?? 60).toFixed(1)}% / {(result.metrics.leftSwingPct ?? 40).toFixed(1)}%</span>
+              <span>
+                {result.metrics.leftStancePct != null && result.metrics.leftSwingPct != null
+                  ? `${result.metrics.leftStancePct.toFixed(1)}% / ${result.metrics.leftSwingPct.toFixed(1)}%`
+                  : "N/A (Requires Side View)"}
+              </span>
             </div>
-            <Progress value={result.metrics.leftStancePct ?? 60} className="h-2" />
+            {result.metrics.leftStancePct != null ? (
+              <Progress value={result.metrics.leftStancePct} className="h-2" />
+            ) : (
+              <div className="h-2 rounded bg-[var(--color-border)] text-[10px] text-center leading-none text-[var(--color-subtle)]">View Suppressed</div>
+            )}
           </div>
           <div className="space-y-1">
             <div className="flex justify-between text-xs font-medium">
               <span>Right Stance / Swing</span>
-              <span>{(result.metrics.rightStancePct ?? 60).toFixed(1)}% / {(result.metrics.rightSwingPct ?? 40).toFixed(1)}%</span>
+              <span>
+                {result.metrics.rightStancePct != null && result.metrics.rightSwingPct != null
+                  ? `${result.metrics.rightStancePct.toFixed(1)}% / ${result.metrics.rightSwingPct.toFixed(1)}%`
+                  : "N/A (Requires Side View)"}
+              </span>
             </div>
-            <Progress value={result.metrics.rightStancePct ?? 60} className="h-2" />
+            {result.metrics.rightStancePct != null ? (
+              <Progress value={result.metrics.rightStancePct} className="h-2" />
+            ) : (
+              <div className="h-2 rounded bg-[var(--color-border)] text-[10px] text-center leading-none text-[var(--color-subtle)]">View Suppressed</div>
+            )}
           </div>
           <div className="space-y-1">
             <div className="flex justify-between text-xs font-medium">
               <span>Double Support Time</span>
-              <span>{(result.metrics.doubleSupportPct ?? 20).toFixed(1)}% stride</span>
+              <span>
+                {result.metrics.doubleSupportPct != null
+                  ? `${result.metrics.doubleSupportPct.toFixed(1)}% stride`
+                  : "N/A (Requires Side View)"}
+              </span>
             </div>
-            <Progress value={result.metrics.doubleSupportPct ?? 20} className="h-2" />
+            {result.metrics.doubleSupportPct != null ? (
+              <Progress value={result.metrics.doubleSupportPct} className="h-2" />
+            ) : (
+              <div className="h-2 rounded bg-[var(--color-border)] text-[10px] text-center leading-none text-[var(--color-subtle)]">View Suppressed</div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -207,7 +231,7 @@ export function ReportPanel({ result }: { result: AnalysisResult }) {
         </CardHeader>
         <CardContent className="space-y-2 p-5 pt-2">
           {filteredMetrics.map((m) => (
-            <MetricRow key={m.id} metric={m} />
+            <MetricRow key={m.id} metric={m} ci={result.metrics.confidenceIntervals?.[m.id]} />
           ))}
         </CardContent>
       </Card>
@@ -363,7 +387,8 @@ function DomainDetail({ domain }: { domain: DomainRating }) {
   );
 }
 
-function MetricRow({ metric }: { metric: MetricRating }) {
+function MetricRow({ metric, ci }: { metric: MetricRating; ci?: { ci95Lower: number | null; ci95Upper: number | null } }) {
+  const hasCI = ci && ci.ci95Lower != null && ci.ci95Upper != null;
   return (
     <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -386,6 +411,11 @@ function MetricRow({ metric }: { metric: MetricRating }) {
                 </span>
               ) : null}
             </p>
+            {hasCI && (
+              <p className="tabular mt-1 text-[10px] text-[var(--color-subtle)] font-normal">
+                [95% CI: {ci.ci95Lower?.toFixed(1)} - {ci.ci95Upper?.toFixed(1)}]
+              </p>
+            )}
           </div>
           <Badge tone={bandTone(metric.band)}>{bandLabelLocal(metric.band)}</Badge>
         </div>

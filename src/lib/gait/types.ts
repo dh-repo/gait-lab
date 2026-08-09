@@ -27,6 +27,16 @@ export type TrackedPerson = {
 /** How the user labeled the recording protocol. */
 export type TaskMode = "single" | "dual";
 
+export interface ReliabilityBounds {
+  value: number | null;
+  ci95Lower: number | null;
+  ci95Upper: number | null;
+  splitHalfDiff: number | null;
+  se?: number | null;
+  half1?: number | null;
+  half2?: number | null;
+}
+
 export type GaitMetrics = {
   viewAngle: ViewAngle;
   viewConfidence: number;
@@ -36,41 +46,44 @@ export type GaitMetrics = {
   cadenceSpm: number;
   avgStepTimeSec: number;
   stepTimeAsymmetry: number;
-  strideAsymmetry: number;
-  lateralSway: number;
+  strideAsymmetry: number | null;
+  lateralSway: number | null;
   verticalBounce: number;
   armSwingLeft: number;
   armSwingRight: number;
   armSwingAsymmetry: number;
-  kneeFlexLeft: number;
-  kneeFlexRight: number;
-  kneeAsymmetry: number;
-  stepWidthVariability: number;
+  kneeFlexLeft: number | null;
+  kneeFlexRight: number | null;
+  kneeAsymmetry: number | null;
+  stepWidthVariability: number | null;
   doubleSupportHint: number;
-  /** Zeni Gait Phase Breakdown (Stance % and Swing %) */
-  leftStancePct?: number;
-  rightStancePct?: number;
-  leftSwingPct?: number;
-  rightSwingPct?: number;
-  doubleSupportPct?: number;
+  /** Zeni Gait Phase Breakdown (Stance % and Swing %) — null in frontal view */
+  leftStancePct?: number | null;
+  rightStancePct?: number | null;
+  leftSwingPct?: number | null;
+  rightSwingPct?: number | null;
+  doubleSupportPct?: number | null;
   /** Zifchock Symmetry Angle (SA) in % [0, 50]% (0% = perfect symmetry) */
-  symmetryAngle?: number;
+  symmetryAngle?: number | null;
   /** Trunk Harmonic Ratios via FFT */
-  harmonicRatioVertical?: number;
-  harmonicRatioLateral?: number;
-  harmonicRatio?: number;
+  harmonicRatioVertical?: number | null;
+  harmonicRatioLateral?: number | null;
+  harmonicRatio?: number | null;
   /** Coefficient of variation of step intervals (std/mean) — key research marker. */
   stepTimeCV: number;
   /** Same-side stride interval CV when available. */
   strideTimeCV: number;
-  /** Mean absolute hip height L–R difference / torso (Trendelenburg-ish proxy). */
-  pelvicObliquity: number;
-  /** Variability of pelvic obliquity over time. */
-  pelvicObliquityVar: number;
-  /** Mean step width / torso. */
-  meanStepWidth: number;
+  /** Mean absolute hip height L–R difference / torso (Trendelenburg-ish proxy) — null in sagittal view. */
+  pelvicObliquity: number | null;
+  /** Variability of pelvic obliquity over time — null in sagittal view. */
+  pelvicObliquityVar: number | null;
+  /** Mean step width / torso — null in sagittal view. */
+  meanStepWidth: number | null;
   /** Relative path smoothness 0–1 (1 = smooth linear progress). */
   pathSmoothness: number;
+  /** 95% Confidence intervals from split-half reliability testing */
+  confidenceIntervals?: Record<string, ReliabilityBounds>;
+  /** Secondary exploratory composite scores (demoted, non-diagnostic) */
   stabilityScore: number;
   rhythmScore: number;
   symmetryScore: number;

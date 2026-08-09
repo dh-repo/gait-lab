@@ -144,7 +144,7 @@ export function buildEducatedGuesses(
       evidence: [
         `Overall Symmetry Angle (SA): ${(m.symmetryAngle ?? 0).toFixed(1)}%`,
         `Step-time asymmetry: ${(m.stepTimeAsymmetry * 100).toFixed(0)}%`,
-        `Knee flex asymmetry: ${(m.kneeAsymmetry * 100).toFixed(0)}%`,
+        `Knee flex asymmetry: ${m.kneeAsymmetry != null ? `${(m.kneeAsymmetry * 100).toFixed(0)}%` : "N/A"}`,
       ],
       confidence: clamp(0.4 + (m.symmetryAngle ?? 0) * 0.04, 0.4, 0.92),
       severity: (m.symmetryAngle ?? 0) > 10.0 ? "elevated" : "moderate",
@@ -185,28 +185,30 @@ export function buildEducatedGuesses(
   }
 
   // --- SOTA Rule 3: Zeni Kinematic Stance/Swing Asymmetry & Prolonged Double Support ---
-  const stanceDiff = Math.abs((m.leftStancePct ?? 60) - (m.rightStancePct ?? 60));
-  if (stanceDiff > 6.0 || (m.doubleSupportPct ?? 20) > 26.0) {
-    guesses.push({
-      id: "zeni-stance-breakdown",
-      title: stanceDiff > 6.0 ? "Asymmetric stance phase duration" : "Prolonged double support phase",
-      summary:
-        "Zeni kinematic algorithm detected altered stance/swing phase proportions. Prolonged stance on one side or extended double support time reflects cautious gait or antalgic weight unloading.",
-      evidence: [
-        `Left stance phase: ${(m.leftStancePct ?? 60).toFixed(1)}%`,
-        `Right stance phase: ${(m.rightStancePct ?? 60).toFixed(1)}%`,
-        `Double support time: ${(m.doubleSupportPct ?? 20).toFixed(1)}%`,
-      ],
-      confidence: clamp(0.45 + stanceDiff * 0.03, 0.45, 0.85),
-      severity: stanceDiff > 10.0 || (m.doubleSupportPct ?? 20) > 30.0 ? "elevated" : "moderate",
-      category: "pattern",
-      patternTag: "Zeni stance phase kinematics",
-      alternatives: [
-        "Antalgic limb avoidance",
-        "Fear of falling / cautious gait strategy",
-        "Footwear or flooring variation",
-      ],
-    });
+  if (m.leftStancePct != null && m.rightStancePct != null && m.doubleSupportPct != null) {
+    const stanceDiff = Math.abs(m.leftStancePct - m.rightStancePct);
+    if (stanceDiff > 6.0 || m.doubleSupportPct > 26.0) {
+      guesses.push({
+        id: "zeni-stance-breakdown",
+        title: stanceDiff > 6.0 ? "Asymmetric stance phase duration" : "Prolonged double support phase",
+        summary:
+          "Zeni kinematic algorithm detected altered stance/swing phase proportions. Prolonged stance on one side or extended double support time reflects cautious gait or antalgic weight unloading.",
+        evidence: [
+          `Left stance phase: ${m.leftStancePct.toFixed(1)}%`,
+          `Right stance phase: ${m.rightStancePct.toFixed(1)}%`,
+          `Double support time: ${m.doubleSupportPct.toFixed(1)}%`,
+        ],
+        confidence: clamp(0.45 + stanceDiff * 0.03, 0.45, 0.85),
+        severity: stanceDiff > 10.0 || m.doubleSupportPct > 30.0 ? "elevated" : "moderate",
+        category: "pattern",
+        patternTag: "Zeni stance phase kinematics",
+        alternatives: [
+          "Antalgic limb avoidance",
+          "Fear of falling / cautious gait strategy",
+          "Footwear or flooring variation",
+        ],
+      });
+    }
   }
 
   // --- SOTA Rule 4: Plummer & Eskes Cognitive-Motor Interference (CMI) Taxonomy ---
@@ -290,19 +292,19 @@ export function buildEducatedGuesses(
   }
 
   // Stability
-  if (m.lateralSway > 0.08 || m.stabilityScore < 55) {
+  if ((m.lateralSway != null && m.lateralSway > 0.08) || m.stabilityScore < 55) {
     guesses.push({
       id: "stability",
       title: "Elevated trunk / lateral instability signals",
       summary:
         "Side-to-side hip path variability is higher than a steady walk. Overlaps observationally with cautious gait, balance challenge, wide base, or environmental navigation — not a balance-disorder diagnosis.",
       evidence: [
-        `Lateral sway index: ${m.lateralSway.toFixed(3)}`,
+        `Lateral sway index: ${m.lateralSway != null ? m.lateralSway.toFixed(3) : "N/A"}`,
         `Stability score: ${m.stabilityScore.toFixed(0)}/100`,
-        `Mean step width: ${m.meanStepWidth.toFixed(3)}`,
-        `Step-width variability: ${m.stepWidthVariability.toFixed(3)}`,
+        `Mean step width: ${m.meanStepWidth != null ? m.meanStepWidth.toFixed(3) : "N/A"}`,
+        `Step-width variability: ${m.stepWidthVariability != null ? m.stepWidthVariability.toFixed(3) : "N/A"}`,
       ],
-      confidence: clamp(0.35 + m.lateralSway * 3, 0.35, 0.85),
+      confidence: clamp(0.35 + (m.lateralSway ?? 0.04) * 3, 0.35, 0.85),
       severity: m.stabilityScore < 40 ? "elevated" : "moderate",
       category: "stability",
       alternatives: ["Wide base of support", "Looking around / dual-task", "Camera pan", "Floor caution"],
@@ -314,7 +316,7 @@ export function buildEducatedGuesses(
       summary:
         "Lateral hip motion stayed relatively controlled. No strong gross balance-loss signal in this segment.",
       evidence: [
-        `Lateral sway index: ${m.lateralSway.toFixed(3)}`,
+        `Lateral sway index: ${m.lateralSway != null ? m.lateralSway.toFixed(3) : "N/A"}`,
         `Stability score: ${m.stabilityScore.toFixed(0)}/100`,
       ],
       confidence: clamp(0.4 + m.stabilityScore / 200, 0.4, 0.8),
@@ -324,7 +326,7 @@ export function buildEducatedGuesses(
   }
 
   // Wide base + sway → soft ataxic-like / sensory-cautious language
-  if (m.meanStepWidth > 0.55 && m.lateralSway > 0.07 && m.viewAngle !== "sagittal") {
+  if (m.meanStepWidth != null && m.lateralSway != null && m.meanStepWidth > 0.55 && m.lateralSway > 0.07 && m.viewAngle !== "sagittal") {
     guesses.push({
       id: "wide-base",
       title: "Wide base with lateral motion",
@@ -343,7 +345,9 @@ export function buildEducatedGuesses(
   }
 
   // Symmetry
-  if (m.stepTimeAsymmetry > 0.18 || m.strideAsymmetry > 0.22 || m.kneeAsymmetry > 0.25) {
+  const hasStrideAsym = m.strideAsymmetry != null && m.strideAsymmetry > 0.22;
+  const hasKneeAsym = m.kneeAsymmetry != null && m.kneeAsymmetry > 0.25;
+  if (m.stepTimeAsymmetry > 0.18 || hasStrideAsym || hasKneeAsym) {
     guesses.push({
       id: "asymmetry",
       title: "Left–right gait asymmetry",
@@ -351,12 +355,12 @@ export function buildEducatedGuesses(
         "Timing and/or stride proxies differ between sides. Common explanations: temporary limp, joint discomfort, leg-length appearance from camera, load in one hand.",
       evidence: [
         `Step-time asymmetry: ${(m.stepTimeAsymmetry * 100).toFixed(0)}%`,
-        `Stride asymmetry proxy: ${(m.strideAsymmetry * 100).toFixed(0)}%`,
-        `Knee flexion asymmetry: ${(m.kneeAsymmetry * 100).toFixed(0)}%`,
+        `Stride asymmetry proxy: ${m.strideAsymmetry != null ? `${(m.strideAsymmetry * 100).toFixed(0)}%` : "N/A"}`,
+        `Knee flexion asymmetry: ${m.kneeAsymmetry != null ? `${(m.kneeAsymmetry * 100).toFixed(0)}%` : "N/A"}`,
       ],
-      confidence: clamp(0.4 + m.stepTimeAsymmetry + m.strideAsymmetry * 0.5, 0.4, 0.9),
+      confidence: clamp(0.4 + m.stepTimeAsymmetry + (m.strideAsymmetry ?? 0) * 0.5, 0.4, 0.9),
       severity:
-        m.stepTimeAsymmetry > 0.3 || m.strideAsymmetry > 0.35 ? "elevated" : "moderate",
+        m.stepTimeAsymmetry > 0.3 || (m.strideAsymmetry != null && m.strideAsymmetry > 0.35) ? "elevated" : "moderate",
       category: "symmetry",
       alternatives: ["Pain / joint issue", "Habitual limp", "Camera perspective", "Tracking error"],
     });
@@ -376,7 +380,7 @@ export function buildEducatedGuesses(
   }
 
   // Antalgic-like
-  if (m.stepTimeAsymmetry > 0.22 && m.kneeAsymmetry > 0.2) {
+  if (m.stepTimeAsymmetry > 0.22 && m.kneeAsymmetry != null && m.kneeAsymmetry > 0.2) {
     guesses.push({
       id: "antalgic",
       title: "Possible protective (antalgic-like) pattern",
@@ -384,7 +388,7 @@ export function buildEducatedGuesses(
         "Textbook antalgic gait shortens stance on a painful limb. Combined timing + knee-motion asymmetry can look similar on video. Camera and clothing can mimic this — hypothesis only.",
       evidence: [
         `Step-time asymmetry: ${(m.stepTimeAsymmetry * 100).toFixed(0)}%`,
-        `Knee flexion L/R range: ${m.kneeFlexLeft.toFixed(0)}° / ${m.kneeFlexRight.toFixed(0)}°`,
+        `Knee flexion L/R range: ${m.kneeFlexLeft != null && m.kneeFlexRight != null ? `${m.kneeFlexLeft.toFixed(0)}° / ${m.kneeFlexRight.toFixed(0)}°` : "N/A"}`,
       ],
       confidence: clamp(0.35 + m.stepTimeAsymmetry * 0.8, 0.35, 0.72),
       severity: "moderate",
@@ -395,7 +399,7 @@ export function buildEducatedGuesses(
   }
 
   // Trendelenburg-like pelvic drop
-  if (m.pelvicObliquity > 0.08 && m.pelvicObliquityVar > 0.03 && m.viewAngle !== "sagittal") {
+  if (m.pelvicObliquity != null && m.pelvicObliquityVar != null && m.pelvicObliquity > 0.08 && m.pelvicObliquityVar > 0.03 && m.viewAngle !== "sagittal") {
     guesses.push({
       id: "trendelenburg-ish",
       title: "Pelvic height asymmetry (Trendelenburg-ish soft sign)",
@@ -472,12 +476,12 @@ export function buildEducatedGuesses(
     });
   }
 
-  // Parkinsonian-spectrum cluster (soft): slow + low arm + low variability? actually PD can have reduced variability in some metrics and festination
-  // Better: low arm + slow + reduced knee + relatively small steps (high cadence relative? petits pas = small steps)
   if (
     avgArm < 0.18 &&
     m.cadenceSpm > 0 &&
     m.cadenceSpm < 105 &&
+    m.kneeFlexLeft != null &&
+    m.kneeFlexRight != null &&
     (m.kneeFlexLeft + m.kneeFlexRight) / 2 < 35 &&
     m.verticalBounce < 0.04
   ) {
@@ -534,7 +538,7 @@ export function buildEducatedGuesses(
     });
   }
 
-  if ((m.kneeFlexLeft + m.kneeFlexRight) / 2 < 25 && m.stepCount >= 3) {
+  if (m.kneeFlexLeft != null && m.kneeFlexRight != null && (m.kneeFlexLeft + m.kneeFlexRight) / 2 < 25 && m.stepCount >= 3) {
     guesses.push({
       id: "stiff-knee",
       title: "Limited knee motion range",

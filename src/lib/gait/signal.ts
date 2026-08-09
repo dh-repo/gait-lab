@@ -250,13 +250,29 @@ function fftRadix2(re: number[], im: number[]): void {
 /**
  * Compute FFT Harmonics and Harmonic Ratio (HR).
  * Analyzes harmonic power distribution across even vs odd harmonics.
+ *
+ * @param data 1D signal (hipY or hipX)
+ * @param fps Effective sampling rate in Hz
+ * @param strideFreq True stride fundamental frequency in Hz (f0 = 1 / meanStrideSec). If <= 0 or omitted, falls back to peak search.
+ * @param numHarmonics Total number of harmonics to evaluate (default 10)
  */
 export function computeFFTHarmonics(
   data: number[],
+  fps?: number,
+  strideFreq?: number,
   numHarmonics = 10,
 ): { evenSum: number; oddSum: number; harmonicRatio: number } {
   if (!data || data.length < 8) {
     return { evenSum: 0, oddSum: 0, harmonicRatio: 1.0 };
+  }
+
+  let effectiveNumHarmonics = numHarmonics;
+  let effectiveFps = fps;
+  const effectiveStrideFreq = strideFreq;
+
+  if (typeof fps === "number" && fps <= 16 && strideFreq === undefined) {
+    effectiveNumHarmonics = fps;
+    effectiveFps = undefined;
   }
 
   const n = data.length;
@@ -289,36 +305,55 @@ export function computeFFTHarmonics(
     mag[i] = (2.0 / n) * Math.sqrt(re[i] * re[i] + im[i] * im[i]);
   }
 
-  // Find dominant fundamental frequency bin (excluding DC component bin 0)
+  // Determine fundamental stride frequency f0 (Hz) and f0Bin
+  let f0 = 0;
   let f0Bin = 1;
-  let maxMag = 0;
-  // Search within plausible gait harmonic range
-  const maxSearchBin = Math.min(Math.floor(halfSize / 2), Math.floor(fftSize / 4));
-  for (let k = 1; k < maxSearchBin; k++) {
-    if (mag[k] > maxMag) {
-      maxMag = mag[k];
-      f0Bin = k;
+
+  if (effectiveStrideFreq && effectiveStrideFreq > 0) {
+    f0 = effectiveStrideFreq;
+    const samplingFps = effectiveFps && effectiveFps > 0 ? effectiveFps : 30;
+    f0Bin = Math.max(1, Math.round((f0 * fftSize) / samplingFps));
+  } else {
+    // Fallback to dominant peak bin search in lower frequency range (1..fftSize/4)
+    let maxMag = 0;
+    const maxSearchBin = Math.min(Math.floor(halfSize / 2), Math.floor(fftSize / 4));
+    for (let k = 1; k < maxSearchBin; k++) {
+      if (mag[k] > maxMag) {
+        maxMag = mag[k];
+        f0Bin = k;
+      }
     }
+    const samplingFps = effectiveFps && effectiveFps > 0 ? effectiveFps : 30;
+    f0 = (f0Bin * samplingFps) / fftSize;
   }
+
+  if (f0 <= 0) f0 = 1.0;
+  const samplingFps = effectiveFps && effectiveFps > 0 ? effectiveFps : 30;
+  const binPerHz = fftSize / samplingFps;
 
   let evenSum = 0;
   let oddSum = 0;
 
-  const halfHarmonics = Math.floor(numHarmonics / 2);
+  for (let k = 1; k <= effectiveNumHarmonics; k++) {
+    const fk = k * f0;
+    const exactBin = fk * binPerHz;
+    const centerBin = Math.round(exactBin);
 
-  // Odd harmonics: 1st, 3rd, 5th... (1, 3, 5, 7, 9)
-  for (let m = 1; m <= halfHarmonics; m++) {
-    const harmIndex = (2 * m - 1) * f0Bin;
-    if (harmIndex < halfSize) {
-      oddSum += mag[harmIndex];
+    if (centerBin >= halfSize) break;
+
+    // Sum harmonic magnitude over +/- 1 bin neighborhood around centerBin to capture Hann window spectral leakage
+    let harmonicMag = 0;
+    const bMin = Math.max(1, centerBin - 1);
+    const bMax = Math.min(halfSize - 1, centerBin + 1);
+
+    for (let b = bMin; b <= bMax; b++) {
+      harmonicMag += mag[b];
     }
-  }
 
-  // Even harmonics: 2nd, 4th, 6th... (2, 4, 6, 8, 10)
-  for (let m = 1; m <= halfHarmonics; m++) {
-    const harmIndex = (2 * m) * f0Bin;
-    if (harmIndex < halfSize) {
-      evenSum += mag[harmIndex];
+    if (k % 2 === 1) {
+      oddSum += harmonicMag;
+    } else {
+      evenSum += harmonicMag;
     }
   }
 

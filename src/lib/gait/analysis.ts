@@ -1,5 +1,5 @@
 import { zeroPhaseButterworth } from "./signal";
-import { detectGaitEventsZeni, type GaitEvent } from "./events";
+import { detectGaitEventsZeni, refinePeakTimestamp, type GaitEvent } from "./events";
 import { symmetryAngle } from "./symmetry";
 import { computeHarmonicRatio } from "./smoothness";
 import { calculateDTE } from "./dte";
@@ -21,6 +21,7 @@ import type {
   GaitMetrics,
   Landmark,
   PoseFrame,
+  ReliabilityBounds,
   TrackedPerson,
   ViewAngle,
 } from "./types";
@@ -176,7 +177,8 @@ function estimateStepsFromOscillation(
   const use = peaks.length >= peaks2.length ? peaks : peaks2;
   let side: "left" | "right" = "left";
   for (const i of use) {
-    const timeSec = times[i] ?? i * dt;
+    const baseTime = times[i] ?? i * dt;
+    const timeSec = refinePeakTimestamp(s, i, baseTime, 1 / dt);
     events.push({
       frame: i,
       timeSec,
@@ -201,7 +203,39 @@ function estimateStepsFromOscillation(
   return events;
 }
 
-export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
+function buildReliabilityBounds(
+  val: number | null | undefined,
+  m1Val: number | null | undefined,
+  m2Val: number | null | undefined,
+  allowNegative = false,
+): ReliabilityBounds {
+  if (val == null || m1Val == null || m2Val == null || isNaN(val) || isNaN(m1Val) || isNaN(m2Val)) {
+    return {
+      value: val ?? null,
+      ci95Lower: null,
+      ci95Upper: null,
+      splitHalfDiff: null,
+      se: null,
+      half1: m1Val ?? null,
+      half2: m2Val ?? null,
+    };
+  }
+  const diff = Math.abs(m1Val - m2Val);
+  const se = diff / Math.sqrt(2);
+  const ci95Lower = allowNegative ? val - 1.96 * se : Math.max(0, val - 1.96 * se);
+  const ci95Upper = val + 1.96 * se;
+  return {
+    value: Number(val.toFixed(3)),
+    ci95Lower: Number(ci95Lower.toFixed(3)),
+    ci95Upper: Number(ci95Upper.toFixed(3)),
+    splitHalfDiff: Number(diff.toFixed(3)),
+    se: Number(se.toFixed(3)),
+    half1: Number(m1Val.toFixed(3)),
+    half2: Number(m2Val.toFixed(3)),
+  };
+}
+
+function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
   if (frames.length < 5) {
     return emptyMetrics(frames);
   }
@@ -247,12 +281,18 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
 
   // Execute Zeni Kinematic Gait Event Detection
   const zeniBreakdown = detectGaitEventsZeni(frames, fpsEffective);
-  const leftStancePct = zeniBreakdown.leftStancePct;
-  const rightStancePct = zeniBreakdown.rightStancePct;
-  const leftSwingPct = zeniBreakdown.leftSwingPct;
-  const rightSwingPct = zeniBreakdown.rightSwingPct;
-  const doubleSupportPct = zeniBreakdown.doubleSupportPct;
-  const doubleSupportHint = Number((doubleSupportPct / 100).toFixed(2));
+
+  // Camera view angle geometry validity flags
+  const isFrontal = angle === "frontal";
+  const isSagittal = angle === "sagittal";
+
+  // Sagittal-only metrics: invalid (null) in frontal view
+  const leftStancePct = !isFrontal ? zeniBreakdown.leftStancePct : null;
+  const rightStancePct = !isFrontal ? zeniBreakdown.rightStancePct : null;
+  const leftSwingPct = !isFrontal ? zeniBreakdown.leftSwingPct : null;
+  const rightSwingPct = !isFrontal ? zeniBreakdown.rightSwingPct : null;
+  const doubleSupportPct = !isFrontal ? zeniBreakdown.doubleSupportPct : null;
+  const doubleSupportHint = Number(((doubleSupportPct ?? zeniBreakdown.doubleSupportPct) / 100).toFixed(2));
 
   let stepEvents: GaitEvent[] = zeniBreakdown.stepEvents;
 
@@ -291,19 +331,20 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
   const armSwingRight = range(rightWristRel);
   const armSwingSA = symmetryAngle(armSwingLeft, armSwingRight);
 
-  const kneeFlexLeft = range(leftKneeAngle);
-  const kneeFlexRight = range(rightKneeAngle);
-  const kneeFlexSA = symmetryAngle(kneeFlexLeft, kneeFlexRight);
+  // Knee flexion is valid in sagittal/oblique views, null in frontal view
+  const kneeFlexLeft = !isFrontal ? range(leftKneeAngle) : null;
+  const kneeFlexRight = !isFrontal ? range(rightKneeAngle) : null;
+  const kneeFlexSA = (kneeFlexLeft != null && kneeFlexRight != null) ? symmetryAngle(kneeFlexLeft, kneeFlexRight) : 0;
 
   // Overall composite Zifchock Symmetry Angle (SA) [0, 50]%
-  const symmetryAngleVal = Number(((stepTimeSA + armSwingSA + kneeFlexSA) / 3).toFixed(2));
+  const symmetryAngleVal = Number(((stepTimeSA + armSwingSA + kneeFlexSA) / (kneeFlexLeft != null ? 3 : 2)).toFixed(2));
 
   // Legacy percentage asymmetries retained for compatibility
   const stepTimeAsymmetry = asymmetryRatio(meanLeftStepTime, meanRightStepTime);
   const armSwingAsymmetry = asymmetryRatio(armSwingLeft, armSwingRight);
-  const kneeAsymmetry = asymmetryRatio(kneeFlexLeft, kneeFlexRight);
+  const kneeAsymmetry = (kneeFlexLeft != null && kneeFlexRight != null) ? asymmetryRatio(kneeFlexLeft, kneeFlexRight) : null;
 
-  // Stride length proxy: hip travel between same-side steps
+  // Stride length proxy: hip travel between same-side steps (valid in sagittal/oblique)
   const leftStride: number[] = [];
   const rightStride: number[] = [];
   for (let i = 1; i < heelStrikes.length; i++) {
@@ -318,9 +359,9 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
       else rightStride.push(travel);
     }
   }
-  const strideAsymmetry = asymmetryRatio(mean(leftStride) || 0, mean(rightStride) || 0);
+  const strideAsymmetry = !isFrontal ? asymmetryRatio(mean(leftStride) || 0, mean(rightStride) || 0) : null;
 
-  // Follow-cam safe sway: high-frequency residual of scale-normalized hip
+  // Frontal-only metrics: invalid (null) in sagittal view
   const torsoS = series.map((s) => s.torso);
   const hipXNorm = midHipX.map((x, i) => x / Math.max(torsoS[i], 0.05));
   const hipYNorm = midHipY.map((y, i) => y / Math.max(torsoS[i], 0.05));
@@ -333,12 +374,12 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
   const win = Math.max(2, Math.floor(fpsEffective * 0.6));
   const latRes = hipXNorm.map((v, i) => v - ma(hipXNorm, win)[i]);
   const vertRes = hipYNorm.map((v, i) => v - ma(hipYNorm, win)[i]);
-  let lateralSway = std(latRes);
-  let verticalBounce = std(vertRes);
-  lateralSway = Math.min(lateralSway, 0.12);
-  verticalBounce = Math.min(verticalBounce, 0.1);
+  const rawLateralSway = Math.min(std(latRes), 0.12);
+  const verticalBounce = Math.min(std(vertRes), 0.1);
+  const rawStepWidthVariability = std(series.map((s) => s.stepWidth));
 
-  const stepWidthVariability = std(series.map((s) => s.stepWidth));
+  const lateralSway = !isSagittal ? rawLateralSway : null;
+  const stepWidthVariability = !isSagittal ? rawStepWidthVariability : null;
 
   // Same-side stride intervals (L→L, R→R)
   const strideIntervals: number[] = [];
@@ -350,12 +391,17 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
   const strideTimeCV = meanStride > 1e-6 ? std(strideIntervals) / meanStride : stepTimeCV;
 
   const hipDrops = series.map((s) => s.hipDrop);
-  const pelvicObliquity = mean(hipDrops.map(Math.abs));
-  const pelvicObliquityVar = std(hipDrops);
-  const meanStepWidth = mean(series.map((s) => s.stepWidth));
+  const rawPelvicObliquity = mean(hipDrops.map(Math.abs));
+  const rawPelvicObliquityVar = std(hipDrops);
+  const rawMeanStepWidth = mean(series.map((s) => s.stepWidth));
+
+  const pelvicObliquity = !isSagittal ? rawPelvicObliquity : null;
+  const pelvicObliquityVar = !isSagittal ? rawPelvicObliquityVar : null;
+  const meanStepWidth = !isSagittal ? rawMeanStepWidth : null;
 
   // Compute FFT Trunk Harmonic Ratios (HR)
-  const hrMetrics = computeHarmonicRatio(midHipY, midHipX, fps);
+  const meanStrideSec = meanStride > 0 ? meanStride : (avgStepTimeSec > 0 ? avgStepTimeSec * 2 : undefined);
+  const hrMetrics = computeHarmonicRatio(midHipY, midHipX, fps, meanStrideSec);
   const harmonicRatioVertical = hrMetrics.hrVertical;
   const harmonicRatioLateral = hrMetrics.hrLateral;
   const harmonicRatio = hrMetrics.overallHR;
@@ -366,9 +412,14 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
   const linearSmoothness = clamp(1 - std(det) / Math.max(range(prog), 0.02), 0, 1);
   const pathSmoothness = Number((0.6 * linearSmoothness + 0.4 * Math.min(1.0, harmonicRatio / 3.0)).toFixed(2));
 
-  // Composite scores 0-100 incorporating SOTA metrics
+  // Secondary exploratory composite scores (demoted indices, non-diagnostic)
+  const effSway = lateralSway ?? rawLateralSway;
+  const effStepWidthVar = stepWidthVariability ?? rawStepWidthVariability;
+  const effKneeFlexL = kneeFlexLeft ?? 45;
+  const effKneeFlexR = kneeFlexRight ?? 45;
+
   const stabilityScore = clamp(
-    100 - (lateralSway * 220 + verticalBounce * 180 + Math.min(stepWidthVariability, 0.25) * 35) + Math.min(harmonicRatioLateral, 3.0) * 6,
+    100 - (effSway * 220 + verticalBounce * 180 + Math.min(effStepWidthVar, 0.25) * 35) + Math.min(harmonicRatioLateral, 3.0) * 6,
     8,
     98,
   );
@@ -386,13 +437,13 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
     40 +
       Math.min(cadenceSpm, 130) * 0.25 +
       Math.min(armSwingLeft + armSwingRight, 2) * 12 +
-      Math.min((kneeFlexLeft + kneeFlexRight) / 2, 70) * 0.25 -
+      Math.min((effKneeFlexL + effKneeFlexR) / 2, 70) * 0.25 -
       doubleSupportHint * 25,
     5,
     98,
   );
   const automaticityScore = clamp(
-    100 - stepTimeCV * 180 - strideTimeCV * 80 - lateralSway * 200 - (1 - pathSmoothness) * 25 + (harmonicRatioLateral - 1.5) * 4,
+    100 - stepTimeCV * 180 - strideTimeCV * 80 - effSway * 200 - (1 - pathSmoothness) * 25 + (harmonicRatioLateral - 1.5) * 4,
     5,
     98,
   );
@@ -406,7 +457,7 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
     98,
   );
 
-  return {
+  const res: GaitMetrics = {
     viewAngle: angle,
     viewConfidence: confidence,
     durationSec,
@@ -460,10 +511,50 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
     })),
     stepEvents,
   };
+  (res as Record<string, unknown>).samplingFps = fpsEffective;
+  return res;
+}
+
+export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
+  const full = computeGaitMetricsCore(frames);
+  if (frames.length < 10) {
+    return full;
+  }
+
+  const halfN = Math.floor(frames.length / 2);
+  const half1Frames = frames.slice(0, halfN);
+  const half2Frames = frames.slice(halfN);
+
+  const m1 = computeGaitMetricsCore(half1Frames);
+  const m2 = computeGaitMetricsCore(half2Frames);
+
+  const ci: Record<string, ReliabilityBounds> = {
+    cadenceSpm: buildReliabilityBounds(full.cadenceSpm, m1.cadenceSpm, m2.cadenceSpm),
+    cadence: buildReliabilityBounds(full.cadenceSpm, m1.cadenceSpm, m2.cadenceSpm),
+    stepTimeCV: buildReliabilityBounds(full.stepTimeCV, m1.stepTimeCV, m2.stepTimeCV),
+    symmetryAngle: buildReliabilityBounds(full.symmetryAngle, m1.symmetryAngle, m2.symmetryAngle),
+    symmetryIndex: buildReliabilityBounds(full.symmetryAngle, m1.symmetryAngle, m2.symmetryAngle),
+    harmonicRatioVertical: buildReliabilityBounds(full.harmonicRatioVertical, m1.harmonicRatioVertical, m2.harmonicRatioVertical),
+    harmonicRatioLateral: buildReliabilityBounds(full.harmonicRatioLateral, m1.harmonicRatioLateral, m2.harmonicRatioLateral),
+    harmonicRatio: buildReliabilityBounds(full.harmonicRatio, m1.harmonicRatio, m2.harmonicRatio),
+    harmonicRatioOverall: buildReliabilityBounds(full.harmonicRatio, m1.harmonicRatio, m2.harmonicRatio),
+    strideTimeCV: buildReliabilityBounds(full.strideTimeCV, m1.strideTimeCV, m2.strideTimeCV),
+    leftStancePct: buildReliabilityBounds(full.leftStancePct, m1.leftStancePct, m2.leftStancePct),
+    rightStancePct: buildReliabilityBounds(full.rightStancePct, m1.rightStancePct, m2.rightStancePct),
+    doubleSupportPct: buildReliabilityBounds(full.doubleSupportPct, m1.doubleSupportPct, m2.doubleSupportPct),
+    kneeFlexLeft: buildReliabilityBounds(full.kneeFlexLeft, m1.kneeFlexLeft, m2.kneeFlexLeft),
+    kneeFlexRight: buildReliabilityBounds(full.kneeFlexRight, m1.kneeFlexRight, m2.kneeFlexRight),
+    lateralSway: buildReliabilityBounds(full.lateralSway, m1.lateralSway, m2.lateralSway),
+    meanStepWidth: buildReliabilityBounds(full.meanStepWidth, m1.meanStepWidth, m2.meanStepWidth),
+    pelvicObliquity: buildReliabilityBounds(full.pelvicObliquity, m1.pelvicObliquity, m2.pelvicObliquity),
+  };
+
+  full.confidenceIntervals = ci;
+  return full;
 }
 
 function emptyMetrics(frames: PoseFrame[]): GaitMetrics {
-  return {
+  const res: GaitMetrics = {
     viewAngle: "unknown",
     viewConfidence: 0,
     durationSec: frames.length ? (frames[frames.length - 1].timeMs - frames[0].timeMs) / 1000 : 0,
@@ -472,32 +563,33 @@ function emptyMetrics(frames: PoseFrame[]): GaitMetrics {
     cadenceSpm: 0,
     avgStepTimeSec: 0,
     stepTimeAsymmetry: 0,
-    strideAsymmetry: 0,
-    lateralSway: 0,
+    strideAsymmetry: null,
+    lateralSway: null,
     verticalBounce: 0,
     armSwingLeft: 0,
     armSwingRight: 0,
     armSwingAsymmetry: 0,
-    kneeFlexLeft: 0,
-    kneeFlexRight: 0,
-    kneeAsymmetry: 0,
-    stepWidthVariability: 0,
+    kneeFlexLeft: null,
+    kneeFlexRight: null,
+    kneeAsymmetry: null,
+    stepWidthVariability: null,
     doubleSupportHint: 0,
-    leftStancePct: 60.0,
-    rightStancePct: 60.0,
-    leftSwingPct: 40.0,
-    rightSwingPct: 40.0,
-    doubleSupportPct: 20.0,
+    leftStancePct: null,
+    rightStancePct: null,
+    leftSwingPct: null,
+    rightSwingPct: null,
+    doubleSupportPct: null,
     symmetryAngle: 0.0,
     harmonicRatioVertical: 1.0,
     harmonicRatioLateral: 1.0,
     harmonicRatio: 1.0,
     stepTimeCV: 0,
     strideTimeCV: 0,
-    pelvicObliquity: 0,
-    pelvicObliquityVar: 0,
-    meanStepWidth: 0,
+    pelvicObliquity: null,
+    pelvicObliquityVar: null,
+    meanStepWidth: null,
     pathSmoothness: 0,
+    confidenceIntervals: {},
     stabilityScore: 0,
     rhythmScore: 0,
     symmetryScore: 0,
@@ -507,6 +599,8 @@ function emptyMetrics(frames: PoseFrame[]): GaitMetrics {
     series: [],
     stepEvents: [],
   };
+  (res as Record<string, unknown>).samplingFps = 0;
+  return res;
 }
 
 function detrend(xs: number[]): number[] {

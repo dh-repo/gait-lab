@@ -1,15 +1,21 @@
-## 2026-08-09T04:43:46Z
-You are the independent Victory Auditor for the gait-lab project.
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/victory_auditor.
+## 2026-08-09T09:44:51Z
 
-Perform a rigorous, 3-phase independent victory audit:
-1. Timeline & Requirements Verification: Compare the original request in /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md against the orchestrator's completion claims in /Users/damian/GitHub/gait-lab/.agents/orchestrator/handoff.md.
-2. Anti-Cheating & Integrity Detection: Verify no hardcoded test shortcuts, mock facades, suppressed errors, or skipped tests exist in the implementation or test files.
-3. Independent Test & Build Verification: Execute automated test suite, TypeScript typecheck, and build commands, and verify that scientific_justifications.md exists with valid literature citations.
+<USER_REQUEST>
+You are the VICTORY AUDITOR for gait-lab.
+Your working directory is: /Users/damian/GitHub/gait-lab/.agents/victory_auditor
+The verbatim user request is recorded in: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md (and /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md).
+The orchestrator's handoff report is at: /Users/damian/GitHub/gait-lab/.agents/orchestrator/handoff.md
 
-Key Files:
-- Original Request: /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
-- Orchestrator Handoff: /Users/damian/GitHub/gait-lab/.agents/orchestrator/handoff.md
-- Research Document: /Users/damian/GitHub/gait-lab/scientific_justifications.md
+Conduct a rigorous, independent 3-phase Victory Audit:
+1. Timeline & Commits Verification: Verify all milestones (M5–M9) were executed and tested systematically.
+2. Anti-Cheating & Integrity Audit: Search for hardcoded mock values, cheated test cases, suppressed assertions, or unverified claims.
+3. Independent Verification & Test Execution: Execute `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` independently. Verify that all requirements R1–R5 and acceptance criteria are satisfied in code and tests:
+   - R1: Follow-cam direction inference using median foot orientation diff (`toe.x - heel.x`) in `src/lib/gait/events.ts`.
+   - R2: Harmonic Ratio fundamental frequency $f_0 = 1 / \text{meanStrideSec}$ derived from gait events and Hann leakage summation ($\pm 1$ bin) in `src/lib/gait/signal.ts`.
+   - R3: Continuous window 30 Hz sampling & subframe peak timestamp refinement eliminating step-time CV decimation bias in `GaitApp.tsx`, `events.ts`, `analysis.ts`.
+   - R4: Split-half reliability testing (95% CIs) & view geometry metric suppression (`null` emission) in `types.ts`, `analysis.ts`, `ratings.ts`, `guesses.ts`, UI panels.
+   - R5: Peak prominence filtering in `findExtrema` in `src/lib/gait/events.ts`.
+   - Documentation: `scientific_justifications.md` update.
 
-Deliver your structured verdict (VICTORY CONFIRMED or VICTORY REJECTED) along with your full audit report back to the Sentinel.
+Output a structured verdict (VICTORY CONFIRMED or VICTORY REJECTED) with detailed evidence and rationale in `.agents/victory_auditor/handoff.md` and send the verdict in your final message to sentinel.
+</USER_REQUEST>

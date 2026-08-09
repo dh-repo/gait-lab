@@ -288,9 +288,14 @@ export function GaitApp() {
       setResult(null);
 
       const duration = video.duration || 1;
-      // High-density 30 Hz sampling target
+      // High-density 30 Hz continuous window sampling target (dt = 33.3 ms)
       const targetFps = 30;
-      const sampleCount = Math.min(300, Math.max(30, Math.floor(duration * targetFps)));
+      // For clips > 10s, sample a continuous 10-12s window at 30 Hz (N = 300-360 frames).
+      // For clips <= 10s, sample the full clip at 30 Hz.
+      const windowDuration = duration > 10 ? Math.min(12, Math.max(10, 10)) : duration;
+      const windowStart = duration > 10 ? (duration - windowDuration) / 2 : 0;
+      const sampleCount = Math.max(15, Math.floor(windowDuration * targetFps));
+      const dt = windowDuration > 0 && sampleCount > 1 ? windowDuration / sampleCount : 1 / targetFps;
       const rawFrames: PoseFrame[] = [];
 
       // Maintain tracking to stick to selected person
@@ -305,7 +310,7 @@ export function GaitApp() {
 
       for (let i = 0; i < sampleCount; i++) {
         if (runId !== abortRef.current) return;
-        const t = (i / Math.max(1, sampleCount - 1)) * Math.max(0, duration - 0.05);
+        const t = Math.min(Math.max(0, duration - 0.033), windowStart + i * dt);
         const res = await seekAndDetect(landmarker, video, t);
         const dets = (res.landmarks || []).map(toLandmarks);
         if (!dets.length) {
@@ -386,7 +391,7 @@ export function GaitApp() {
         dualTaskCost,
         notes: [
           `Analyzed ${frames.length} uniform 30Hz frames over ${metrics.durationSec.toFixed(1)}s`,
-          `Effective sample rate ~${metrics.fpsEffective.toFixed(1)} fps`,
+          `Effective sample rate ~${(((metrics as Record<string, unknown>).samplingFps as number) ?? metrics.fpsEffective).toFixed(1)} fps`,
           `View angle estimate: ${metrics.viewAngle}`,
           `Task mode: ${taskMode === "dual" ? "walk + cognitive" : "walk only"}`,
           dualTaskCost

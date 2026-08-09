@@ -61,4 +61,59 @@ describe("Trunk Smoothness Module (smoothness.ts)", () => {
     const expectedGeometricMean = Number(Math.sqrt(hrVertical * hrLateral).toFixed(2));
     expect(overallHR).toBe(expectedGeometricMean);
   });
+
+  it("returns literature-aligned vertical HR values (~2.5–4.0) for pure symmetric gait", () => {
+    const fps = 30;
+    const duration = 4.0;
+    const n = Math.round(fps * duration);
+    const meanStrideSec = 1.25; // f0 = 0.8 Hz
+
+    // Symmetric vertical trajectory driven by 2nd (1.6 Hz) & 4th (3.2 Hz) stride harmonics
+    const hipY = Array.from({ length: n }, (_, i) => {
+      const t = i / fps;
+      return 0.5 + 0.04 * Math.sin(2 * Math.PI * 1.6 * t) + 0.015 * Math.sin(2 * Math.PI * 3.2 * t);
+    });
+
+    // Symmetric lateral trajectory driven by 1st (0.8 Hz) & 3rd (2.4 Hz) stride harmonics
+    const hipX = Array.from({ length: n }, (_, i) => {
+      const t = i / fps;
+      return 0.5 + 0.05 * Math.cos(2 * Math.PI * 0.8 * t) + 0.01 * Math.cos(2 * Math.PI * 2.4 * t);
+    });
+
+    const { hrVertical, hrLateral, overallHR } = computeHarmonicRatio(hipY, hipX, fps, meanStrideSec);
+
+    // Literature alignment: Vertical HR for symmetric gait is typically between 2.5 and 4.0 (or higher for pure synthetic)
+    expect(hrVertical).toBeGreaterThanOrEqual(2.5);
+    expect(hrLateral).toBeGreaterThanOrEqual(2.0);
+    expect(overallHR).toBeGreaterThanOrEqual(2.2);
+  });
+
+  it("demonstrates sensitivity to step asymmetry when odd stride harmonics are present in vertical displacement", () => {
+    const fps = 30;
+    const duration = 4.0;
+    const n = Math.round(fps * duration);
+    const meanStrideSec = 1.25; // f0 = 0.8 Hz
+
+    // Symmetric vertical signal
+    const symHipY = Array.from({ length: n }, (_, i) => {
+      const t = i / fps;
+      return 0.5 + 0.04 * Math.sin(2 * Math.PI * 1.6 * t);
+    });
+
+    // Asymmetric vertical signal with injected odd stride harmonic (0.8 Hz)
+    const asymHipY = Array.from({ length: n }, (_, i) => {
+      const t = i / fps;
+      return 0.5 + 0.04 * Math.sin(2 * Math.PI * 1.6 * t) + 0.04 * Math.sin(2 * Math.PI * 0.8 * t);
+    });
+
+    const hipX = Array.from({ length: n }, (_, i) => {
+      const t = i / fps;
+      return 0.5 + 0.05 * Math.cos(2 * Math.PI * 0.8 * t);
+    });
+
+    const symResult = computeHarmonicRatio(symHipY, hipX, fps, meanStrideSec);
+    const asymResult = computeHarmonicRatio(asymHipY, hipX, fps, meanStrideSec);
+
+    expect(asymResult.hrVertical).toBeLessThan(symResult.hrVertical * 0.6);
+  });
 });

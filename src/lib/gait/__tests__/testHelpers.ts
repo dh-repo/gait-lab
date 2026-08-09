@@ -52,6 +52,7 @@ export interface SyntheticFrameOptions {
   fps?: number;
   durationSec?: number;
   direction?: number; // 1 for left-to-right, -1 for right-to-left
+  followCam?: boolean; // When true, simulates handheld follow-cam (net hip drift near 0)
   asymmetryFactor?: number;
   lowVisibilityLandmarks?: boolean;
   noiseLevel?: number;
@@ -84,7 +85,9 @@ export function generateSyntheticWalkingFrames(opts: SyntheticFrameOptions = {})
   for (let f = 0; f < Math.max(1, totalFrames); f++) {
     const t = f / fps;
     const timeMs = t * 1000;
-    const progress = (t / Math.max(0.1, durationSec)) * 0.4 * direction;
+    const progress = opts.followCam
+      ? 0
+      : (t / Math.max(0.1, durationSec)) * 0.4 * direction;
 
     const noise = () => (noiseLevel > 0 ? (Math.random() - 0.5) * noiseLevel : 0);
 

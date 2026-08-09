@@ -5,13 +5,13 @@
 - **Frontend Stack**: React 19, TypeScript 5.7, Vite 8, TanStack Start/Router, Tailwind CSS v4, Recharts, `@mediapipe/tasks-vision`.
 - **Database & Backend Stack**: Node-Postgres / PGLite (`@electric-sql/pglite`), Better Auth (`better-auth`).
 - **Scientific Gait Engine (`src/lib/gait/`)**:
-  - `signal.ts`: Zero-phase 4th-order low-pass Butterworth digital filtering ($f_c = 6\text{ Hz}$), FFT spectral decomposition.
-  - `events.ts`: Zeni Kinematic Algorithm (Anterior-Posterior foot position relative to pelvis center) for Initial Contact (Heel Strike) and Terminal Contact (Toe-Off) detection, Stance Phase %, Swing Phase %, Double Support Time.
+  - `signal.ts`: Zero-phase 4th-order low-pass Butterworth digital filtering ($f_c = 6\text{ Hz}$), FFT spectral decomposition, $f_0$ stride frequency calculation, $\pm 1$ bin Hann window leakage integration.
+  - `events.ts`: Zeni Kinematic Algorithm for Initial Contact (Heel Strike) and Terminal Contact (Toe-Off) detection; median foot orientation difference (`toe.x - heel.x`) follow-cam direction inference; peak prominence filtering in `findExtrema`; parabolic subframe timestamp refinement.
   - `symmetry.ts`: Zifchock's Symmetry Angle ($SA$) and Gait Symmetry Index ($GSI$).
-  - `smoothness.ts`: Harmonic Ratio ($HR$) via FFT for trunk rhythmicity and gait smoothness.
+  - `smoothness.ts`: Harmonic Ratio ($HR$) via FFT using stride fundamental frequency $f_0 = 1 / \text{meanStrideSec}$ and $\pm 1$ bin magnitude summation.
   - `dte.ts`: Standardized Dual-Task Effect ($DTE$) for cognitive-motor interference.
-  - `analysis.ts`: Integrated spatio-temporal gait metric calculation engine.
-  - `ratings.ts`: Domain composite scoring (0–100) and 5-band clinical rating engine.
+  - `analysis.ts`: Integrated spatio-temporal gait metric calculation engine with split-half reliability 95% CIs and view-geometry metric suppression (`null` emission).
+  - `ratings.ts`: Clinical rating engine with support for view-suppressed `null` metrics and demoted secondary composite scores.
   - `guesses.ts`: Rule-based decision tree for observational pattern hypothesis generation.
 
 ## Feature Inventory
@@ -32,6 +32,11 @@
 | 13 | Comprehensive Unit Test Suite | Write unit tests in `src/lib/gait/__tests__/` covering filtering, Zeni events, $SA$, $HR$, $DTE$, and analysis engine | M3 | survey |
 | 14 | Scientific Justifications Document | Create `scientific_justifications.md` in root with complete literature review, equations, and citations | M4 | survey |
 | 15 | Verification & Integrity Audit | Pass `npm test`, `npm run typecheck`, `npm run build`, `npm run lint`, and Forensic Audit | M4 | survey |
+| 16 | R1 & R5: Follow-Cam Direction & Peak Prominence | Fix direction inference using median foot orientation (`toe.x - heel.x`) and add prominence filtering to `findExtrema` in `events.ts` | M5 | audit |
+| 17 | R2: Harmonic Ratio $f_0$ & Hann Leakage | Set $f_0 = 1 / \text{meanStrideSec}$ from gait events and sum harmonic magnitudes over $\pm 1$ FFT bin in `signal.ts` & `smoothness.ts` | M6 | audit |
+| 18 | R3: Continuous Window Frame Sampling & Subframe Refinement | Continuous 10–12s 30 Hz sampling in `GaitApp.tsx`, parabolic subframe timestamp refinement in `events.ts`, report true sampling rate | M7 | audit |
+| 19 | R4: Split-Half Reliability, View Geometry Suppression & Score Transparency | 95% CIs via split-half testing, emit `null` for invalid view geometry, demote composite scores in `types.ts`, `analysis.ts`, `ratings.ts`, UI | M8 | audit |
+| 20 | M9: Synthetic Test Suite, Justifications Update & Verification | Comprehensive synthetic ground-truth tests (follow-cam ~60% stance, HR ~2.5-4.0, stepTimeCV invariance), `scientific_justifications.md` update, full test pass & audit | M9 | audit |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
@@ -40,6 +45,11 @@
 | 2 | M2: Analysis Engine Integration & UI Enhancement | Features 9–12: `analysis.ts` refactoring, `GaitApp.tsx` frame rate update, `ratings.ts`, `guesses.ts`, UI panel enhancements | M1 | DONE |
 | 3 | M3: Comprehensive Unit & Integration Test Suite | Feature 13: `src/lib/gait/__tests__/` unit test suite for all scientific modules and overall engine | M1, M2 | DONE |
 | 4 | M4: Scientific Documentation & Verification | Features 14–15: `scientific_justifications.md`, full verification (`npm test`, `npm run typecheck`, `npm run build`, `npm run lint`), Forensic Audit | M1, M2, M3 | DONE |
+| 5 | M5: R1 & R5 — Follow-Cam Direction & Peak Prominence | Feature 16: Update `src/lib/gait/events.ts` with median foot orientation difference direction inference and `findExtrema` peak prominence | M1–M4 | DONE |
+| 6 | M6: R2 — Harmonic Ratio $f_0$ & Hann Window Leakage | Feature 17: Update `src/lib/gait/signal.ts`, `smoothness.ts`, `analysis.ts` to derive $f_0$ from gait events & sum $\pm 1$ FFT bins | M5 | DONE |
+| 7 | M7: R3 — Continuous Window Frame Sampling & Subframe Refinement | Feature 18: Refactor `GaitApp.tsx` to sample continuous 10–12s window at 30 Hz and `events.ts` parabolic subframe refinement | M5 | DONE |
+| 8 | M8: R4 — Split-Half Reliability, Camera View Suppression & Score Transparency | Feature 19: Implement 95% CIs, view-geometry metric suppression (`null`), demote composite scores in `types.ts`, `analysis.ts`, `ratings.ts`, UI | M6, M7 | DONE |
+| 9 | M9: Comprehensive Synthetic Ground-Truth Test Suite & Verification | Feature 20: Comprehensive synthetic tests in `src/lib/gait/__tests__/`, update `scientific_justifications.md`, full verification pass & audit | M5–M8 | DONE |
 
 ## Interface Contracts
 
@@ -48,7 +58,12 @@
 export function butterworthLowPass(data: number[], fps: number, cutoffHz?: number): number[];
 export function zeroPhaseButterworth(data: number[], fps: number, cutoffHz?: number): number[];
 export function linearDetrend(data: number[]): { detrended: number[]; trend: (i: number) => number };
-export function computeFFTHarmonics(data: number[], numHarmonics?: number): { evenSum: number; oddSum: number; harmonicRatio: number };
+export function computeFFTHarmonics(
+  data: number[],
+  numHarmonics?: number,
+  strideFreq?: number,
+  fps?: number
+): { evenSum: number; oddSum: number; harmonicRatio: number };
 ```
 
 ### `src/lib/gait/events.ts`
@@ -67,32 +82,57 @@ export interface GaitPhaseBreakdown {
   rightSwingPct: number;
   doubleSupportPct: number;
   stepEvents: GaitEvent[];
+  inferredDirection: 1 | -1;
+  meanStrideSec: number;
+  avgStepTimeSec: number;
 }
 
 export function detectGaitEventsZeni(frames: PoseFrame[], fps: number): GaitPhaseBreakdown;
-```
-
-### `src/lib/gait/symmetry.ts`
-```typescript
-export function symmetryAngle(valLeft: number, valRight: number): number; // Returns SA in percentage [0, 100]%
-export function gaitSymmetryIndex(valLeft: number, valRight: number): number;
+export function findExtrema(signal: number[], mode: 'max' | 'min', minGap: number, minProminence?: number): number[];
+export function refinePeakTimestamp(signal: number[], peakIdx: number, frameTimeSec: number, fps: number): number;
 ```
 
 ### `src/lib/gait/smoothness.ts`
 ```typescript
-export function computeHarmonicRatio(hipY: number[], hipX: number[], fps: number): { hrVertical: number; hrLateral: number; overallHR: number };
+export function computeHarmonicRatio(
+  hipY: number[],
+  hipX: number[],
+  fps: number,
+  meanStrideSec?: number
+): { hrVertical: number; hrLateral: number; overallHR: number };
 ```
 
-### `src/lib/gait/dte.ts`
+### `src/lib/gait/types.ts`
 ```typescript
-export interface DTEAnalysis {
-  cadenceDTE: number;
-  stepTimeCvDTE: number;
-  symmetryDTE: number;
-  cmiClassification: 'no_interference' | 'cognitive_prioritization' | 'motor_prioritization' | 'mutual_interference';
+export interface ReliabilityBounds {
+  value: number | null;
+  ci95Lower: number | null;
+  ci95Upper: number | null;
+  splitHalfDiff: number | null;
 }
 
-export function calculateDTE(baseline: GaitMetrics, dualTask: GaitMetrics): DTEAnalysis;
+export interface GaitMetrics {
+  cadence: number | null;
+  strideLength: number | null;
+  stepLength: number | null;
+  stepWidth: number | null;
+  gaitSpeed: number | null;
+  stepTimeCV: number | null;
+  symmetryIndex: number | null;
+  harmonicRatioVertical: number | null;
+  harmonicRatioLateral: number | null;
+  harmonicRatioOverall: number | null;
+  leftStancePct: number | null;
+  rightStancePct: number | null;
+  doubleSupportPct: number | null;
+  viewAngle: 'sagittal' | 'frontal' | 'oblique';
+  samplingFps: number;
+  confidenceIntervals?: Record<string, ReliabilityBounds>;
+  // Secondary exploratory composite scores (demoted)
+  stabilityScore?: number;
+  rhythmScore?: number;
+  overallScore?: number;
+}
 ```
 
 ## Code Layout
@@ -100,18 +140,18 @@ export function calculateDTE(baseline: GaitMetrics, dualTask: GaitMetrics): DTEA
 src/
 ├── lib/
 │   ├── gait/
-│   │   ├── types.ts
+│   │   ├── types.ts         # Updated GaitMetrics with nullability & ReliabilityBounds
 │   │   ├── landmarks.ts
 │   │   ├── pose.ts
-│   │   ├── signal.ts        # Butterworth filtering & FFT
-│   │   ├── events.ts        # Zeni algorithm event detection
+│   │   ├── signal.ts        # Butterworth filtering, FFT with strideFreq & Hann leakage bin summation
+│   │   ├── events.ts        # Foot orientation direction inference, peak prominence, parabolic subframe timestamps
 │   │   ├── symmetry.ts      # Zifchock Symmetry Angle
-│   │   ├── smoothness.ts    # Harmonic Ratio calculation
+│   │   ├── smoothness.ts    # Harmonic Ratio with stride fundamental frequency
 │   │   ├── dte.ts           # Dual-Task Effect formulas
-│   │   ├── analysis.ts      # Spatio-temporal analysis engine
-│   │   ├── ratings.ts       # Clinical rating engine
-│   │   ├── guesses.ts       # Observational hypothesis rules
-│   │   └── __tests__/       # Comprehensive unit test suite
+│   │   ├── analysis.ts      # Metric engine with split-half CIs & view-geometry null suppression
+│   │   ├── ratings.ts       # Rating engine with null-metric handling & demoted composite scores
+│   │   ├── guesses.ts       # Decision tree with view-suppression handling
+│   │   └── __tests__/       # Comprehensive synthetic test suite
 │   │       ├── signal.test.ts
 │   │       ├── events.test.ts
 │   │       ├── symmetry.test.ts
@@ -120,15 +160,15 @@ src/
 │   │       └── analysis.test.ts
 ├── components/
 │   ├── gait/
-│   │   ├── GaitApp.tsx
+│   │   ├── GaitApp.tsx      # Continuous 10-12s 30 Hz sampling window
 │   │   ├── SkeletonCanvas.tsx
-│   │   ├── ReportPanel.tsx
-│   │   ├── MetricsPanel.tsx
+│   │   ├── ReportPanel.tsx   # Displays 95% CIs and view-suppressed metric notices
+│   │   ├── MetricsPanel.tsx  # Renders 95% CIs and defensible measured quantities
 │   │   ├── GuessesPanel.tsx
 │   │   ├── GuidePanel.tsx
 │   │   └── ScoreRing.tsx
 migrations/
 ├── 0001_auth.sql
 └── 0002_gait_sessions.sql
-scientific_justifications.md
+scientific_justifications.md # Updated with literature citations for R1-R5
 ```
