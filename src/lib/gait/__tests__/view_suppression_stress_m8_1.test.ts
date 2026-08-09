@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeGaitMetrics, detectViewAngle } from "../analysis";
+import { computeGaitMetrics } from "../analysis";
 import { buildStructuredReport } from "../ratings";
 import { buildEducatedGuesses } from "../guesses";
 import { generateSyntheticWalkingFrames } from "./testHelpers";

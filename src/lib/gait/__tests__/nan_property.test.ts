@@ -6,10 +6,8 @@ import {
   computeFFTHarmonics,
 } from "../signal";
 import { detectGaitEventsZeni } from "../events";
-import { symmetryAngle, gaitSymmetryIndex } from "../symmetry";
-import { computeHarmonicRatio } from "../smoothness";
-import { calculateDTE } from "../dte";
-import type { PoseFrame, GaitMetrics } from "../types";
+import { symmetryAngle } from "../symmetry";
+import type { PoseFrame } from "../types";
 
 describe("Milestone 1 Robustness & NaN Injection Tests", () => {
   describe("NaN injection in signal processing", () => {

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { buildStructuredReport } from "../ratings";
 import { buildEducatedGuesses } from "../guesses";
-import { computeGaitMetrics, computeDualTaskCost } from "../analysis";
-import type { GaitMetrics, PoseFrame, DualTaskCost, EducatedGuess } from "../types";
+import { computeDualTaskCost } from "../analysis";
+import type { GaitMetrics, DualTaskCost } from "../types";
 
 function createDummyMetrics(overrides: Partial<GaitMetrics> = {}): GaitMetrics {
   return {

@@ -280,19 +280,19 @@ Below is the complete mapping matrix connecting scientific literature, mathemati
 | Antonsson & Mann (1985) | OLS Linear Detrending ($y_d = y - (\alpha + \beta i)$) | `src/lib/gait/signal.ts` | `linearDetrend` | 147–187 |
 | Cooley & Tukey (1965) | Radix-2 In-Place Fast Fourier Transform | `src/lib/gait/signal.ts` | `fftRadix2` | 192–248 |
 | Menz et al. (2003), Pasciuto (2015) | FFT Harmonics, $f_0$ Alignment & $\pm 1$ Bin Leakage | `src/lib/gait/signal.ts` | `computeFFTHarmonics` | 254–363 |
-| Zeni JA et al. (2008) | Follow-Cam Foot Vector Direction Inference ($x_{\text{toe}} - x_{\text{heel}}$) | `src/lib/gait/events.ts` | `detectGaitEventsZeni` (Direction) | 88–138 |
-| Zeni JA et al. (2008) | Topographic Peak Prominence Filtering ($P_{\text{min}}$) | `src/lib/gait/events.ts` | `findExtrema` & `calculateProminence` | 41–125 |
-| Zeni JA et al. (2008) | 3-Point Parabolic Subframe Peak Refinement | `src/lib/gait/events.ts` | `refinePeakTimestamp` | 290–310 |
-| Zeni JA et al. (2008) | AP Foot Displacement Kinematic Algorithm | `src/lib/gait/events.ts` | `detectGaitEventsZeni` | 140–286 |
+| Zeni JA et al. (2008) | Follow-Cam Foot Vector Direction Inference ($x_{\text{toe}} - x_{\text{heel}}$) | `src/lib/gait/events.ts` | `detectGaitEventsZeni` (Direction) | 224–276 |
+| Zeni JA et al. (2008) | Topographic Peak Prominence Filtering ($P_{\text{min}}$) | `src/lib/gait/events.ts` | `calculateProminence` & `findExtrema` | 42–135 |
+| Zeni JA et al. (2008) | 3-Point Parabolic Subframe Peak Refinement | `src/lib/gait/events.ts` | `refinePeakTimestamp` | 142–170 |
+| Zeni JA et al. (2008) | AP Foot Displacement Kinematic Algorithm | `src/lib/gait/events.ts` | `detectGaitEventsZeni` | 177–438 |
 | Zifchock RA et al. (2008) | Reference-Free Symmetry Angle ($SA$) | `src/lib/gait/symmetry.ts` | `symmetryAngle` | 19–42 |
 | Menz et al. (2003), Bellanca (2013) | Stride-Based Vertical & Lateral Harmonic Ratio | `src/lib/gait/smoothness.ts` | `computeHarmonicRatio` | 24–51 |
 | Kelly VE et al. (2012) | Standardized Cadence DTE (Higher-Better) | `src/lib/gait/dte.ts` | `calculateDTE` (Cadence) | 48–53 |
 | Plummer & Eskes (2015) | 4-Tier Cognitive-Motor Interference Taxonomy | `src/lib/gait/dte.ts` | CMI Classification Tree | 72–89 |
-| O'Brien et al. (2019) | Camera View Angle Auto-Detection & Metric Suppression | `src/lib/gait/analysis.ts` | `detectViewAngle` & `computeGaitMetricsCore` | 73–410 |
+| O'Brien et al. (2019) | Camera View Angle Auto-Detection & Metric Suppression | `src/lib/gait/analysis.ts` | `detectViewAngle` & `computeGaitMetricsCore` | 73–516 |
 | Bland & Altman (1986) | Split-Half Standard Error $\text{SE}_{\text{split}}$ & 95% CIs | `src/lib/gait/analysis.ts` | `buildReliabilityBounds` & `computeGaitMetrics` | 206–554 |
-| Lord S et al. (2013) | Secondary Exploratory Composite Score Demotion | `src/lib/gait/analysis.ts` | Domain Composite Logic | 415–458 |
-| Hollman JH et al. (2010) | Clinical Rating & Favorability Engine | `src/lib/gait/ratings.ts` | `calculateGaitRatings` | 280–520 |
-| Mirelman A et al. (2019) | Observational Pattern Decision Tree & Scope Ladder | `src/lib/gait/guesses.ts` | `generateEducatedGuesses` | 100–683 |
+| Lord S et al. (2013) | Secondary Exploratory Composite Score Demotion | `src/lib/gait/analysis.ts` | Domain Composite Logic | 421–459 |
+| Hollman JH et al. (2010) | Clinical Rating & Favorability Engine | `src/lib/gait/ratings.ts` | `buildStructuredReport` | 199–599 |
+| Mirelman A et al. (2019) | Observational Pattern Decision Tree & Scope Ladder | `src/lib/gait/guesses.ts` | `buildEducatedGuesses` | 9–624 |
 
 ---
 

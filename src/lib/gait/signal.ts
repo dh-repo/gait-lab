@@ -76,8 +76,11 @@ export function butterworthLowPass(
   cutoffHz = 6.0,
 ): number[] {
   if (!data || data.length < 5 || fps <= 0) {
-    return data ? [...data] : [];
+    return data ? [...data.map((v) => (Number.isFinite(v) ? v : 0))] : [];
   }
+
+  // Sanitize non-finite values
+  const cleanData = data.map((v) => (Number.isFinite(v) ? v : 0));
 
   const Q1 = 1 / (2 * Math.cos(Math.PI / 8));
   const Q2 = 1 / (2 * Math.cos((3 * Math.PI) / 8));
@@ -85,8 +88,9 @@ export function butterworthLowPass(
   const coeffs1 = computeBiquadLowPass(fps, cutoffHz, Q1);
   const coeffs2 = computeBiquadLowPass(fps, cutoffHz, Q2);
 
-  const stage1 = applyBiquad(data, coeffs1);
-  return applyBiquad(stage1, coeffs2);
+  const stage1 = applyBiquad(cleanData, coeffs1);
+  const stage2 = applyBiquad(stage1, coeffs2);
+  return stage2.map((v) => (Number.isFinite(v) ? v : 0));
 }
 
 /**
@@ -100,10 +104,11 @@ export function zeroPhaseButterworth(
   cutoffHz = 6.0,
 ): number[] {
   if (!data || data.length < 5 || fps <= 0) {
-    return data ? [...data] : [];
+    return data ? [...data.map((v) => (Number.isFinite(v) ? v : 0))] : [];
   }
 
-  const n = data.length;
+  const cleanData = data.map((v) => (Number.isFinite(v) ? v : 0));
+  const n = cleanData.length;
   const padLen = Math.min(12, n - 1);
 
   // Boundary reflection padding
@@ -111,17 +116,17 @@ export function zeroPhaseButterworth(
 
   // Left padding: reflection around data[0]
   for (let i = 0; i < padLen; i++) {
-    padded[i] = 2 * data[0] - data[padLen - i];
+    padded[i] = 2 * cleanData[0] - cleanData[padLen - i];
   }
 
   // Original data
   for (let i = 0; i < n; i++) {
-    padded[padLen + i] = data[i];
+    padded[padLen + i] = cleanData[i];
   }
 
   // Right padding: reflection around data[n - 1]
   for (let i = 0; i < padLen; i++) {
-    padded[padLen + n + i] = 2 * data[n - 1] - data[n - 2 - i];
+    padded[padLen + n + i] = 2 * cleanData[n - 1] - cleanData[n - 2 - i];
   }
 
   // Forward pass
@@ -137,7 +142,7 @@ export function zeroPhaseButterworth(
   const finalFiltered = backwardFiltered.reverse();
 
   // Extract unpadded slice
-  return finalFiltered.slice(padLen, padLen + n);
+  return finalFiltered.slice(padLen, padLen + n).map((v) => (Number.isFinite(v) ? v : 0));
 }
 
 /**

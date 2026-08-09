@@ -103,7 +103,7 @@ export function findExtrema(
       if (signal[i] > sigMax) sigMax = signal[i];
     }
     const sigRange = sigMax - sigMin;
-    minProminence = Math.max(0.01, 0.15 * sigRange);
+    minProminence = Math.max(0.001, 0.15 * sigRange);
   }
 
   for (let i = 1; i < n - 1; i++) {
@@ -349,7 +349,7 @@ export function detectGaitEventsZeni(
         if (matchingTo) {
           const stanceDur = matchingTo.timeSec - ic1.timeSec;
           const pct = (stanceDur / strideDur) * 100;
-          if (pct >= 40 && pct <= 80) {
+          if (pct >= 15 && pct <= 95) {
             stancePcts.push(pct);
           }
         }

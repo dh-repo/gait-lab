@@ -120,8 +120,6 @@ describe("Signal Processing Module (signal.ts)", () => {
       }
 
       const f1 = zeroPhaseButterworth(data, fps, 1.0);
-      const f3 = zeroPhaseButterworth(data, fps, 3.0);
-      const f6 = zeroPhaseButterworth(data, fps, 6.0);
       const f12 = zeroPhaseButterworth(data, fps, 12.0);
 
       const var1 = f1.reduce((s, v) => s + v * v, 0) / n;

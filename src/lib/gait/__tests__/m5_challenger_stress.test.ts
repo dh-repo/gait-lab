@@ -171,7 +171,7 @@ describe("M5 Empirical Stress Harness (Challenger)", () => {
 
       const corruptVisFrames: PoseFrame[] = baseFrames.map((f, idx) => ({
         timeMs: f.timeMs,
-        landmarks: f.landmarks.map((lm, lmIdx) => {
+        landmarks: f.landmarks.map((lm) => {
           if (idx % 4 === 0) {
             return { ...lm, visibility: undefined };
           }

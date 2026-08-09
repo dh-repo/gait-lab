@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode } from "react";
+import type { MouseEvent } from "react";
 import { useEffect, useRef } from "react";
 import { POSE_CONNECTIONS, PERSON_COLORS } from "@/lib/gait/landmarks";
 import type { Landmark } from "@/lib/gait/types";

@@ -7,7 +7,7 @@ import {
   type GaitSessionRecord,
 } from "../persistence";
 import { createMockMetrics } from "./testHelpers";
-import type { AnalysisResult, DualTaskCost, EducatedGuess } from "../types";
+import type { DualTaskCost, EducatedGuess } from "../types";
 
 describe("Session Persistence Module (persistence.ts)", () => {
   describe("GaitSessionRecord JSON Payload Serialization Integrity", () => {

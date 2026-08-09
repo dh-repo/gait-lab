@@ -24,6 +24,7 @@ import { MetricsPanel } from "./MetricsPanel";
 import { GuessesPanel } from "./GuessesPanel";
 import { GuidePanel } from "./GuidePanel";
 import { ReportPanel } from "./ReportPanel";
+import { SamplePicker } from "./SamplePicker";
 import { SessionHistoryDrawer } from "./SessionHistoryDrawer";
 import { computeDualTaskCost, computeGaitMetrics, matchPeople, tracksToPeople } from "@/lib/gait/analysis";
 import { buildEducatedGuesses } from "@/lib/gait/guesses";
@@ -100,8 +101,9 @@ export function GaitApp() {
   }, [videoUrl]);
 
   useEffect(() => {
+    const ref = abortRef;
     return () => {
-      abortRef.current++;
+      ref.current++;
     };
   }, []);
 
@@ -433,20 +435,6 @@ export function GaitApp() {
     }
   }, [result, fileName]);
 
-  const loadSample = useCallback(async () => {
-    try {
-      setMessage("Loading sample video…");
-      const res = await fetch("/sample-walk.mp4");
-      if (!res.ok) throw new Error("Sample video missing");
-      const blob = await res.blob();
-      const file = new File([blob], "sample-store-walk.mp4", { type: "video/mp4" });
-      await processFile(file);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load sample");
-      setPhase("error");
-    }
-  }, [processFile]);
-
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
     setDragOver(false);
@@ -495,70 +483,74 @@ export function GaitApp() {
           </div>
         </header>
 
-        {/* Upload */}
+        {/* Upload & Sample Selector */}
         {phase === "idle" && (
-          <Card
-            className={cn(
-              "border-dashed transition-colors",
-              dragOver && "border-[var(--color-primary)] bg-[color-mix(in_oklab,var(--color-primary)_8%,var(--color-surface))]",
-            )}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={onDrop}
-          >
-            <CardContent className="flex flex-col items-center gap-5 px-6 py-14 text-center">
-              <div className="flex size-14 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--color-surface-2)] border border-[var(--color-border)]">
-                <Upload className="size-6 text-[var(--color-primary)]" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold">Drop a walking video</h2>
-                <p className="mx-auto max-w-md text-sm text-[var(--color-muted)]">
-                  MP4, WebM, or MOV works best. Prefer a continuous walk with the full body
-                  visible — side or front views both supported.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <Button
-                  size="lg"
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <Film className="size-4" />
-                  Choose video
-                </Button>
-                <Button size="lg" variant="secondary" onClick={() => void loadSample()}>
-                  <Play className="size-4" />
-                  Try sample store walk
-                </Button>
-              </div>
-              <ul className="mt-2 grid w-full max-w-lg gap-2 text-left text-xs text-[var(--color-subtle)] sm:grid-cols-3">
-                <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                  <Users className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
-                  Multi-person: pick who to analyze
-                </li>
-                <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                  <UserRound className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
-                  Angle-aware: frontal / side / oblique
-                </li>
-                <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                  <Sparkles className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
-                  Gait metrics + educated guesses
-                </li>
-              </ul>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="video/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void processFile(f);
-                }}
-              />
-            </CardContent>
-          </Card>
+          <div className="space-y-8">
+            <Card
+              className={cn(
+                "border-dashed transition-colors",
+                dragOver && "border-[var(--color-primary)] bg-[color-mix(in_oklab,var(--color-primary)_8%,var(--color-surface))]",
+              )}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={onDrop}
+            >
+              <CardContent className="flex flex-col items-center gap-5 px-6 py-10 text-center">
+                <div className="flex size-14 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--color-surface-2)] border border-[var(--color-border)]">
+                  <Upload className="size-6 text-[var(--color-primary)]" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-lg font-semibold">Drop a walking video</h2>
+                  <p className="mx-auto max-w-md text-sm text-[var(--color-muted)]">
+                    MP4, WebM, or MOV works best. Prefer a continuous walk with the full body
+                    visible — side or front views both supported.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <Button
+                    size="lg"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <Film className="size-4" />
+                    Choose video file
+                  </Button>
+                </div>
+                <ul className="mt-2 grid w-full max-w-lg gap-2 text-left text-xs text-[var(--color-subtle)] sm:grid-cols-3">
+                  <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
+                    <Users className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
+                    Multi-person: pick who to analyze
+                  </li>
+                  <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
+                    <UserRound className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
+                    Angle-aware: frontal / side / oblique
+                  </li>
+                  <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
+                    <Sparkles className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
+                    Gait metrics + educated guesses
+                  </li>
+                </ul>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void processFile(f);
+                  }}
+                />
+              </CardContent>
+            </Card>
+
+            <SamplePicker
+              onSelectSample={processFile}
+              onCustomUploadClick={() => fileRef.current?.click()}
+              isLoading={false}
+            />
+          </div>
         )}
 
         {/* Hidden / active video element */}

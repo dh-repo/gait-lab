@@ -1,8 +1,8 @@
 import { describe, test, expect } from "vitest";
 import { resamplePoseFrames } from "../pose";
-import { butterworthLowPass, zeroPhaseButterworth } from "../signal";
+import { zeroPhaseButterworth } from "../signal";
 import { detectGaitEventsZeni } from "../events";
-import { symmetryAngle, gaitSymmetryIndex } from "../symmetry";
+import { symmetryAngle } from "../symmetry";
 import { computeHarmonicRatio } from "../smoothness";
 import { calculateDTE } from "../dte";
 import type { PoseFrame, GaitMetrics } from "../types";
@@ -142,7 +142,7 @@ describe("Milestone 2 Empirical Challenger Stress Harness", () => {
         const xOffset = i * 0.005; // Moving purely sideways
         return {
           timeMs: i * 33.3,
-          landmarks: new Array(33).fill(0).map((_, lmIdx) => ({
+          landmarks: new Array(33).fill(0).map(() => ({
             x: 0.5 + xOffset,
             y: 0.5,
             z: 0,

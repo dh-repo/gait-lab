@@ -372,8 +372,10 @@ function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
       return mean(arr.slice(a, b));
     });
   const win = Math.max(2, Math.floor(fpsEffective * 0.6));
-  const latRes = hipXNorm.map((v, i) => v - ma(hipXNorm, win)[i]);
-  const vertRes = hipYNorm.map((v, i) => v - ma(hipYNorm, win)[i]);
+  const maHipX = ma(hipXNorm, win);
+  const maHipY = ma(hipYNorm, win);
+  const latRes = hipXNorm.map((v, i) => v - maHipX[i]);
+  const vertRes = hipYNorm.map((v, i) => v - maHipY[i]);
   const rawLateralSway = Math.min(std(latRes), 0.12);
   const verticalBounce = Math.min(std(vertRes), 0.1);
   const rawStepWidthVariability = std(series.map((s) => s.stepWidth));

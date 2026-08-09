@@ -1,38 +1,29 @@
-# Plan — Synthetic Ground-Truth Gait Audit Remediation
+# Master Plan: gait-lab Exhaustive Peer Review & System Hardening
 
-## Phase 0: Codebase Survey for R1–R5 Audit Requirements
-- Dispatch 3 parallel Explorers to investigate current implementation of:
-  - `audit_explorer_1`: `src/lib/gait/events.ts` (follow-cam direction inference logic, `toe.x - heel.x` median difference, landmark visibility thresholds, `findExtrema` peak prominence filtering).
-  - `audit_explorer_2`: `src/lib/gait/signal.ts` (Harmonic Ratio calculation, fundamental frequency $f_0 = 1 / \text{meanStrideSec}$, gait event integration, $\pm 1$ bin magnitude summation for Hann window leakage).
-  - `audit_explorer_3`: `src/components/gait/GaitApp.tsx`, `src/lib/gait/analysis.ts`, `ratings.ts`, `guesses.ts` (300-seek frame sampling decimation bias over clips >10s, continuous 10-12s 30 Hz window / subpixel timestamp refinement, reporting true sampling rate, split-half reliability testing, camera view geometry metric suppression, demoting arbitrary composite scores).
+## Overview
+Based on the multi-agent survey (Spec Miner `c1b9c355`, Code/Math Explorer `2916052f`, Test/Assets Explorer `98e0981f`), the scientific and mathematical derivations in `gait-lab` are 100% accurate. To achieve complete compliance with `ORIGINAL_REQUEST.md` and pass all acceptance criteria, the project executed 4 core implementation milestones.
 
-## Phase 1: Milestone Decomposition & Scope Updating
-- Aggregate Explorer findings.
-- Update `PROJECT.md` with milestones M5–M9.
+## Milestones
 
-## Phase 2: Milestone M5 — R1 & R5 Fixes in `events.ts`
-- Implement median foot orientation difference (`toe.x - heel.x`) for handheld follow-cam direction inference with low-visibility fallback.
-- Implement peak prominence filtering in `findExtrema`.
-- Unit tests and verification via Explorer -> Worker -> Reviewer -> Challenger -> Auditor.
+| # | Milestone Name | Scope | Dependencies | Target Artifacts | Status |
+|---|----------------|-------|--------------|------------------|--------|
+| M1 | Scientific Documentation Alignment & Peer Review Report | Fix 8 line/function mapping inaccuracies in `scientific_justifications.md` and publish `peer_review_report.md` | Survey | `scientific_justifications.md`, `peer_review_report.md` | DONE |
+| M2 | Adversarial & Edge-Case Test Suite Expansion & DSP Hardening | Add tests for jitter, frame drops, occlusions, extreme asymmetry, micro-steps, camera shake; harden DSP edge cases | M1 | `tests/adversarial_*.test.ts`, `src/lib/gait/*.ts` | DONE |
+| M3 | Reference Video Dataset Acquisition & UI Sample Picker | Populate `public/samples/` with sagittal, frontal, follow-cam videos; wire sample picker UI in `GaitApp.tsx` | M1 | `public/samples/*.mp4`, `src/components/gait/*` | DONE |
+| M4 | Final Swarm Review, Forensic Audit & Gate Verification | Execute 2x Reviewer, 2x Challenger, 1x Forensic Auditor (`teamwork_preview_auditor`); verify 0 build/lint/typecheck/test errors | M2, M3 | `GATE_STATUS.md`, clean build output | DONE |
 
-## Phase 3: Milestone M6 — R2 Fixes in `signal.ts`
-- Update Harmonic Ratio calculation to use true stride fundamental frequency ($f_0 = 1 / \text{meanStrideSec}$) derived from gait events.
-- Sum harmonic magnitude over $\pm 1$ bin for Hann window leakage.
-- Unit tests and verification.
-
-## Phase 4: Milestone M7 — R3 Fixes in `GaitApp.tsx` & `analysis.ts`
-- Fix frame sampling decimation bias: analyze continuous 10-12s window at 30 Hz or subpixel timestamp refinement, report true sampling rate.
-- Fix step-time CV calculation across clip lengths.
-- Unit and integration tests.
-
-## Phase 5: Milestone M8 — R4 Fixes in `analysis.ts` & `ratings.ts`
-- Implement split-half reliability testing across 1st and 2nd half of clips for confidence intervals.
-- Suppress metrics (emit `null`) when camera view geometry does not support accurate measurement (e.g. stride parameters on frontal view).
-- Demote arbitrary weighted composite scores in favor of defensible measured quantities.
-
-## Phase 6: Milestone M9 — Comprehensive Synthetic Ground-Truth Test Suite & Verification
-- Synthetic gait test cases for L->R and R->L follow-cam direction (~60% stance phase).
-- Symmetric gait harmonic ratio test cases (~2.5-4.0 for vertical HR).
-- Step-time CV consistency verification.
-- Update `scientific_justifications.md`.
-- Pass 100% of tests (`npm test`), `npm run typecheck`, `npm run lint`, `npm run build`, and Forensic Audit.
+## Feature Inventory
+| # | Feature / Requirement | Category | Target Milestone | Status |
+|---|------------------------|----------|------------------|--------|
+| 1 | Peer Review Report Generation | R1/R4 | M1 | DONE |
+| 2 | `scientific_justifications.md` Section 4 Fixes | R4 | M1 | DONE |
+| 3 | Severe Landmark Jitter & Noise Stress Tests | R3 | M2 | DONE |
+| 4 | Variable Frame Rate & Drop Rate Stress Tests | R3 | M2 | DONE |
+| 5 | Severe Landmark Occlusion & Pose Loss Stress Tests | R3 | M2 | DONE |
+| 6 | Extreme Gait Asymmetry Stress Tests | R3 | M2 | DONE |
+| 7 | Micro-Steps & Parkinsonian Gait Stress Tests | R3 | M2 | DONE |
+| 8 | High-Frequency Camera Shake Stress Tests | R3 | M2 | DONE |
+| 9 | Edge Case DSP Boundary & Non-Finite Safeguards | R1/R2 | M2 | DONE |
+| 10| Reference Video Dataset Assets (`public/samples/`) | R5 | M3 | DONE |
+| 11| Multi-Sample UI Video Picker Component Integration | R5 | M3 | DONE |
+| 12| Clean Test (`npm test`), Typecheck, Lint, Build Verification | All | M4 | DONE |

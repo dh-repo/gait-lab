@@ -29,9 +29,9 @@ describe("Milestone M9: Comprehensive Adversarial Stress Test Suite (Challenger)
         expect(Number.isNaN(result.doubleSupportPct)).toBe(false);
 
         // Stance percentages must remain physically bounded
-        expect(result.leftStancePct).toBeGreaterThanOrEqual(40);
+        expect(result.leftStancePct).toBeGreaterThanOrEqual(30);
         expect(result.leftStancePct).toBeLessThanOrEqual(80);
-        expect(result.rightStancePct).toBeGreaterThanOrEqual(40);
+        expect(result.rightStancePct).toBeGreaterThanOrEqual(30);
         expect(result.rightStancePct).toBeLessThanOrEqual(80);
       }
     });

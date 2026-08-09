@@ -16,6 +16,8 @@ export default tseslint.config(
       "node_modules/**",
       "src/routeTree.gen.ts",
       "public/wasm/**",
+      ".remember/**",
+      ".agents/**",
     ],
   },
   js.configs.recommended,

@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   buildStructuredReport,
   bandTone,
-  type RatingBand,
 } from "../ratings";
 import { createMockMetrics } from "./testHelpers";
 import type { EducatedGuess, DualTaskCost } from "../types";
