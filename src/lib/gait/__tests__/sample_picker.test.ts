@@ -4,14 +4,16 @@ import path from "path";
 import { SAMPLE_VIDEOS } from "@/components/gait/SamplePicker";
 
 describe("SamplePicker Reference Video Assets", () => {
-  it("defines the 4 required reference sample video entries", () => {
-    expect(SAMPLE_VIDEOS).toHaveLength(4);
+  it("defines the 5 required reference sample video entries", () => {
+    expect(SAMPLE_VIDEOS).toHaveLength(5);
 
     const ids = SAMPLE_VIDEOS.map((s) => s.id);
     expect(ids).toContain("sagittal");
     expect(ids).toContain("frontal");
     expect(ids).toContain("follow_cam");
     expect(ids).toContain("general");
+    // Fallback offered to users who have no clip of their own and cannot record one.
+    expect(ids).toContain("store_aisle");
   });
 
   it("has complete metadata for each sample video entry", () => {
@@ -68,12 +70,14 @@ describe("SamplePicker Reference Video Assets", () => {
   });
 
   it("declares sample durations matching the shipped media files", () => {
-    // Verified with ffprobe: sagittal/frontal/follow-cam = 12.000s, general = 23.533s
+    // Verified with ffprobe: sagittal/frontal/follow-cam = 12.000s,
+    // general = 23.533s, store_aisle = 23.533s
     const expected: Record<string, string> = {
       sagittal: "12.0s",
       frontal: "12.0s",
       follow_cam: "12.0s",
       general: "23.5s",
+      store_aisle: "23.5s",
     };
     SAMPLE_VIDEOS.forEach((sample) => {
       expect(sample.duration).toBe(expected[sample.id]);

@@ -56,6 +56,18 @@ export const SAMPLE_VIDEOS: SampleVideoInfo[] = [
     features: ["Foot Vectors", "Direction Inference", "Hip Centering"],
   },
   {
+    id: "store_aisle",
+    title: "No video? Use this one",
+    viewBadge: "Rear Follow-Cam",
+    tone: "primary",
+    duration: "23.5s",
+    url: "/samples/store-aisle-follow.mp4",
+    filename: "store-aisle-follow.mp4",
+    description:
+      "Handheld phone clip of a single subject walking away down a store aisle — the exact capture conditions this app is built for. At 23.5s it exceeds the 20s analysis window, so variability metrics rest on a full stride count.",
+    features: ["Handheld Phone", "Rear View", "Full 20s Window"],
+  },
+  {
     id: "general",
     title: "General Walk (Indoor)",
     viewBadge: "General / Oblique",
