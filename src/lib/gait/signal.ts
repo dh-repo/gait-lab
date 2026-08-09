@@ -40,16 +40,18 @@ function computeBiquadLowPass(fps: number, cutoffHz: number, Q: number): BiquadC
  */
 function applyBiquad(data: number[], coeffs: BiquadCoeffs): number[] {
   const n = data.length;
+  if (n === 0) return [];
   const out = new Array<number>(n);
   const { b0, b1, b2, a1, a2 } = coeffs;
 
-  let x1 = 0;
-  let x2 = 0;
-  let y1 = 0;
-  let y2 = 0;
+  const initVal = Number.isFinite(data[0]) ? data[0] : 0;
+  let x1 = initVal;
+  let x2 = initVal;
+  let y1 = initVal;
+  let y2 = initVal;
 
   for (let i = 0; i < n; i++) {
-    const x = data[i];
+    const x = Number.isFinite(data[i]) ? data[i] : 0;
     const y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
     out[i] = y;
 
@@ -60,6 +62,35 @@ function applyBiquad(data: number[], coeffs: BiquadCoeffs): number[] {
   }
 
   return out;
+}
+
+/**
+ * Ordinary Least Squares (OLS) Linear Detrending.
+ * Removes linear trend from input data array.
+ */
+export function olsDetrend(data: number[]): number[] {
+  if (!data || data.length < 2) return data ? data.slice() : [];
+  const n = data.length;
+  const xMean = (n - 1) / 2;
+  let ySum = 0;
+  for (let i = 0; i < n; i++) {
+    ySum += Number.isFinite(data[i]) ? data[i] : 0;
+  }
+  const yMean = ySum / n;
+
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < n; i++) {
+    const yVal = Number.isFinite(data[i]) ? data[i] : 0;
+    const xDiff = i - xMean;
+    num += xDiff * (yVal - yMean);
+    den += xDiff * xDiff;
+  }
+  const slope = den !== 0 ? num / den : 0;
+  return data.map((y, i) => {
+    const yVal = Number.isFinite(y) ? y : 0;
+    return yVal - (yMean + slope * (i - xMean));
+  });
 }
 
 /**
@@ -107,7 +138,7 @@ export function zeroPhaseButterworth(
 
   const cleanData = data.map((v) => (Number.isFinite(v) ? v : 0));
   const n = cleanData.length;
-  const padLen = Math.min(12, n - 1);
+  const padLen = Math.min(24, n - 1);
 
   // Boundary reflection padding
   const padded = new Array<number>(n + 2 * padLen);

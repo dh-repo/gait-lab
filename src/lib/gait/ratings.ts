@@ -275,8 +275,8 @@ export function buildStructuredReport(
       "Rhythm",
       m.rhythmScore,
       m.rhythmScore >= 65
-        ? "Step timing and trunk rhythmicity (Harmonic Ratio) show good periodicity."
-        : "Irregular intervals — reduced harmonic ratio or timing variability detected.",
+        ? "Step-time variability is low and cadence is steady — consistent step-to-step timing."
+        : "Irregular step intervals — elevated step-time variability relative to average step time and cadence.",
       [
         {
           label: "Step-time CV",

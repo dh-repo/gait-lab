@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import type { AnalysisResult, GaitMetrics, EducatedGuess, DualTaskCost } from "./types";
+import type { AnalysisResult, GaitMetrics, EducatedGuess, DualTaskCost, PatientMetadata } from "./types";
+import type { GaitAngleAnalysis } from "./angles";
 
 export interface GaitSessionRecord {
   id: string;
@@ -28,6 +29,8 @@ export interface GaitSessionRecord {
   metricsJson: GaitMetrics;
   guessesJson: EducatedGuess[];
   dualTaskJson?: DualTaskCost;
+  angleAnalysisJson?: GaitAngleAnalysis;
+  patientMetaJson?: PatientMetadata;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,7 +49,7 @@ export const saveGaitSession = createServerFn({ method: "POST" })
     const sql = await getSql();
     const id =
       data.id || `gs_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    const { metrics, guesses, taskMode, dualTaskCost } = data.result;
+    const { metrics, guesses, taskMode, dualTaskCost, angleAnalysis, patientMeta } = data.result;
     // harmonicRatio is no longer produced by the engine; the column persists for old rows.
     const extMetrics = metrics as GaitMetrics & { symmetryAngle?: number; harmonicRatio?: number };
 
@@ -56,13 +59,15 @@ export const saveGaitSession = createServerFn({ method: "POST" })
         stability_score, rhythm_score, symmetry_score, mobility_score, automaticity_score,
         cadence_spm, step_count, duration_sec, view_angle,
         symmetry_angle, harmonic_ratio,
-        metrics_json, guesses_json, dual_task_json, updated_at
+        metrics_json, guesses_json, dual_task_json,
+        angle_analysis_json, patient_meta_json, updated_at
       ) VALUES (
         ${id}, ${context.userId}, ${data.sessionName || "Gait Session"}, ${taskMode}, ${metrics.overallScore},
         ${metrics.stabilityScore}, ${metrics.rhythmScore}, ${metrics.symmetryScore}, ${metrics.mobilityScore}, ${metrics.automaticityScore},
         ${metrics.cadenceSpm}, ${metrics.stepCount}, ${metrics.durationSec}, ${metrics.viewAngle},
         ${extMetrics.symmetryAngle ?? null}, ${extMetrics.harmonicRatio ?? null},
         ${JSON.stringify(metrics)}, ${JSON.stringify(guesses)}, ${dualTaskCost ? JSON.stringify(dualTaskCost) : null},
+        ${angleAnalysis ? JSON.stringify(angleAnalysis) : null}, ${patientMeta ? JSON.stringify(patientMeta) : null},
         CURRENT_TIMESTAMP
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -79,9 +84,19 @@ export const saveGaitSession = createServerFn({ method: "POST" })
         metrics_json = EXCLUDED.metrics_json,
         guesses_json = EXCLUDED.guesses_json,
         dual_task_json = EXCLUDED.dual_task_json,
+        angle_analysis_json = EXCLUDED.angle_analysis_json,
+        patient_meta_json = EXCLUDED.patient_meta_json,
         updated_at = CURRENT_TIMESTAMP
+      WHERE gait_sessions.user_id = ${context.userId}
       RETURNING *
     `;
+    // The WHERE guard makes the upsert a no-op when the id belongs to someone
+    // else, so a forged/replayed id cannot overwrite another user's session.
+    // Postgres returns zero rows in that case — surface it rather than
+    // returning undefined into a "saved!" success path.
+    if (!rows[0]) {
+      throw new Error("Session could not be saved: id belongs to another user.");
+    }
     return rows[0] as unknown as GaitSessionRecord;
   });
 
@@ -99,6 +114,7 @@ export const listGaitSessions = createServerFn({ method: "GET" })
         cadence_spm as "cadenceSpm", step_count as "stepCount", duration_sec as "durationSec",
         view_angle as "viewAngle", symmetry_angle as "symmetryAngle", harmonic_ratio as "harmonicRatio",
         metrics_json as "metricsJson", guesses_json as "guessesJson", dual_task_json as "dualTaskJson",
+        angle_analysis_json as "angleAnalysisJson", patient_meta_json as "patientMetaJson",
         created_at as "createdAt", updated_at as "updatedAt"
       FROM gait_sessions
       WHERE user_id = ${context.userId}
@@ -122,6 +138,7 @@ export const getGaitSession = createServerFn({ method: "GET" })
         cadence_spm as "cadenceSpm", step_count as "stepCount", duration_sec as "durationSec",
         view_angle as "viewAngle", symmetry_angle as "symmetryAngle", harmonic_ratio as "harmonicRatio",
         metrics_json as "metricsJson", guesses_json as "guessesJson", dual_task_json as "dualTaskJson",
+        angle_analysis_json as "angleAnalysisJson", patient_meta_json as "patientMetaJson",
         created_at as "createdAt", updated_at as "updatedAt"
       FROM gait_sessions
       WHERE id = ${id} AND user_id = ${context.userId}

@@ -1,7 +1,9 @@
-import { zeroPhaseButterworth } from "./signal";
+import { olsDetrend, zeroPhaseButterworth } from "./signal";
 import { detectGaitEventsZeni, refinePeakTimestamp, type GaitEvent } from "./events";
 import { symmetryAngle } from "./symmetry";
 import { calculateDTE } from "./dte";
+import { computeGaitAngleAnalysis } from "./angles";
+import { buildEducatedGuesses } from "./guesses";
 import {
   LM,
   angleDeg,
@@ -16,11 +18,14 @@ import {
   torsoHeight,
 } from "./landmarks";
 import type {
+  AnalysisResult,
   DualTaskCost,
   GaitMetrics,
   Landmark,
+  PatientMetadata,
   PoseFrame,
   ReliabilityBounds,
+  TaskMode,
   TrackedPerson,
   ViewAngle,
 } from "./types";
@@ -595,18 +600,7 @@ function emptyMetrics(frames: PoseFrame[]): GaitMetrics {
 }
 
 function detrend(xs: number[]): number[] {
-  if (xs.length < 2) return xs.slice();
-  const n = xs.length;
-  const xMean = (n - 1) / 2;
-  const yMean = mean(xs);
-  let num = 0;
-  let den = 0;
-  for (let i = 0; i < n; i++) {
-    num += (i - xMean) * (xs[i] - yMean);
-    den += (i - xMean) ** 2;
-  }
-  const slope = den ? num / den : 0;
-  return xs.map((y, i) => y - (yMean + slope * (i - xMean)));
+  return olsDetrend(xs);
 }
 
 function nearestIndex(ts: number[], t: number): number {
@@ -741,5 +735,42 @@ export function computeDualTaskCost(
     stepTimeCvDTE: dte.stepTimeCvDTE,
     symmetryDTE: dte.symmetryDTE,
     cmiClassification: dte.cmiClassification,
+  };
+}
+
+export function analyzeGait(
+  frames: PoseFrame[],
+  personId: number = 1,
+  taskMode: TaskMode = "single",
+  dualTaskCost?: DualTaskCost,
+  patientMeta?: PatientMetadata,
+): AnalysisResult {
+  const metrics = computeGaitMetrics(frames);
+  const angleAnalysis = computeGaitAngleAnalysis(
+    frames,
+    metrics.stepEvents || [],
+    metrics.viewAngle || "unknown",
+  );
+  const guesses = buildEducatedGuesses(metrics, { taskMode, dualTaskCost });
+  return {
+    metrics,
+    guesses,
+    personId,
+    analyzedFrames: frames.length,
+    taskMode,
+    dualTaskCost,
+    angleAnalysis,
+    patientMeta,
+    notes: [
+      `Analyzed ${frames.length} uniform 30Hz frames over ${metrics.durationSec.toFixed(1)}s`,
+      `Effective sample rate ~${(((metrics as Record<string, unknown>).samplingFps as number) ?? metrics.fpsEffective).toFixed(1)} fps`,
+      `View angle estimate: ${metrics.viewAngle}`,
+      `Task mode: ${taskMode === "dual" ? "walk + cognitive" : "walk only"}`,
+      ...(dualTaskCost
+        ? [`Dual-task cadence DTE ${dualTaskCost.cadenceDTE?.toFixed(1)}% (${dualTaskCost.cmiClassification})`]
+        : taskMode === "single"
+          ? ["Saved as walk-only baseline for dual-task pairing"]
+          : ["No walk-only baseline in session yet"]),
+    ],
   };
 }

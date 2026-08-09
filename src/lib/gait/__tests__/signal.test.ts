@@ -2,9 +2,29 @@ import { describe, it, expect } from "vitest";
 import {
   butterworthLowPass,
   zeroPhaseButterworth,
+  olsDetrend,
 } from "../signal";
 
 describe("Signal Processing Module (signal.ts)", () => {
+  describe("olsDetrend (OLS Linear Detrending)", () => {
+    it("removes a linear trend from a signal leaving zero-mean detrended data", () => {
+      const n = 50;
+      const data: number[] = [];
+      for (let i = 0; i < n; i++) {
+        data.push(2 * i + 5 + Math.sin((i / 10) * Math.PI));
+      }
+      const detrended = olsDetrend(data);
+      expect(detrended.length).toBe(n);
+
+      const detrendedMean = detrended.reduce((a, b) => a + b, 0) / n;
+      expect(Math.abs(detrendedMean)).toBeLessThan(1e-10);
+    });
+
+    it("returns a copy of short arrays (< 2 elements)", () => {
+      expect(olsDetrend([])).toEqual([]);
+      expect(olsDetrend([42])).toEqual([42]);
+    });
+  });
   describe("butterworthLowPass (Causal Stage)", () => {
     it("returns a copy of data when data.length < 5 or fps <= 0", () => {
       const shortData = [1, 2, 3, 4];

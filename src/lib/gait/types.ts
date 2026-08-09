@@ -1,7 +1,15 @@
 import type { GaitEvent } from "./events";
 import type { DTEAnalysis } from "./dte";
+import type { GaitAngleAnalysis } from "./angles";
 
 export type ViewAngle = "sagittal" | "frontal" | "oblique" | "unknown";
+
+export type PatientMetadata = {
+  patientId: string;
+  clinicianNotes: string;
+  assessmentDate: string;
+  assessmentCondition: string;
+};
 
 export type Landmark = {
   x: number;
@@ -149,6 +157,8 @@ export type AnalysisResult = {
   notes: string[];
   taskMode: TaskMode;
   dualTaskCost?: DualTaskCost;
+  angleAnalysis?: GaitAngleAnalysis;
+  patientMeta?: PatientMetadata;
 };
 
 export type AnalysisProgress = {

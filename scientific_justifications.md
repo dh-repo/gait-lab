@@ -169,13 +169,6 @@ $$\hat{\beta}_1 = \frac{N \sum_{i=0}^{N-1} i \cdot y[i] - \left(\sum_{i=0}^{N-1}
 $$\hat{\beta}_0 = \frac{\sum_{i=0}^{N-1} y[i] - \hat{\beta}_1 \sum_{i=0}^{N-1} i}{N}$$
 $$y_{\text{detrended}}[i] = y[i] - (\hat{\beta}_0 + \hat{\beta}_1 \cdot i)$$
 
-#### E. Cooley-Tukey Radix-2 FFT & Hann Windowing
-Signal $y_{\text{detrended}}[n]$ is zero-padded to next power of 2 ($N_{\text{fft}} \ge N$). Hann windowing is applied:
-$$w_{\text{Hann}}[n] = 0.5 \left(1 - \cos\left(\frac{2\pi n}{N - 1}\right)\right)$$
-$$x_w[n] = y_{\text{detrended}}[n] \cdot w_{\text{Hann}}[n]$$
-Complex DFT evaluates $X[k] = \sum_{n=0}^{N_{\text{fft}}-1} x_w[n] e^{-j \frac{2\pi k n}{N_{\text{fft}}}}$. Single-sided magnitude spectrum:
-$$|X[k]| = \frac{2}{N} \sqrt{\text{Re}(X[k])^2 + \text{Im}(X[k])^2}, \quad k = 0, 1, \dots, \frac{N_{\text{fft}}}{2}-1$$
-
 ---
 
 ### 3.2 Kinematic Gait Event Detection & Phase Breakdown (`events.ts`)
@@ -289,7 +282,6 @@ Below is the complete mapping matrix connecting scientific literature, mathemati
 | Winter DA (2009) | Cascaded 4th-Order Butterworth Filter | `src/lib/gait/signal.ts` | `butterworthLowPass` | 73–90 |
 | Winter DA (2009) | Zero-Phase Reflection Padding (`filtfilt`) | `src/lib/gait/signal.ts` | `zeroPhaseButterworth` | 97–141 |
 | Antonsson & Mann (1985) | OLS Linear Detrending ($y_d = y - (\alpha + \beta i)$) | `src/lib/gait/signal.ts` | `linearDetrend` | 147–187 |
-| Cooley & Tukey (1965) | Radix-2 In-Place Fast Fourier Transform | `src/lib/gait/signal.ts` | `fftRadix2` | 192–248 |
 | Zeni JA et al. (2008) | Follow-Cam Foot Vector Direction Inference ($x_{\text{toe}} - x_{\text{heel}}$) | `src/lib/gait/events.ts` | `detectGaitEventsZeni` (Direction) | 224–276 |
 | Zeni JA et al. (2008) | Topographic Peak Prominence Filtering ($P_{\text{min}}$) | `src/lib/gait/events.ts` | `calculateProminence` & `findExtrema` | 42–135 |
 | Zeni JA et al. (2008) | 3-Point Parabolic Subframe Peak Refinement | `src/lib/gait/events.ts` | `refinePeakTimestamp` | 142–170 |
@@ -341,8 +333,8 @@ Full system verification commands were executed across the entire codebase to co
 
 | Test File Name | Test Count | Key Scientific Capabilities Verified |
 |---|---|---|
-| `synthetic_audit_regression_m9.test.ts` | 12 | Synthetic ground-truth regression suite covering R1–R5 remediations (follow-cam L->R & R->L stance %, noise ripple prominence filtering, HR $f_0$ & Hann leakage, stepTimeCV length invariance <0.1%, view geometry suppression `null` emission, split-half 95% CIs). |
-| `signal.test.ts` | 17 | Butterworth $f_c=6\text{ Hz}$ zero phase lag, Nyquist clamping, DC preservation, OLS detrending slope recovery, FFT harmonic decomposition. |
+| `synthetic_audit_regression_m9.test.ts` | 9 | Synthetic ground-truth regression suite covering R1–R5 remediations (follow-cam L->R & R->L direction inference, low-visibility mid-hip fallback, noise ripple prominence filtering, parabolic subframe refinement, stepTimeCV length invariance <0.1%, view geometry suppression `null` emission, split-half 95% CIs). |
+| `signal.test.ts` | 17 | Butterworth $f_c=6\text{ Hz}$ zero phase lag, Nyquist clamping, DC preservation, reflection-padded zero-phase (`filtfilt`) edge handling, OLS detrending slope recovery. |
 | `events.test.ts` | 14 | Zeni AP heel/toe displacement extrema detection, follow-cam orientation direction inference, ANKLE fallback, parabolic subframe peak refinement. |
 | `symmetry.test.ts` | 8 | Zifchock $SA$ reference-free limb invariance ($SA(L,R) = SA(R,L)$), exact mathematical verification ($1:1 \to 0\%$, $2:1 \to 20.48\%$, $10:1 \to 43.65\%$), $GSI$ ratios. |
 | `dte.test.ts` | 8 | Standardized DTE formulas (higher-better vs lower-better), Plummer & Eskes 4-tier CMI taxonomy classification, $\pm 5\%$ boundary checks. |
@@ -394,4 +386,4 @@ Full system verification commands were executed across the entire codebase to co
 ---
 
 ## Conclusion
-The `gait-lab` scientific gait engine delivers a peer-reviewed, mathematically rigorous, and empirically validated quantitative spatio-temporal gait analysis platform. Every algorithm—from digital signal filtering to kinematic event detection, follow-cam direction inference, harmonic smoothness decomposition, temporal decimation elimination, split-half reliability estimation, dual-task effect evaluation, composite domain scoring, and observational hypothesis generation—is directly mapped to established scientific literature and verified across a comprehensive synthetic ground-truth test suite.
+The `gait-lab` scientific gait engine delivers a peer-reviewed, mathematically rigorous, and empirically validated quantitative spatio-temporal gait analysis platform. Every algorithm—from digital signal filtering to kinematic event detection, follow-cam direction inference, temporal decimation elimination, split-half reliability estimation, dual-task effect evaluation, composite domain scoring, and observational hypothesis generation—is directly mapped to established scientific literature and verified across a comprehensive synthetic ground-truth test suite.

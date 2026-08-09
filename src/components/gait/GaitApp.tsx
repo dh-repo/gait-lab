@@ -20,6 +20,10 @@ import {
   Lightbulb,
   BookOpen,
   Activity,
+  Camera,
+  Square,
+  RefreshCw,
+  SwitchCamera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,11 +38,15 @@ import { CognitiveClusters } from "./CognitiveClusters";
 import { ScoreRing } from "./ScoreRing";
 import { SamplePicker } from "./SamplePicker";
 import { SessionHistoryDrawer } from "./SessionHistoryDrawer";
+import { SessionComparisonView } from "./SessionComparisonView";
 import { WorkflowHeader, type WorkflowStage } from "./WorkflowHeader";
 import { computeDualTaskCost, computeGaitMetrics, matchPeople, tracksToPeople } from "@/lib/gait/analysis";
+import { computeGaitAngleAnalysis, calculateKneeFlexion } from "@/lib/gait/angles";
+import { detectGaitEventsZeni } from "@/lib/gait/events";
 import { buildEducatedGuesses } from "@/lib/gait/guesses";
 import { PERSON_COLORS, boundingBox } from "@/lib/gait/landmarks";
-import { saveGaitSession } from "@/lib/gait/persistence";
+import { saveGaitSession, type GaitSessionRecord } from "@/lib/gait/persistence";
+import { PoseTracker, parseWebcamError } from "@/lib/gait/PoseTracker";
 import {
   getPoseLandmarker,
   resamplePoseFrames,
@@ -48,10 +56,12 @@ import {
   waitForVideoMetadata,
   type PoseLandmarkerLike,
 } from "@/lib/gait/pose";
+import { bufferedSpanSec, defaultFacingMode, longestContinuousRun } from "@/lib/gait/liveCapture";
 import type {
   AnalysisResult,
   GaitMetrics,
   Landmark,
+  PatientMetadata,
   PoseFrame,
   TaskMode,
   TrackedPerson,
@@ -68,6 +78,84 @@ type Phase =
   | "error";
 
 type Tab = "clusters" | "report" | "guesses" | "metrics" | "guide";
+
+/**
+ * The webcam station renders exactly one tracked subject. Hoisted to module scope so
+ * SkeletonCanvas receives a stable object identity: an inline literal changes identity
+ * on every render, which tears down and restarts the canvas rAF loop 30x/second.
+ */
+const WEBCAM_PERSON_COLOR = "#5b8def";
+const WEBCAM_PERSON_COLORS: Record<number, string> = { 1: WEBCAM_PERSON_COLOR };
+
+/**
+ * Sampling window the uploaded-video path targets (see runAnalysis). Variability error
+ * scales as 1/sqrt(strides), so this is the length at which stepTimeCV stops being both
+ * noisy and biased low. It is a quality target, not an admission gate: shorter clips are
+ * still analysed whole.
+ */
+const ANALYSIS_WINDOW_SEC = 20;
+
+/**
+ * Shortest recording the live path will analyse. Unlike an uploaded clip — whose length
+ * the user cannot change by the time they reach the app — a live capture can simply be
+ * kept running, so there is no reason to accept less than the window the analysis is
+ * documented to need. Same number, no new constant.
+ */
+const MIN_LIVE_CLIP_SEC = ANALYSIS_WINDOW_SEC;
+
+/** Rolling buffer capacity for the live tracker: 900 frames at the 30 Hz target. */
+const WEBCAM_BUFFER_FRAMES = 900;
+const WEBCAM_TARGET_FPS = 30;
+const WEBCAM_BUFFER_SEC = WEBCAM_BUFFER_FRAMES / WEBCAM_TARGET_FPS;
+
+/**
+ * HUD repaint stride, in detected frames. 3 frames is ~100 ms at the 30 Hz target — the
+ * point is to stop the 30 Hz per-frame full-tree re-render, and a frame stride does that
+ * deterministically regardless of wall-clock jitter.
+ */
+const HUD_FRAME_STRIDE = 3;
+/**
+ * Gait-event stride, in detected frames (~1 s at 30 Hz). Running the Zeni detector over
+ * the whole rolling buffer is O(n) with four Butterworth passes, so it runs an order of
+ * magnitude less often than the HUD — step count and cadence move far slower than that.
+ */
+const EVENT_FRAME_STRIDE = 30;
+
+/**
+ * Live telemetry. Every field is a directly measured quantity: fps and buffered span
+ * come from the tracker, the knee angles from the current frame's landmarks, and
+ * steps/cadence from the same Zeni detector the frozen analysis runs — so the HUD
+ * cannot disagree with the report. steps/cadence are null until the detector has
+ * found enough events to report, rather than showing a fabricated zero.
+ */
+interface LiveMetrics {
+  /** Heel strikes the Zeni detector found in the rolling buffer. */
+  fps: number;
+  stepCount: number;
+  /**
+   * Steps per minute over the buffered span. Null until at least two heel strikes are
+   * available — a rate derived from a single event is not a measurement.
+   */
+  cadence: number | null;
+  kneeAngleLeft: number;
+  kneeAngleRight: number;
+  confidence: number;
+  /** Seconds of pose data currently retained in the rolling buffer. */
+  recordedSec: number;
+}
+
+const EMPTY_LIVE_METRICS: LiveMetrics = {
+  fps: 0,
+  stepCount: 0,
+  cadence: null,
+  kneeAngleLeft: 0,
+  kneeAngleRight: 0,
+  confidence: 0,
+  recordedSec: 0,
+};
+
+/** Seconds of pose data currently held in a tracker's rolling buffer. */
+
 
 export function GaitApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -93,6 +181,52 @@ export function GaitApp() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [activeStage, setActiveStage] = useState<WorkflowStage | null>(null);
+  const [viewMode, setViewMode] = useState<"workflow" | "comparison">("workflow");
+  const [compareSessionA, setCompareSessionA] = useState<GaitSessionRecord | null>(null);
+  const [compareSessionB, setCompareSessionB] = useState<GaitSessionRecord | null>(null);
+
+  // Live WebCam State
+  const [inputMode, setInputMode] = useState<"file" | "webcam">("file");
+  const [webcamState, setWebcamState] = useState<"idle" | "requesting" | "streaming" | "paused" | "error">("idle");
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
+  /**
+   * Which camera to open when no specific device was picked. Phones and tablets
+   * default to the rear camera: gait capture films someone else walking, so the
+   * front camera is the wrong one. Desktops have only a user-facing camera.
+   * `matchMedia` is guarded for SSR and for jsdom, which does not implement it.
+   */
+  const [facingMode, setFacingMode] = useState<"user" | "environment">(defaultFacingMode);
+  const [webcamError, setWebcamError] = useState<string | null>(null);
+  const [webcamFallbackNotice, setWebcamFallbackNotice] = useState<string | null>(null);
+  const [liveMetrics, setLiveMetrics] = useState<LiveMetrics>(EMPTY_LIVE_METRICS);
+
+  const poseTrackerRef = useRef<PoseTracker | null>(null);
+  /** Detected-frame counter driving the HUD and gait-event strides. */
+  const liveFrameCounterRef = useRef<number>(0);
+  /**
+   * Monotonic token for the webcam start/stop lifecycle. startWebcam awaits permission,
+   * model load and play(); a Stop or a second Start during any of those awaits must
+   * invalidate the in-flight attempt so its setStates cannot land on a dead tracker.
+   */
+  const webcamSessionRef = useRef(0);
+  /** id of the session row currently loaded / last saved, so re-saving updates it. */
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
+  const [patientMeta, setPatientMeta] = useState<PatientMetadata>({
+    patientId: "PT-" + Math.floor(10000 + Math.random() * 90000),
+    assessmentDate: new Date().toISOString().slice(0, 10),
+    assessmentCondition: "Single-Task Walk",
+    clinicianNotes: "",
+  });
+
+  const handleUpdateMeta = useCallback((updated: Partial<PatientMetadata>) => {
+    setPatientMeta((prev) => {
+      const next = { ...prev, ...updated };
+      setResult((prevRes) => (prevRes ? { ...prevRes, patientMeta: next } : null));
+      return next;
+    });
+  }, []);
 
   const [overlaySkeleton, setOverlaySkeleton] = useState(true);
   const [overlayJointArcs, setOverlayJointArcs] = useState(true);
@@ -100,6 +234,26 @@ export function GaitApp() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const enumerateDevices = useCallback(async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = allDevices.filter((d) => d.kind === "videoinput");
+      setDevices(videoInputs);
+      if (videoInputs.length > 0 && !selectedDeviceId) {
+        setSelectedDeviceId(videoInputs[0].deviceId);
+      }
+    } catch (err) {
+      console.warn("Camera device enumeration failed:", err);
+    }
+  }, [selectedDeviceId]);
+
+  useEffect(() => {
+    if (inputMode === "webcam") {
+      void enumerateDevices();
+    }
+  }, [inputMode, enumerateDevices]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -227,7 +381,30 @@ export function GaitApp() {
     };
   }, []);
 
+  const stopWebcam = useCallback(() => {
+    // Invalidate any start attempt still sitting in an await, so it cannot flip the
+    // UI back to "streaming" (or raise an error banner) over a torn-down tracker.
+    webcamSessionRef.current++;
+    if (poseTrackerRef.current) {
+      poseTrackerRef.current.stopWebcam();
+    }
+    setWebcamState("idle");
+    // Leave nothing stale behind: the last skeleton and the last telemetry values are
+    // no longer being produced by anything.
+    setScanPoses([]);
+    setLiveMetrics(EMPTY_LIVE_METRICS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (poseTrackerRef.current) {
+        poseTrackerRef.current.stopWebcam();
+      }
+    };
+  }, []);
+
   const resetAll = useCallback(() => {
+    stopWebcam();
     abortRef.current++;
     setActiveStage(null);
     setPhase("idle");
@@ -238,13 +415,17 @@ export function GaitApp() {
     setSelectedPersonId(null);
     setScanPoses([]);
     setResult(null);
+    setCurrentSessionId(null);
+    setWebcamError(null);
+    setWebcamFallbackNotice(null);
     setTab("report");
     setTaskMode("single");
+    setViewMode("workflow");
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setVideoUrl(null);
     setFileName(null);
     if (fileRef.current) fileRef.current.value = "";
-  }, [videoUrl]);
+  }, [videoUrl, stopWebcam]);
 
   const ensureModel = useCallback(async () => {
     if (landmarkerRef.current) return landmarkerRef.current;
@@ -255,6 +436,254 @@ export function GaitApp() {
     landmarkerRef.current = lm;
     return lm;
   }, []);
+
+  const startWebcam = useCallback(
+    async (deviceId?: string) => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      // Claim this attempt. A Stop, or a second Start, bumps the counter and this
+      // token stops matching — every post-await setState below is gated on it.
+      const sessionToken = ++webcamSessionRef.current;
+
+      setWebcamError(null);
+      setWebcamFallbackNotice(null);
+      setWebcamState("requesting");
+
+      if (!poseTrackerRef.current) {
+        poseTrackerRef.current = new PoseTracker(WEBCAM_TARGET_FPS, WEBCAM_BUFFER_FRAMES);
+      }
+      const tracker = poseTrackerRef.current;
+
+      // A new capture is a new recording: never let the previous session's frames leak
+      // into it, or "Freeze" would analyse two walks stitched together.
+      tracker.clearBuffer();
+      liveFrameCounterRef.current = 0;
+      setLiveMetrics(EMPTY_LIVE_METRICS);
+      setScanPoses([]);
+
+      try {
+        // Deliberately NOT ensureModel(): that setter drives `phase`, which is the
+        // file-analysis workflow's state machine. Moving it to "loading_model" jumps the
+        // UI to Stage 2 and unmounts the capture station the user is standing in front
+        // of. The live path owns webcamState and leaves phase alone.
+        if (!landmarkerRef.current) {
+          landmarkerRef.current = await getPoseLandmarker();
+        }
+        if (webcamSessionRef.current !== sessionToken) return;
+        tracker.setLandmarker(landmarkerRef.current);
+
+        tracker.setCallback((poseFrame, _raw, fps) => {
+          if (!poseFrame || !poseFrame.landmarks) return;
+
+          const frameIndex = liveFrameCounterRef.current++;
+          if (frameIndex % HUD_FRAME_STRIDE !== 0) return;
+
+          // Throttled to the HUD tick: at 30 Hz these two setStates re-render the whole
+          // tree (and the canvas) faster than the detector can keep up with the camera.
+          setScanPoses([{ id: 1, landmarks: poseFrame.landmarks }]);
+          setSelectedPersonId(1);
+
+          const frames = tracker.getRollingFrames();
+          setPeople([
+            {
+              id: 1,
+              color: WEBCAM_PERSON_COLOR,
+              sampleBox: { x: 0.2, y: 0.1, w: 0.6, h: 0.8 },
+              sampleFrameIndex: 0,
+              frameCount: frames.length,
+            },
+          ]);
+
+          const lm = poseFrame.landmarks;
+          const kLeft = calculateKneeFlexion(lm[23], lm[25], lm[27]);
+          const kRight = calculateKneeFlexion(lm[24], lm[26], lm[28]);
+
+          const lowerBodyIndices = [23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
+          const validCount = lowerBodyIndices.filter(
+            (idx) => lm[idx] && (lm[idx].visibility ?? 1) >= 0.5,
+          ).length;
+          const confidence = validCount / lowerBodyIndices.length;
+
+          const recordedSec = bufferedSpanSec(frames);
+
+          // Steps and cadence come from the engine's Zeni detector over the rolling
+          // buffer — the same detector computeGaitMetrics runs — so the live readout
+          // and the frozen report cannot disagree. It is O(n) with four Butterworth
+          // passes, so it runs on its own slower tick and the previous value is carried
+          // forward in between.
+          const runEvents = frameIndex % EVENT_FRAME_STRIDE === 0;
+
+          setLiveMetrics((prev) => {
+            let stepCount = prev.stepCount;
+            let cadence = prev.cadence;
+
+            if (runEvents) {
+              const effFps = tracker.getEffectiveFps() || WEBCAM_TARGET_FPS;
+              const heelStrikes = detectGaitEventsZeni(frames, effFps).stepEvents.filter(
+                (e) => e.type === "heel_strike",
+              );
+              stepCount = heelStrikes.length;
+              // Same definition as computeGaitMetrics: heel strikes over the analysed
+              // span. Below two events there is no rate to report.
+              cadence =
+                heelStrikes.length >= 2 && recordedSec > 0
+                  ? (heelStrikes.length / recordedSec) * 60
+                  : null;
+            }
+
+            return {
+              fps,
+              stepCount,
+              cadence,
+              kneeAngleLeft: kLeft,
+              kneeAngleRight: kRight,
+              confidence,
+              recordedSec,
+            };
+          });
+        });
+
+        const requestedDeviceId = deviceId || selectedDeviceId || undefined;
+        const stream = await tracker.startWebcam(video, {
+          deviceId: requestedDeviceId,
+          // Only meaningful when no explicit device was chosen. On a phone the
+          // subject is filmed by the person holding it, so the rear camera is the
+          // right default — PoseTracker's "user" default opens the selfie camera,
+          // which cannot see someone walking.
+          facingMode: requestedDeviceId ? undefined : facingMode,
+          targetFps: WEBCAM_TARGET_FPS,
+        });
+
+        // A Stop (or a newer Start) landed while we were awaiting: that tracker is
+        // already torn down, so claiming "streaming" here would be a lie.
+        if (webcamSessionRef.current !== sessionToken) return;
+
+        setWebcamState("streaming");
+
+        // The tracker retries with plain {video:true} when an exact deviceId is
+        // overconstrained, which can hand back a different camera than the one shown
+        // selected. Compare what we asked for against what we got.
+        const videoTrack = stream?.getVideoTracks?.()?.[0];
+        const actualDeviceId = videoTrack?.getSettings?.()?.deviceId;
+        if (requestedDeviceId && actualDeviceId && actualDeviceId !== requestedDeviceId) {
+          const actualLabel =
+            videoTrack?.label ||
+            devices.find((d) => d.deviceId === actualDeviceId)?.label ||
+            "a different camera";
+          setWebcamFallbackNotice(
+            `The selected camera could not be opened with the requested settings. Recording from ${actualLabel} instead — the camera shown in the dropdown is not the one in use.`,
+          );
+        }
+
+        void enumerateDevices();
+      } catch (err) {
+        const parsed = parseWebcamError(err);
+        // A user-initiated abort (Stop, or a second Start superseding this one) is not
+        // a camera failure and must not raise the permission-style banner.
+        if ((parsed.code as string) === "ABORTED") {
+          // Superseded attempts leave the UI to whoever superseded them; an abort that
+          // is still the current attempt just returns the station to idle.
+          if (webcamSessionRef.current === sessionToken) setWebcamState("idle");
+          return;
+        }
+        if (webcamSessionRef.current !== sessionToken) return;
+        console.error("Failed to start webcam:", err);
+        setWebcamState("error");
+        setWebcamError(parsed.message);
+      }
+    },
+    // facingMode belongs here: without it startWebcam closes over the value at
+    // mount, so flipping front/rear would restart the camera with the old facing.
+    [selectedDeviceId, enumerateDevices, devices, facingMode],
+  );
+
+  const freezeAndAnalyzeSession = useCallback(async () => {
+    const tracker = poseTrackerRef.current;
+    const bufferedFrames = tracker ? tracker.getRollingFrames() : [];
+    // Analyse the longest CONTINUOUS run, not the whole buffer: a gap the subject
+    // spent out of frame would otherwise be filled in by the resampler.
+    const recordedFrames = longestContinuousRun(bufferedFrames);
+    const recordedSpanSec = bufferedSpanSec(recordedFrames);
+
+    // Refuse rather than report. A raw frame count says nothing about how much walking
+    // was captured — 5 frames can be 0.2 s — so the gate is on the span the buffered
+    // frames actually cover.
+    if (recordedSpanSec < MIN_LIVE_CLIP_SEC) {
+      // Report through the LIVE error channel, not setPhase("error"): phase drives
+      // computedStage, so failing here used to unmount the capture station while the
+      // camera, the rAF loop and the HUD updates all kept running with no visible
+      // Stop control. The message tells the user to keep walking and freeze again —
+      // that is only possible if the station stays mounted and streaming.
+      setWebcamError(
+        `Only ${recordedSpanSec.toFixed(1)} seconds of continuous pose data was captured. ` +
+          `Gait metrics need at least ${MIN_LIVE_CLIP_SEC} seconds of walking in view — that is ` +
+          `the analysis window this app uses, and below it step- and stride-time ` +
+          `variability rest on too few strides to mean anything. Keep the camera ` +
+          `running, stay fully in frame, then freeze again.`,
+      );
+      return;
+    }
+
+    stopWebcam();
+
+    try {
+      setPhase("analyzing");
+      setMessage("Resampling webcam session frames onto uniform 30 Hz grid...");
+      setProgress(30);
+
+      const uniformFrames = resamplePoseFrames(recordedFrames, 30.0);
+      setMessage("Computing kinematic metrics and symmetry analysis...");
+      setProgress(70);
+
+      const metrics = computeGaitMetrics(uniformFrames);
+      let dualTaskCost = undefined as AnalysisResult["dualTaskCost"];
+      if (taskMode === "dual" && baselineSingle) {
+        dualTaskCost = computeDualTaskCost(baselineSingle, metrics);
+      }
+
+      const guesses = buildEducatedGuesses(metrics, { taskMode, dualTaskCost });
+      if (taskMode === "single") {
+        setBaselineSingle(metrics);
+      }
+
+      const angleAnalysis = computeGaitAngleAnalysis(
+        uniformFrames,
+        metrics.stepEvents || [],
+        metrics.viewAngle || "unknown",
+      );
+
+      const analysis: AnalysisResult = {
+        metrics,
+        guesses,
+        personId: 1,
+        analyzedFrames: uniformFrames.length,
+        taskMode,
+        dualTaskCost,
+        angleAnalysis,
+        patientMeta,
+        notes: [
+          `Live WebCam Real-Time Gait Session (${recordedFrames.length} raw frames resampled to ${uniformFrames.length} uniform 30Hz frames)`,
+          `Analysed the most recent ${recordedSpanSec.toFixed(1)}s retained in the rolling buffer (capacity ~${WEBCAM_BUFFER_SEC.toFixed(0)}s); anything recorded before that was discarded`,
+          `Effective session duration: ${metrics.durationSec.toFixed(1)}s`,
+          `View angle estimate: ${metrics.viewAngle}`,
+          `Task mode: ${taskMode === "dual" ? "walk + cognitive" : "walk only"}`,
+        ],
+      };
+
+      setResult(analysis);
+      setCurrentSessionId(null); // fresh analysis: saving it creates a new row
+      setProgress(100);
+      setPhase("results");
+      setMessage("Webcam gait analysis complete");
+      setTab("clusters");
+      setActiveStage(3);
+    } catch (err) {
+      console.error("Webcam analysis error:", err);
+      setError(err instanceof Error ? err.message : "Live webcam analysis failed");
+      setPhase("error");
+    }
+  }, [stopWebcam, taskMode, baselineSingle, patientMeta]);
 
   const processFile = useCallback(
     async (file: File) => {
@@ -416,7 +845,7 @@ export function GaitApp() {
       // window (~9 strides) carries ~24% relative error on stepTimeCV plus a ~17% low
       // bias. 20s (~18 strides) roughly halves both. Beyond 20s returns diminish (4x the
       // strides to halve the error again) while seek cost grows linearly.
-      const WINDOW_TARGET_SEC = 20;
+      const WINDOW_TARGET_SEC = ANALYSIS_WINDOW_SEC;
       const windowDuration = duration > WINDOW_TARGET_SEC ? WINDOW_TARGET_SEC : duration;
       const windowStart = duration > WINDOW_TARGET_SEC ? (duration - windowDuration) / 2 : 0;
       const sampleCount = Math.max(15, Math.floor(windowDuration * targetFps));
@@ -505,6 +934,11 @@ export function GaitApp() {
       if (taskMode === "single") {
         setBaselineSingle(metrics);
       }
+      const angleAnalysis = computeGaitAngleAnalysis(
+        frames,
+        metrics.stepEvents || [],
+        metrics.viewAngle || "unknown",
+      );
       const analysis: AnalysisResult = {
         metrics,
         guesses,
@@ -512,6 +946,8 @@ export function GaitApp() {
         analyzedFrames: frames.length,
         taskMode,
         dualTaskCost,
+        angleAnalysis,
+        patientMeta,
         notes: [
           `Analyzed ${frames.length} uniform 30Hz frames over ${metrics.durationSec.toFixed(1)}s`,
           `Effective sample rate ~${(((metrics as Record<string, unknown>).samplingFps as number) ?? metrics.fpsEffective).toFixed(1)} fps`,
@@ -525,6 +961,7 @@ export function GaitApp() {
         ],
       };
       setResult(analysis);
+      setCurrentSessionId(null); // fresh analysis: saving it creates a new row
       setProgress(100);
       setPhase("results");
       setMessage("Analysis complete");
@@ -534,19 +971,24 @@ export function GaitApp() {
       setError(e instanceof Error ? e.message : "Analysis failed");
       setPhase("error");
     }
-  }, [selectedPersonId, people, taskMode, baselineSingle]);
+  }, [selectedPersonId, people, taskMode, baselineSingle, patientMeta]);
 
   const handleSaveSession = useCallback(async () => {
     if (!result) return;
     setIsSaving(true);
     try {
       const sessionName = fileName ? fileName.replace(/\.[^/.]+$/, "") : "Gait Session";
-      await saveGaitSession({
+      // Pass the id of the row this result already lives in, so the server's
+      // ON CONFLICT (id) DO UPDATE branch is taken. Without it every save mints a new
+      // id and re-saving after a metadata edit duplicates the session.
+      const saved = await saveGaitSession({
         data: {
+          ...(currentSessionId ? { id: currentSessionId } : {}),
           sessionName,
           result,
         },
       });
+      if (saved?.id) setCurrentSessionId(saved.id);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e) {
@@ -554,10 +996,11 @@ export function GaitApp() {
     } finally {
       setIsSaving(false);
     }
-  }, [result, fileName]);
+  }, [result, fileName, currentSessionId]);
 
   const handleSelectStage = useCallback(
     (stage: WorkflowStage) => {
+      setViewMode("workflow");
       setActiveStage(stage);
       if (stage === 3 && result) {
         if (tab === "report") setTab("clusters");
@@ -589,6 +1032,7 @@ export function GaitApp() {
         hasResults={Boolean(result)}
         onReset={resetAll}
         onOpenHistory={() => setIsHistoryOpen(true)}
+        onOpenCompare={() => setViewMode("comparison")}
         fileName={fileName}
       />
 
@@ -602,7 +1046,21 @@ export function GaitApp() {
           preload="auto"
         />
 
-        {/* STAGE 1 VIEW: Input & Sample Selection */}
+        {viewMode === "comparison" ? (
+          <SessionComparisonView
+            initialSessionA={compareSessionA}
+            initialSessionB={compareSessionB}
+            onBack={() => setViewMode("workflow")}
+            onClose={() => setViewMode("workflow")}
+            onOpenHistory={() => setIsHistoryOpen(true)}
+            onNewSession={() => {
+              setViewMode("workflow");
+              resetAll();
+            }}
+          />
+        ) : (
+          <>
+            {/* STAGE 1 VIEW: Input & Sample Selection */}
         {computedStage === 1 && (
           <section role="region" aria-label="Stage 1: Input and Sample Selection" className="space-y-6">
             <div className="space-y-2">
@@ -658,72 +1116,373 @@ export function GaitApp() {
               </CardContent>
             </Card>
 
-            {/* Video Dropzone */}
-            <Card
-              className={cn(
-                "border-dashed transition-colors",
-                dragOver && "border-[var(--color-primary)] bg-[color-mix(in_oklab,var(--color-primary)_8%,var(--color-surface))]",
-              )}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
-            >
-              <CardContent className="flex flex-col items-center gap-5 px-6 py-10 text-center">
-                <div className="flex size-14 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--color-surface-2)] border border-[var(--color-border)]">
-                  <Upload className="size-6 text-[var(--color-primary)]" />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-lg font-semibold">Drop walking video file here</h2>
-                  <p className="mx-auto max-w-md text-sm text-[var(--color-muted)]">
-                    MP4, WebM, or MOV formats supported. 5–15 seconds of continuous walking produces optimal spatio-temporal reliability.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <Button
-                    size="lg"
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    <Film className="size-4" />
-                    Browse Video File
-                  </Button>
-                </div>
-                <ul className="mt-2 grid w-full max-w-lg gap-2 text-left text-xs text-[var(--color-subtle)] sm:grid-cols-3">
-                  <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                    <Users className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
-                    Multi-person tracking & candidate selection
-                  </li>
-                  <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                    <UserRound className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
-                    Sagittal & Frontal camera angle adaptation
-                  </li>
-                  <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                    <Sparkles className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
-                    Zeni kinematic event detection & ratings
-                  </li>
-                </ul>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="video/*"
-                  aria-label="Upload walking video file"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void processFile(f);
-                  }}
-                />
-              </CardContent>
-            </Card>
+            {/* Input Mode Toggle (File Upload vs Live WebCam) */}
+            <div className="flex rounded-[var(--radius-lg)] border border-[var(--color-border)] p-1 bg-[var(--color-surface-2)] max-w-md">
+              <button
+                type="button"
+                onClick={() => {
+                  if (webcamState === "streaming") stopWebcam();
+                  setInputMode("file");
+                }}
+                className={cn(
+                  "flex-1 flex items-center justify-center rounded-[var(--radius-md)] px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                  inputMode === "file"
+                    ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)] shadow-xs"
+                    : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                )}
+              >
+                <Film className="size-4 mr-2 inline" />
+                Video File Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode("webcam")}
+                className={cn(
+                  "flex-1 flex items-center justify-center rounded-[var(--radius-md)] px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                  inputMode === "webcam"
+                    ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)] shadow-xs"
+                    : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                )}
+              >
+                <Camera className="size-4 mr-2 inline" />
+                Live WebCam Mode
+              </button>
+            </div>
 
-            {/* Pre-Validated Benchmark Sample Picker */}
-            <SamplePicker
-              onSelectSample={processFile}
-              onCustomUploadClick={() => fileRef.current?.click()}
-              isLoading={false}
-            />
+            {inputMode === "file" ? (
+              <>
+                {/* Video Dropzone */}
+                <Card
+                  className={cn(
+                    "border-dashed transition-colors",
+                    dragOver &&
+                      "border-[var(--color-primary)] bg-[color-mix(in_oklab,var(--color-primary)_8%,var(--color-surface))]",
+                  )}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={onDrop}
+                >
+                  <CardContent className="flex flex-col items-center gap-5 px-6 py-10 text-center">
+                    <div className="flex size-14 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--color-surface-2)] border border-[var(--color-border)]">
+                      <Upload className="size-6 text-[var(--color-primary)]" />
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-lg font-semibold">Drop walking video file here</h2>
+                      <p className="mx-auto max-w-md text-sm text-[var(--color-muted)]">
+                        MP4, WebM, or MOV formats supported. 5–15 seconds of continuous walking produces optimal spatio-temporal reliability.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      <Button size="lg" onClick={() => fileRef.current?.click()}>
+                        <Film className="size-4" />
+                        Browse Video File
+                      </Button>
+                    </div>
+                    <ul className="mt-2 grid w-full max-w-lg gap-2 text-left text-xs text-[var(--color-subtle)] sm:grid-cols-3">
+                      <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
+                        <Users className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
+                        Multi-person tracking & candidate selection
+                      </li>
+                      <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
+                        <UserRound className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
+                        Sagittal & Frontal camera angle adaptation
+                      </li>
+                      <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
+                        <Sparkles className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
+                        Zeni kinematic event detection & ratings
+                      </li>
+                    </ul>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="video/*"
+                      aria-label="Upload walking video file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void processFile(f);
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Pre-Validated Benchmark Sample Picker */}
+                <SamplePicker
+                  onSelectSample={processFile}
+                  onCustomUploadClick={() => fileRef.current?.click()}
+                  isLoading={false}
+                />
+              </>
+            ) : (
+              /* Live WebCam Mode Station */
+              <Card className="border-[var(--color-border)] bg-[var(--color-surface)]">
+                <CardHeader>
+                  <CardTitle className="text-base flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Camera className="size-4 text-[var(--color-primary)]" />
+                      Live WebCam Capture Station
+                    </span>
+                    <Badge tone={webcamState === "streaming" ? "success" : "neutral"}>
+                      {webcamState === "streaming"
+                        ? "STREAMING LIVE"
+                        : webcamState === "requesting"
+                          ? "INITIALIZING CAMERA..."
+                          : "CAMERA READY"}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    Stream live video from your camera to record real-time gait kinematics and pose
+                    landmarks. Pose runs entirely in this browser — no video or landmark data leaves
+                    your device.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Camera Selection & Controls */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--color-surface-2)] p-3 rounded-[var(--radius-md)] border border-[var(--color-border)]">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label htmlFor="webcam-device-select" className="text-xs font-medium text-[var(--color-muted)]">
+                        Camera Input:
+                      </label>
+                      <select
+                        id="webcam-device-select"
+                        aria-label="Select camera input device"
+                        value={selectedDeviceId}
+                        onChange={(e) => {
+                          setSelectedDeviceId(e.target.value);
+                          if (webcamState === "streaming") {
+                            stopWebcam();
+                            void startWebcam(e.target.value);
+                          }
+                        }}
+                        disabled={webcamState === "requesting"}
+                        className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                      >
+                        {devices.length > 0 ? (
+                          devices.map((d, i) => (
+                            <option key={d.deviceId || i} value={d.deviceId}>
+                              {d.label || `Camera Device ${i + 1}`}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">Default WebCam</option>
+                        )}
+                      </select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void enumerateDevices()}
+                        title="Refresh camera devices"
+                      >
+                        <RefreshCw className="size-3.5" />
+                      </Button>
+                      {/* Front/rear flip. Only useful where more than one camera
+                          exists, i.e. phones and tablets — hidden on fine-pointer
+                          devices to keep the desktop control strip uncluttered. */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="min-h-11 min-w-11 sm:min-h-0 sm:min-w-0"
+                        aria-label={
+                          facingMode === "environment"
+                            ? "Switch to front camera"
+                            : "Switch to rear camera"
+                        }
+                        title={
+                          facingMode === "environment"
+                            ? "Using rear camera — tap to switch to front"
+                            : "Using front camera — tap to switch to rear"
+                        }
+                        onClick={() => {
+                          const next = facingMode === "environment" ? "user" : "environment";
+                          setFacingMode(next);
+                          // Flipping means "ignore the explicit device pick", otherwise
+                          // deviceId keeps winning and the button does nothing.
+                          setSelectedDeviceId("");
+                          if (webcamState === "streaming") {
+                            stopWebcam();
+                            void startWebcam();
+                          }
+                        }}
+                      >
+                        <SwitchCamera className="size-3.5" />
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {webcamState === "requesting" ? (
+                        /* The start handler awaits permission, model load and play().
+                           Give the user a way out of that wait — cancelling invalidates
+                           the in-flight attempt instead of leaving a dead "requesting". */
+                        <>
+                          <span className="flex items-center text-xs text-[var(--color-muted)]">
+                            <Loader2 className="size-4 mr-1.5 animate-spin" />
+                            Requesting camera…
+                          </span>
+                          <Button variant="secondary" onClick={stopWebcam}>
+                            <Square className="size-4 mr-1.5 text-red-400" /> Stop WebCam
+                          </Button>
+                        </>
+                      ) : webcamState !== "streaming" ? (
+                        <Button onClick={() => void startWebcam(selectedDeviceId)}>
+                          <Camera className="size-4 mr-1.5" />
+                          Start WebCam
+                        </Button>
+                      ) : (
+                        <>
+                          <Button variant="secondary" onClick={stopWebcam}>
+                            <Square className="size-4 mr-1.5 text-red-400" /> Stop WebCam
+                          </Button>
+                          <Button onClick={() => void freezeAndAnalyzeSession()}>
+                            <Sparkles className="size-4 mr-1.5 text-amber-300" /> Freeze & Analyze Session
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Recording length & rolling-buffer retention disclosure */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[var(--color-muted)]">Recorded:</span>
+                      <span className="tabular font-mono font-semibold text-[var(--color-fg)]">
+                        {liveMetrics.recordedSec.toFixed(1)}s
+                      </span>
+                      <span
+                        className={cn(
+                          "font-medium",
+                          liveMetrics.recordedSec >= MIN_LIVE_CLIP_SEC
+                            ? "text-[var(--color-success)]"
+                            : "text-[var(--color-muted)]",
+                        )}
+                      >
+                        {liveMetrics.recordedSec >= MIN_LIVE_CLIP_SEC
+                          ? `${MIN_LIVE_CLIP_SEC}s minimum met`
+                          : `needs ${MIN_LIVE_CLIP_SEC}s before analysis is possible`}
+                      </span>
+                    </div>
+                    <p className="text-[var(--color-subtle)]">
+                      Only the most recent ~{WEBCAM_BUFFER_SEC.toFixed(0)}s of pose data is retained
+                      ({WEBCAM_BUFFER_FRAMES} frames at {WEBCAM_TARGET_FPS} Hz). Anything recorded
+                      before that is discarded and is not analysed.
+                    </p>
+                  </div>
+
+                  {/* Camera fallback notice (non-blocking) */}
+                  {webcamFallbackNotice && (
+                    <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex flex-wrap items-center justify-between gap-2">
+                      <p>{webcamFallbackNotice}</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setWebcamFallbackNotice(null)}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Dual-task protocol without a walk-only baseline in this session */}
+                  {taskMode === "dual" && !baselineSingle && (
+                    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-muted)]">
+                      <span className="font-semibold text-[var(--color-fg)]">
+                        No single-task baseline recorded
+                      </span>{" "}
+                      — dual-task cost will be unavailable for this run. Baselines live only in the
+                      current page session: run a Single-Task (Walk Only) assessment first, without
+                      reloading, to get a dual-task effect.
+                    </div>
+                  )}
+
+                  {/* Camera Error Fallback Banner */}
+                  {webcamError && (
+                    <div className="rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-400 space-y-2">
+                      <p className="font-semibold">{webcamError}</p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setWebcamError(null);
+                            setInputMode("file");
+                          }}
+                        >
+                          Switch to Video File Upload
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void startWebcam(selectedDeviceId)}
+                        >
+                          Retry Camera Access
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Skeleton Overlay & Video Canvas Box */}
+                  <div className="relative aspect-video bg-black rounded-lg overflow-hidden border border-[var(--color-border)]">
+                    <SkeletonCanvas
+                      video={videoRef.current}
+                      poses={scanPoses}
+                      selectedId={1}
+                      personColors={WEBCAM_PERSON_COLORS}
+                      showSkeleton={overlaySkeleton}
+                      showJointArcs={overlayJointArcs}
+                      showSwayVector={overlaySwayVector}
+                    />
+
+                    {/* Floating Telemetry HUD Overlay */}
+                    {webcamState === "streaming" && (
+                      <div className="absolute top-3 right-3 flex flex-col gap-1.5 bg-black/75 backdrop-blur-md p-3 rounded-lg border border-white/10 text-white text-xs font-mono shadow-xl pointer-events-none min-w-[170px]">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-1.5 mb-0.5">
+                          <span className="text-gray-400 text-[10px] uppercase tracking-wider font-sans font-bold">LIVE TELEMETRY</span>
+                          <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-400">FPS:</span>
+                          <span className={liveMetrics.fps >= 25 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                            {liveMetrics.fps.toFixed(1)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-400">Recorded:</span>
+                          <span className="text-cyan-300 font-bold">
+                            {liveMetrics.recordedSec.toFixed(1)}s
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-400">Steps:</span>
+                          <span className="text-cyan-300 font-bold">{liveMetrics.stepCount}</span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-400">Cadence:</span>
+                          <span className="text-cyan-300">
+                            {liveMetrics.cadence != null
+                              ? `${liveMetrics.cadence.toFixed(0)} spm`
+                              : "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-400">L / R Knee:</span>
+                          <span className="text-indigo-300">
+                            {liveMetrics.kneeAngleLeft.toFixed(0)}° / {liveMetrics.kneeAngleRight.toFixed(0)}°
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-4 border-t border-white/10 pt-1 mt-0.5">
+                          <span className="text-gray-400">Confidence:</span>
+                          <span className={liveMetrics.confidence >= 0.7 ? "text-emerald-400" : "text-amber-400"}>
+                            {(liveMetrics.confidence * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </section>
         )}
 
@@ -920,7 +1679,10 @@ export function GaitApp() {
                       <ul className="list-disc pl-4 space-y-1">
                         <li>Ensure full-body visibility from ankles to shoulders.</li>
                         <li>Maintain consistent camera perspective during clip.</li>
-                        <li>Continuous 10–12s window sampling ensures maximum split-half reliability.</li>
+                        <li>
+                          A continuous {ANALYSIS_WINDOW_SEC}s window is sampled; shorter clips are
+                          analysed whole but yield noisier, low-biased variability estimates.
+                        </li>
                       </ul>
                     </div>
                   </CardContent>
@@ -1157,16 +1919,52 @@ export function GaitApp() {
                       <Badge tone={result.metrics.stabilityScore >= 70 ? "success" : result.metrics.stabilityScore >= 50 ? "warn" : "danger"}>
                         Stability: {Math.round(result.metrics.stabilityScore)}/100
                       </Badge>
-                      <Badge tone={result.dualTaskCost ? (Math.abs(result.dualTaskCost.cadenceCostPct) < 5 ? "success" : "warn") : "neutral"}>
-                        Dual-Task: {result.dualTaskCost ? `${result.dualTaskCost.cadenceDTE != null ? result.dualTaskCost.cadenceDTE.toFixed(1) : result.dualTaskCost.cadenceCostPct.toFixed(1)}%` : "Baseline"}
+                      <Badge
+                        tone={
+                          result.dualTaskCost
+                            ? Math.abs(result.dualTaskCost.cadenceCostPct) < 5
+                              ? "success"
+                              : "warn"
+                            : "neutral"
+                        }
+                      >
+                        Dual-Task:{" "}
+                        {result.dualTaskCost
+                          ? `${result.dualTaskCost.cadenceDTE != null ? result.dualTaskCost.cadenceDTE.toFixed(1) : result.dualTaskCost.cadenceCostPct.toFixed(1)}%`
+                          : result.taskMode === "dual"
+                            ? "unavailable"
+                            : "Baseline"}
                       </Badge>
                     </div>
                   </CardContent>
                 </Card>
 
+                {/* A dual-task run with no paired single-task baseline yields no DTE.
+                    Say so explicitly instead of leaving the reader with a bare badge. */}
+                {result.taskMode === "dual" && !result.dualTaskCost && (
+                  <Card className="border-[color-mix(in_oklab,var(--color-warn,var(--color-danger))_35%,var(--color-border))]">
+                    <CardContent className="p-4 text-xs leading-relaxed text-[var(--color-muted)]">
+                      <p className="text-sm font-semibold text-[var(--color-fg)]">
+                        No single-task baseline recorded — dual-task cost unavailable
+                      </p>
+                      <p className="mt-1">
+                        Dual-task effect is a comparison, so it cannot be computed from this run
+                        alone. The metrics below describe the walk under cognitive load only; they
+                        are not a measure of interference. Baselines are held in the current page
+                        session only, so a reload clears them. Run a Single-Task (Walk Only)
+                        assessment and then repeat the dual-task walk without reloading.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Tab Content Output */}
                 {tab === "clusters" ? (
-                  <CognitiveClusters metrics={result.metrics} dualTaskCost={result.dualTaskCost} />
+                  <CognitiveClusters
+                    metrics={result.metrics}
+                    dualTaskCost={result.dualTaskCost}
+                    angleAnalysis={result.angleAnalysis}
+                  />
                 ) : tab === "guesses" ? (
                   <GuessesPanel guesses={result.guesses} dualTaskCost={result.dualTaskCost} />
                 ) : tab === "metrics" ? (
@@ -1200,8 +1998,14 @@ export function GaitApp() {
             </div>
 
             {/* Report Panel (Includes Patient Metadata, Radar Chart, Perry & Burnfield Curves, PDF Export) */}
-            <ReportPanel result={result} />
+            <ReportPanel
+              result={result}
+              patientMeta={patientMeta}
+              onUpdateMeta={handleUpdateMeta}
+            />
           </section>
+        )}
+          </>
         )}
       </main>
 
@@ -1212,12 +2016,25 @@ export function GaitApp() {
       <SessionHistoryDrawer
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        onLoadSession={(loadedResult, name) => {
+        onLoadSession={(loadedResult, name, sessionId?: string) => {
           setResult(loadedResult);
+          // Re-saving a loaded session must update its row, not clone it. The drawer
+          // does not pass the row id yet; until it does this falls back to null and a
+          // re-save creates a new row (the pre-existing behaviour).
+          setCurrentSessionId(sessionId ?? null);
+          if (loadedResult.patientMeta) {
+            setPatientMeta(loadedResult.patientMeta);
+          }
           setPhase("results");
           setTab("report");
           setActiveStage(4);
           if (name) setFileName(name);
+          setViewMode("workflow");
+        }}
+        onCompareSessions={(sessionA, sessionB) => {
+          setCompareSessionA(sessionA);
+          setCompareSessionB(sessionB);
+          setViewMode("comparison");
         }}
       />
     </div>

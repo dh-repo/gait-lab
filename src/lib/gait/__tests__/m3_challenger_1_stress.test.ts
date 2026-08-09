@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { PoseTracker, parseWebcamError, WebcamError } from "../PoseTracker";
+import { PoseTracker } from "../PoseTracker";
 import type { PoseLandmarkerLike } from "../pose";
 
 describe("Milestone 3 Challenger 1: Empirical Stress Tests for PoseTracker", () => {

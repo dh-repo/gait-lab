@@ -46,6 +46,16 @@ describe("Dual-Task Effect Module (dte.ts)", () => {
     expect(result.cmiClassification).toBe("motor_prioritization");
   });
 
+  it("classifies motor_prioritization when stepTimeCvDTE > 5% even if cadence DTE <= 5%", () => {
+    const baseline = createMockMetrics({ cadenceSpm: 100.0, stepTimeCV: 0.05 });
+    const dualTask = createMockMetrics({ cadenceSpm: 100.0, stepTimeCV: 0.04 });
+
+    const result = calculateDTE(baseline, dualTask);
+
+    expect(result.stepTimeCvDTE).toBe(20.0);
+    expect(result.cmiClassification).toBe("motor_prioritization");
+  });
+
   it("classifies no_interference when dual task changes are within +/- 5%", () => {
     const baseline = createMockMetrics({ cadenceSpm: 100.0, stepTimeCV: 0.04 });
     const dualTask = createMockMetrics({ cadenceSpm: 98.0, stepTimeCV: 0.041 });

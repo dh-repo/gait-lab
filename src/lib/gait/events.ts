@@ -19,21 +19,34 @@ export interface GaitPhaseBreakdown {
   inferredDirection?: number;
 }
 
-/** Helper to extract landmark coordinate safely with ankle fallback */
+/** Helper to extract landmark coordinate safely with ankle/hip fallback when occluded */
 function getLandmarkX(
   frame: PoseFrame,
   primaryIdx: number,
   fallbackIdx: number,
+  defaultX?: number,
 ): number {
-  const lmPrimary = frame.landmarks[primaryIdx];
+  const lmPrimary = frame?.landmarks?.[primaryIdx];
   if (lmPrimary && (lmPrimary.visibility ?? 1.0) > 0.3) {
     return lmPrimary.x;
   }
-  const lmFallback = frame.landmarks[fallbackIdx];
-  if (lmFallback) {
+  const lmFallback = frame?.landmarks?.[fallbackIdx];
+  if (lmFallback && (lmFallback.visibility ?? 1.0) > 0.3) {
     return lmFallback.x;
   }
-  return 0;
+  if (defaultX !== undefined) {
+    return defaultX;
+  }
+  const lHip = frame?.landmarks?.[LM.L_HIP];
+  const rHip = frame?.landmarks?.[LM.R_HIP];
+  if (lHip && rHip) {
+    return (lHip.x + rHip.x) / 2;
+  }
+  if (lHip) return lHip.x;
+  if (rHip) return rHip.x;
+  if (lmPrimary) return lmPrimary.x;
+  if (lmFallback) return lmFallback.x;
+  return 0.5;
 }
 
 /**
@@ -210,10 +223,10 @@ export function detectGaitEventsZeni(
     const hipX = lHip && rHip ? (lHip.x + rHip.x) / 2 : 0.5;
     midHipX[i] = hipX;
 
-    const lHeel = getLandmarkX(frame, LM.L_HEEL, LM.L_ANKLE);
-    const rHeel = getLandmarkX(frame, LM.R_HEEL, LM.R_ANKLE);
-    const lToe = getLandmarkX(frame, LM.L_FOOT, LM.L_ANKLE);
-    const rToe = getLandmarkX(frame, LM.R_FOOT, LM.R_ANKLE);
+    const lHeel = getLandmarkX(frame, LM.L_HEEL, LM.L_ANKLE, hipX);
+    const rHeel = getLandmarkX(frame, LM.R_HEEL, LM.R_ANKLE, hipX);
+    const lToe = getLandmarkX(frame, LM.L_FOOT, LM.L_ANKLE, hipX);
+    const rToe = getLandmarkX(frame, LM.R_FOOT, LM.R_ANKLE, hipX);
 
     leftHeelXRel[i] = lHeel - hipX;
     rightHeelXRel[i] = rHeel - hipX;

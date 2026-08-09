@@ -57,6 +57,7 @@ export function ClinicalReportView({
 
   const derivedAngleAnalysis = useMemo(() => {
     if (angleAnalysis) return angleAnalysis;
+    if (result.angleAnalysis) return result.angleAnalysis;
     return computeGaitAngleAnalysis(
       [],
       result.metrics.stepEvents || [],

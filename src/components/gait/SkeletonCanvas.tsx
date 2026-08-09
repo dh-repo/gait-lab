@@ -1,6 +1,7 @@
 import type { MouseEvent } from "react";
 import { useEffect, useRef } from "react";
 import { POSE_CONNECTIONS, PERSON_COLORS } from "@/lib/gait/landmarks";
+import { calculateKneeFlexion } from "@/lib/gait/angles";
 import type { Landmark } from "@/lib/gait/types";
 
 export interface SkeletonCanvasProps {
@@ -162,15 +163,23 @@ function drawPoseOptimized(
     }
     ctx.stroke();
 
-    // 2. Batch landmark point dots into single fill path
-    ctx.beginPath();
+    // 2. Landmark point dots with confidence color indicators
     const radius = highlight ? 4 : 3;
     for (const p of lm) {
-      if ((p.visibility ?? 1) < 0.25) continue;
-      ctx.moveTo(p.x * w + radius, p.y * h);
+      const vis = p.visibility ?? 1;
+      if (vis < 0.25) continue;
+
+      let dotColor = color;
+      if (vis >= 0.7) dotColor = "#22c55e"; // High confidence green
+      else if (vis >= 0.4) dotColor = "#eab308"; // Moderate confidence yellow
+      else dotColor = "#ef4444"; // Low confidence red
+
+      ctx.fillStyle = dotColor;
+      ctx.beginPath();
       ctx.arc(p.x * w, p.y * h, radius, 0, Math.PI * 2);
+      ctx.fill();
     }
-    ctx.fill();
+    ctx.fillStyle = color;
   }
 
   // Draw Sway Vector (Center of Mass line through hips)
@@ -187,7 +196,7 @@ function drawPoseOptimized(
     ctx.setLineDash([]);
   }
 
-  // Draw Joint Arcs (Knee flex arcs)
+  // Draw Joint Arcs and degree labels (Knee flex arcs)
   if (showJointArcs && lm[23] && lm[25] && lm[27]) {
     const kx = lm[25].x * w;
     const ky = lm[25].y * h;
@@ -196,6 +205,14 @@ function drawPoseOptimized(
     ctx.beginPath();
     ctx.arc(kx, ky, 14, 0, Math.PI * 1.2);
     ctx.stroke();
+
+    const leftKneeDeg = Math.round(calculateKneeFlexion(lm[23], lm[25], lm[27]));
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fillRect(kx - 24, ky - 24, 48, 16);
+    ctx.fillStyle = "#60a5fa";
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`L: ${leftKneeDeg}°`, kx, ky - 12);
   }
   if (showJointArcs && lm[24] && lm[26] && lm[28]) {
     const kx = lm[26].x * w;
@@ -205,6 +222,14 @@ function drawPoseOptimized(
     ctx.beginPath();
     ctx.arc(kx, ky, 14, 0, Math.PI * 1.2);
     ctx.stroke();
+
+    const rightKneeDeg = Math.round(calculateKneeFlexion(lm[24], lm[26], lm[28]));
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fillRect(kx - 24, ky - 24, 48, 16);
+    ctx.fillStyle = "#f87171";
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`R: ${rightKneeDeg}°`, kx, ky - 12);
   }
 
   if (highlight && lm[23] && lm[24]) {
@@ -223,3 +248,4 @@ function drawPoseOptimized(
   }
   ctx.restore();
 }
+

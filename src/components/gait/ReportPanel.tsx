@@ -1,28 +1,42 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClinicalReportView, type PatientMetadata } from "./ClinicalReportView";
 import { computeGaitAngleAnalysis } from "@/lib/gait/angles";
 import type { AnalysisResult } from "@/lib/gait/types";
 
-export function ReportPanel({ result }: { result: AnalysisResult }) {
-  const [patientMeta, setPatientMeta] = useState<PatientMetadata>({
+export function ReportPanel({
+  result,
+  patientMeta: propPatientMeta,
+  onUpdateMeta,
+}: {
+  result: AnalysisResult;
+  patientMeta?: PatientMetadata;
+  onUpdateMeta?: (meta: Partial<PatientMetadata>) => void;
+}) {
+  const [localMeta, setLocalMeta] = useState<PatientMetadata>({
     patientId: "PT-" + Math.floor(10000 + Math.random() * 90000),
     assessmentDate: new Date().toISOString().slice(0, 10),
     assessmentCondition: result.taskMode === "dual" ? "Dual-Task Walk" : "Single-Task Walk",
     clinicianNotes: "",
   });
 
-  const angleAnalysis = useMemo(() => {
-    return computeGaitAngleAnalysis(
+  const patientMeta = propPatientMeta || result.patientMeta || localMeta;
+
+  const angleAnalysis =
+    result.angleAnalysis ||
+    computeGaitAngleAnalysis(
       [],
       result.metrics.stepEvents || [],
       result.metrics.viewAngle || "unknown",
     );
-  }, [result]);
 
   const handleUpdateMeta = (updated: Partial<PatientMetadata>) => {
-    setPatientMeta((prev) => ({ ...prev, ...updated }));
+    if (onUpdateMeta) {
+      onUpdateMeta(updated);
+    } else {
+      setLocalMeta((prev) => ({ ...prev, ...updated }));
+    }
   };
 
   return (

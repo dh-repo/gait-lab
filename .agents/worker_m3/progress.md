@@ -1,10 +1,13 @@
-# Progress Log - Milestone M3
+# Progress Log - Milestone 3 Live WebCam Real-Time Gait Capture Mode
 
-- Last visited: 2026-08-09T11:10:30Z
-- Status: Completed Milestone M3.
-  - Created `public/samples/` with 5 valid MP4 reference videos (`sagittal-gait.mp4`, `frontal-gait.mp4`, `follow-cam-gait.mp4`, `general-gait.mp4`, `sample-walk.mp4`).
-  - Created `SamplePicker.tsx` component with view badges, duration, description, and instant load actions.
-  - Wired `SamplePicker` into `GaitApp.tsx`.
-  - Added unit test `sample_picker.test.ts`.
-  - Verified 275/275 tests pass (100%), 0 type errors, 0 lint errors, build succeeded.
-  - Delivered handoff report to `.agents/worker_m3/handoff.md`.
+- Last visited: 2026-08-09T16:48:25Z
+- Status: Commencing implementation of Milestone 3 Live WebCam Mode.
+  - Objective: Implement `PoseTracker.ts`, canvas confidence overlay/smoothing, live rolling buffer & instantaneous metric engine, `GaitApp.tsx` WebCam UI mode, and unit/UI tests.
+  - Steps:
+    1. Implement `src/lib/gait/PoseTracker.ts`
+    2. Enhance `SkeletonCanvas.tsx` & rolling buffer live metrics engine
+    3. Enhance `GaitApp.tsx` with Live WebCam UI, controls, telemetry HUD, permission fallback, freeze & analyze transition
+    4. Implement `src/lib/gait/__tests__/PoseTracker.test.ts`
+    5. Implement `src/components/gait/__tests__/WebcamCapture.test.tsx`
+    6. Run typecheck, lint, test, build verification
+    7. Write handoff report

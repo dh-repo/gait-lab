@@ -75,7 +75,7 @@ export function calculateDTE(
     cmiClassification = "mutual_interference";
   } else if (cadenceDTE < -5.0 || stepTimeCvDTE < -5.0) {
     cmiClassification = "cognitive_prioritization";
-  } else if (cadenceDTE > 5.0) {
+  } else if (cadenceDTE > 5.0 || stepTimeCvDTE > 5.0) {
     cmiClassification = "motor_prioritization";
   } else {
     cmiClassification = "no_interference";

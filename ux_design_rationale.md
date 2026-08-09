@@ -102,7 +102,7 @@ To eliminate metric overload, 18+ spatio-temporal outputs are grouped into 4 dis
 
 1. **Spatiotemporal Pace Cluster**: Cadence (spm), Stride Length (m), Step Length (m), Step Width (m), Gait Speed (m/s). Assesses overall locomotion velocity and stride mechanics.
 2. **Inter-limb Symmetry Cluster**: Zifchock Symmetry Angle ($SA$), Stance/Swing Ratio (%), Left/Right Knee ROM Asymmetry. Identifies unilateral antalgic limping or hemiparetic deficits.
-3. **Trunk Stability & Smoothness Cluster**: Vertical & Lateral Harmonic Ratio ($HR$), Center-of-Mass Bounce, Lateral Sway, Pelvic Obliquity. Evaluates trunk rhythmicity and balance control.
+3. **Trunk Stability & Smoothness Cluster**: Lateral Sway, Center-of-Mass Vertical Bounce, Pelvic Obliquity, Path Smoothness, Automaticity Score. Evaluates trunk rhythmicity and balance control.
 4. **Dual-Task Cost Cluster**: Standardized Dual-Task Effect ($DTE$), Cognitive-Motor Interference (CMI) classification (mutual interference, cognitive priority, gait priority). Quantifies cognitive load sensitivity and fall risk under distraction.
 
 ---

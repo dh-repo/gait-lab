@@ -6,6 +6,7 @@ import {
   trackPriorityScore,
   tracksToPeople,
   computeDualTaskCost,
+  analyzeGait,
   type PersonTrack,
 } from "../analysis";
 import {
@@ -318,6 +319,26 @@ describe("Integrated Gait Analysis Engine (analysis.ts)", () => {
       expect(reportSag).toBeDefined();
       const swayRating = reportSag.metrics.find((m) => m.id === "sway");
       expect(swayRating?.display).toBe("N/A");
+    });
+  });
+
+  describe("analyzeGait master entry point", () => {
+    it("computes metrics, angleAnalysis, and attaches patientMeta to AnalysisResult", () => {
+      const frames = generateSyntheticWalkingFrames({ viewAngle: "sagittal", durationSec: 3.0, fps: 30 });
+      const patientMeta = {
+        patientId: "PT-TEST-123",
+        assessmentDate: "2026-08-09",
+        assessmentCondition: "Single-Task Walk",
+        clinicianNotes: "Test notes",
+      };
+
+      const result = analyzeGait(frames, 1, "single", undefined, patientMeta);
+
+      expect(result.metrics).toBeDefined();
+      expect(result.guesses).toBeDefined();
+      expect(result.angleAnalysis).toBeDefined();
+      expect(result.angleAnalysis?.normalizedPoints.length).toBe(101);
+      expect(result.patientMeta).toEqual(patientMeta);
     });
   });
 });

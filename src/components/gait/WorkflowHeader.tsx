@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Check, Clock, RotateCcw } from "lucide-react";
+import { Activity, Check, Clock, Columns2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,7 @@ export interface WorkflowHeaderProps {
   hasResults?: boolean;
   onReset?: () => void;
   onOpenHistory?: () => void;
+  onOpenCompare?: () => void;
   fileName?: string | null;
   className?: string;
 }
@@ -62,6 +63,7 @@ export function WorkflowHeader({
   hasResults = false,
   onReset,
   onOpenHistory,
+  onOpenCompare,
   fileName,
   className,
 }: WorkflowHeaderProps) {
@@ -95,6 +97,18 @@ export function WorkflowHeader({
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenCompare && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onOpenCompare}
+                aria-label="Open session comparison view"
+                data-testid="header-compare-button"
+              >
+                <Columns2 className="size-3.5" />
+                <span className="hidden sm:inline">Compare</span>
+              </Button>
+            )}
             {onOpenHistory && (
               <Button
                 variant="secondary"

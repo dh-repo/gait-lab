@@ -21,6 +21,7 @@ export type WebcamErrorCode =
   | "NOT_READABLE"
   | "OVERCONSTRAINED"
   | "SECURITY"
+  | "ABORTED"
   | "UNKNOWN";
 
 export class WebcamError extends Error {
@@ -133,7 +134,7 @@ export class PoseTracker {
     if (this.sessionId !== currentSession) {
       throw new WebcamError(
         "Webcam initialization aborted due to rapid state change.",
-        "UNKNOWN",
+        "ABORTED",
       );
     }
 
@@ -177,7 +178,7 @@ export class PoseTracker {
 
     if (this.sessionId !== currentSession) {
       acquiredStream.getTracks().forEach((track) => track.stop());
-      throw new WebcamError("Webcam stream acquisition aborted.", "UNKNOWN");
+      throw new WebcamError("Webcam stream acquisition aborted.", "ABORTED");
     }
 
     // 4. Teardown any prior active stream session
@@ -205,7 +206,13 @@ export class PoseTracker {
       return acquiredStream;
     }
 
-    // 6. Reset timing and start real-time animation loop
+    // 6. Reset per-session state and start real-time animation loop.
+    // The buffer must be dropped here (after the final abort guard, so an
+    // aborted start never wipes a live session) — otherwise a Stop -> Start
+    // sequence concatenates two recordings whose performance.now() timestamps
+    // are separated by the dead interval, and the resampler interpolates
+    // garbage across the join.
+    this.clearBuffer();
     this.isActive = true;
     this.lastTimestampMs = -1;
     this.lastProcessedTimeMs = 0;

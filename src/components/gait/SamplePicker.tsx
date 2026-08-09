@@ -84,11 +84,8 @@ export function SamplePicker({ onSelectSample, onCustomUploadClick, isLoading }:
     try {
       setLoadingId(sample.id);
       setErrorMsg(null);
-      
-      let res = await fetch(sample.url);
-      if (!res.ok && sample.id === "general") {
-        res = await fetch("/sample-walk.mp4");
-      }
+
+      const res = await fetch(sample.url);
       if (!res.ok) {
         throw new Error(`Failed to load sample video (${res.statusText || res.status})`);
       }

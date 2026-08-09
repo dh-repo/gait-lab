@@ -43,6 +43,11 @@ export function symmetryAngle(valLeft: number, valRight: number): number {
 
 /**
  * Gait Symmetry Index (GSI).
+ *
+ * NOTE: This is a literature utility (Robinson-style ratio symmetry index) retained
+ * with unit coverage in `__tests__/symmetry.test.ts`. It is NOT currently consumed by
+ * the analysis pipeline — no production caller exists in `src/`. Do not read its
+ * presence as wired behaviour; `symmetryAngle` is the index the engine actually uses.
  * Computes simple ratio of smaller limb magnitude to larger limb magnitude in percentage [0, 100]%.
  *
  * GSI = (min(|valLeft|, |valRight|) / max(|valLeft|, |valRight|)) * 100%
