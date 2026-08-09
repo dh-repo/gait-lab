@@ -2001,6 +2001,7 @@ export function GaitApp() {
                   <CognitiveClusters
                     metrics={result.metrics}
                     dualTaskCost={result.dualTaskCost}
+                    taskMode={result.taskMode}
                     angleAnalysis={result.angleAnalysis}
                   />
                 ) : tab === "guesses" ? (

@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { JointAnglesChart } from "./JointAnglesChart";
-import type { GaitMetrics, DualTaskCost } from "@/lib/gait/types";
+import type { GaitMetrics, DualTaskCost, TaskMode } from "@/lib/gait/types";
 import { resolveDteValues } from "@/lib/gait/guesses";
 import type { GaitAngleAnalysis } from "@/lib/gait/angles";
 import { computeGaitAngleAnalysis } from "@/lib/gait/angles";
@@ -13,6 +13,12 @@ import { cn } from "@/lib/utils";
 export interface CognitiveClustersProps {
   metrics: GaitMetrics;
   dualTaskCost?: DualTaskCost;
+  /**
+   * How the clip was recorded. Without it, an absent dualTaskCost is ambiguous:
+   * it could be a single-task baseline, OR a dual-task run with no baseline to
+   * pair against. The chip previously asserted the former in both cases.
+   */
+  taskMode?: TaskMode;
   angleAnalysis?: GaitAngleAnalysis;
   className?: string;
 }
@@ -33,6 +39,7 @@ const NOT_ASSESSED_CAPTION =
 export function CognitiveClusters({
   metrics,
   dualTaskCost,
+  taskMode,
   angleAnalysis,
   className,
 }: CognitiveClustersProps) {
@@ -557,7 +564,11 @@ export function CognitiveClusters({
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)] capitalize">
                     {dualTaskCost?.cmiClassification
                       ? dualTaskCost.cmiClassification.replace(/_/g, " ")
-                      : "Single-Task Baseline"}
+                      : taskMode === "dual"
+                        ? "No baseline recorded"
+                        : taskMode === "single"
+                          ? "Single-Task Baseline"
+                          : "Task mode not recorded"}
                   </span>
                 </div>
               </div>

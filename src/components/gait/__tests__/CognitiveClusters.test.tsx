@@ -179,3 +179,31 @@ describe("unmeasured step timing is not fabricated", () => {
     expect(html).not.toContain("0.50 <");
   });
 });
+
+describe("dual-task chip does not assert an unrecorded task mode", () => {
+  const render = (props: Record<string, unknown>) =>
+    renderToStaticMarkup(
+      React.createElement(CognitiveClusters, {
+        metrics: createMockMetrics(),
+        ...props,
+      } as never),
+    );
+
+  it("says a dual-task run has no baseline, rather than calling it a baseline", () => {
+    // A dual-task clip with no paired single-task run has no dualTaskCost. The chip
+    // used to print "Single-Task Baseline" here — asserting the opposite of the truth.
+    const html = render({ taskMode: "dual" });
+    expect(html).toContain("No baseline recorded");
+    expect(html).not.toContain("Single-Task Baseline");
+  });
+
+  it("still names a genuine single-task baseline", () => {
+    expect(render({ taskMode: "single" })).toContain("Single-Task Baseline");
+  });
+
+  it("claims neither when the task mode was not recorded", () => {
+    const html = render({});
+    expect(html).toContain("Task mode not recorded");
+    expect(html).not.toContain("Single-Task Baseline");
+  });
+});
