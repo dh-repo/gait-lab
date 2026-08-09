@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Film, Loader2, Play, Video } from "lucide-react";
+import { Loader2, Play, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export interface SampleVideoInfo {
   id: string;
@@ -103,96 +102,72 @@ export function SamplePicker({ onSelectSample, onCustomUploadClick, isLoading }:
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-baseline justify-between gap-3">
         <div>
-          <h3 className="flex items-center gap-2 text-base font-semibold">
-            <Video className="size-4 text-[var(--color-primary)]" />
+          <h3 className="text-[13px] font-semibold tracking-tight text-[var(--color-fg)]">
             Reference clips
           </h3>
-          <p className="text-xs text-[var(--color-muted)]">
-            Standardized sample videos for multi-view testing and demo analysis.
+          <p className="mt-0.5 text-[12px] text-[var(--color-muted)]">
+            Optional samples for multi-view testing.
           </p>
         </div>
         {onCustomUploadClick && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onCustomUploadClick}
-            disabled={isLoading || loadingId !== null}
-            className="self-start sm:self-auto"
-          >
-            <Film className="size-3.5" />
-            Custom Upload
+          <Button size="sm" variant="ghost" onClick={onCustomUploadClick} className="text-[var(--color-muted)]">
+            <Video className="size-3.5" />
+            Upload
           </Button>
         )}
       </div>
 
       {errorMsg && (
-        <div className="rounded-[var(--radius-md)] border border-[color-mix(in_oklab,var(--color-danger)_40%,transparent)] bg-[color-mix(in_oklab,var(--color-danger)_10%,transparent)] p-3 text-xs text-[var(--color-danger)]">
+        <p className="text-[12px] text-[var(--color-danger)]" role="alert">
           {errorMsg}
-        </div>
+        </p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <ul className="divide-y divide-[var(--color-border)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         {SAMPLE_VIDEOS.map((sample) => {
-          const isThisLoading = loadingId === sample.id;
-          const isDisabled = isLoading || (loadingId !== null && !isThisLoading);
-
+          const busy = isLoading || loadingId === sample.id;
           return (
-            <Card
-              key={sample.id}
-              className="flex flex-col justify-between border-[var(--color-border)] transition-colors hover:border-[color-mix(in_oklab,var(--color-primary)_40%,var(--color-border))]"
-            >
-              <CardHeader className="p-4 pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <CardTitle className="text-sm font-semibold">{sample.title}</CardTitle>
-                    <div className="flex items-center gap-1.5">
-                      <Badge tone={sample.tone}>{sample.viewBadge}</Badge>
-                      <span className="text-xs text-[var(--color-subtle)] font-mono">{sample.duration}</span>
-                    </div>
-                  </div>
-                  <Video className="size-4 shrink-0 text-[var(--color-muted)]" />
-                </div>
-                <CardDescription className="pt-2 text-xs leading-relaxed text-[var(--color-muted)]">
-                  {sample.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 pt-2">
-                <div className="mb-3 flex flex-wrap gap-1">
-                  {sample.features.map((feat) => (
-                    <span
-                      key={feat}
-                      className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-0.5 text-[10px] text-[var(--color-subtle)]"
-                    >
-                      {feat}
-                    </span>
-                  ))}
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="w-full"
-                  disabled={isDisabled}
-                  onClick={() => void handleLoadSample(sample)}
-                >
-                  {isThisLoading ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin text-[var(--color-primary)]" />
-                      Loading clip…
-                    </>
+            <li key={sample.id}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleLoadSample(sample)}
+                className={cn(
+                  "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors",
+                  "hover:bg-[var(--color-surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]",
+                  "disabled:opacity-60",
+                )}
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-[var(--color-fg)]">
+                  {busy ? (
+                    <Loader2 className="size-3.5 animate-spin text-[var(--color-primary)]" />
                   ) : (
-                    <>
-                      <Play className="size-3.5 fill-current" />
-                      Load {sample.title}
-                    </>
+                    <Play className="size-3.5 fill-current" />
                   )}
-                </Button>
-              </CardContent>
-            </Card>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="text-[13px] font-medium text-[var(--color-fg)]">
+                      {sample.title}
+                    </span>
+                    <span className="text-[11px] tabular text-[var(--color-subtle)] font-mono">
+                      {sample.duration}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block truncate text-[12px] text-[var(--color-muted)]">
+                    {sample.viewBadge} · {sample.features.slice(0, 2).join(" · ")}
+                  </span>
+                </span>
+                <span className="shrink-0 text-[12px] font-medium text-[var(--color-muted)]">
+                  {busy ? "Loading…" : "Load"}
+                </span>
+              </button>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }

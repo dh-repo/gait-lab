@@ -40,22 +40,17 @@ export function ReportPanel({
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Top Action Bar */}
-      <div className="no-print print:hidden flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-        <div>
-          <h3 className="text-sm font-semibold">Clinical summary report</h3>
-          <p className="text-xs text-[var(--color-muted)]">
-            Add session metadata and print a document-style report. Not for diagnostic medical records alone.
-          </p>
-        </div>
-        <Button onClick={() => window.print()} size="sm">
+    <div className="flex flex-col gap-5">
+      <div className="no-print print:hidden flex items-center justify-between gap-3">
+        <p className="text-[13px] text-[var(--color-muted)]">
+          Clinical summary report · add metadata, then print
+        </p>
+        <Button onClick={() => window.print()} size="sm" variant="outline">
           <Printer className="w-4 h-4 mr-2" /> Print / export PDF
         </Button>
       </div>
 
-      {/* Document-style on-screen preview (matches print) */}
-      <div className="clinical-document mx-auto w-full max-w-3xl p-4 sm:p-6 print:max-w-none print:p-0 print:border-0 print:shadow-none">
+      <div className="clinical-document w-full p-5 sm:p-8 print:max-w-none print:border-0 print:p-0 print:shadow-none">
         <ClinicalReportView
           result={result}
           patientMeta={patientMeta}

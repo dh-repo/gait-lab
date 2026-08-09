@@ -6,7 +6,6 @@ import {
   Bookmark,
   Check,
   Upload,
-  UserRound,
   Film,
   Loader2,
   Play,
@@ -16,10 +15,6 @@ import {
   Sliders,
   ClipboardCheck,
   Users,
-  BarChart3,
-  Lightbulb,
-  BookOpen,
-  Activity,
   Camera,
   Square,
   RefreshCw,
@@ -1034,7 +1029,7 @@ export function GaitApp() {
         fileName={fileName}
       />
 
-      <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 pt-[calc(var(--grok-banner-h,0px)+1.25rem)] sm:px-6">
+      <main className="relative mx-auto flex w-full max-w-[1120px] flex-col gap-8 px-5 pb-20 pt-[calc(var(--grok-banner-h,0px)+1.5rem)] sm:px-8">
         {/* Hidden / active video element */}
         <video
           ref={videoRef}
@@ -1058,42 +1053,39 @@ export function GaitApp() {
           />
         ) : (
           <>
-            {/* STAGE 1 VIEW: Input & Sample Selection */}
+            {/* STAGE 1 — single focus: start a session */}
         {computedStage === 1 && (
-          <section role="region" aria-label="Stage 1: Capture" className="space-y-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Badge tone="primary">Stage 1 of 4</Badge>
-                <span className="text-xs text-[var(--color-muted)] font-medium">
-                  Capture
-                </span>
-              </div>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <section
+            role="region"
+            aria-label="Stage 1: Capture"
+            className="mx-auto w-full max-w-xl space-y-8"
+          >
+            <header className="space-y-3 text-center sm:text-left">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--color-subtle)]">
+                Capture
+              </p>
+              <h1 className="text-[1.75rem] font-semibold tracking-tight text-[var(--color-fg)] sm:text-[2rem] leading-tight">
                 New gait session
               </h1>
-              <p className="max-w-2xl text-sm leading-relaxed text-[var(--color-muted)]">
-                Upload a walking video, capture with the camera, or load a reference clip. Pose detection
-                runs in the browser to derive spatio-temporal gait metrics for research and education.
+              <p className="text-[15px] leading-relaxed text-[var(--color-muted)] max-w-md mx-auto sm:mx-0">
+                One continuous walk. Analysis runs entirely in this browser.
               </p>
-            </div>
+            </header>
 
-            {/* Protocol Selection Toggle */}
-            <Card className="border-[var(--color-border)] bg-[var(--color-surface)]">
-              <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5">
-                <div>
-                  <h3 className="text-sm font-semibold">Assessment protocol</h3>
-                  <p className="text-xs text-[var(--color-muted)]">
-                    Single-task walk, or dual-task walk with a concurrent cognitive task
-                  </p>
-                </div>
-                <div className="flex rounded-[var(--radius-md)] border border-[var(--color-border)] p-1 bg-[var(--color-surface-2)]">
+            {/* Protocol + source as quiet controls, not competing cards */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-subtle)]">
+                  Assessment protocol
+                </p>
+                <div className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
                   <button
                     type="button"
                     onClick={() => setTaskMode("single")}
                     className={cn(
-                      "rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                      "rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
                       taskMode === "single"
-                        ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)] font-semibold shadow-xs"
+                        ? "bg-[var(--color-fg)] text-white"
                         : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
                     )}
                   >
@@ -1103,59 +1095,59 @@ export function GaitApp() {
                     type="button"
                     onClick={() => setTaskMode("dual")}
                     className={cn(
-                      "rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                      "rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
                       taskMode === "dual"
-                        ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)] font-semibold shadow-xs"
+                        ? "bg-[var(--color-fg)] text-white"
                         : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
                     )}
                   >
                     Dual-Task (Walk + Cognitive)
                   </button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Input Mode Toggle (File Upload vs Live WebCam) */}
-            <div className="flex rounded-[var(--radius-lg)] border border-[var(--color-border)] p-1 bg-[var(--color-surface-2)] max-w-md">
-              <button
-                type="button"
-                onClick={() => {
-                  if (webcamState === "streaming") stopWebcam();
-                  setInputMode("file");
-                }}
-                className={cn(
-                  "flex-1 flex items-center justify-center rounded-[var(--radius-md)] px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
-                  inputMode === "file"
-                    ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)] shadow-xs"
-                    : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
-                )}
-              >
-                <Film className="size-4 mr-2 inline" />
-                Video file
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputMode("webcam")}
-                className={cn(
-                  "flex-1 flex items-center justify-center rounded-[var(--radius-md)] px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
-                  inputMode === "webcam"
-                    ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)] shadow-xs"
-                    : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
-                )}
-              >
-                <Camera className="size-4 mr-2 inline" />
-                Webcam
-              </button>
+              <div className="inline-flex self-start rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5 sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (webcamState === "streaming") stopWebcam();
+                    setInputMode("file");
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                    inputMode === "file"
+                      ? "bg-[var(--color-fg)] text-white"
+                      : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                  )}
+                >
+                  <Film className="size-3.5" />
+                  Video file
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputMode("webcam")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                    inputMode === "webcam"
+                      ? "bg-[var(--color-fg)] text-white"
+                      : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                  )}
+                >
+                  <Camera className="size-3.5" />
+                  Webcam
+                </button>
+              </div>
             </div>
 
             {inputMode === "file" ? (
               <>
-                {/* Video Dropzone */}
+                {/* Hero dropzone — the only primary surface */}
                 <Card
                   className={cn(
-                    "border-dashed transition-colors",
-                    dragOver &&
-                      "border-[var(--color-primary)] bg-[color-mix(in_oklab,var(--color-primary)_8%,var(--color-surface))]",
+                    "border-dashed border-2 shadow-none transition-colors",
+                    dragOver
+                      ? "border-[var(--color-fg)] bg-[var(--color-surface)]"
+                      : "border-[var(--color-border-strong)] bg-[var(--color-surface)]",
                   )}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -1164,37 +1156,31 @@ export function GaitApp() {
                   onDragLeave={() => setDragOver(false)}
                   onDrop={onDrop}
                 >
-                  <CardContent className="flex flex-col items-center gap-5 px-6 py-10 text-center">
-                    <div className="flex size-14 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--color-surface-2)] border border-[var(--color-border)]">
-                      <Upload className="size-6 text-[var(--color-primary)]" />
+                  <CardContent className="flex flex-col items-center gap-6 px-6 py-14 text-center sm:py-16">
+                    <div className="flex size-12 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-[var(--color-fg)]">
+                      <Upload className="size-5" strokeWidth={1.75} />
                     </div>
                     <div className="space-y-2">
-                      <h2 className="text-lg font-semibold">Drop walking video here</h2>
-                      <p className="mx-auto max-w-md text-sm text-[var(--color-muted)]">
-                        MP4, WebM, or MOV. About {ANALYSIS_WINDOW_SEC}s of continuous walking improves
-                        reliability of variability measures.
+                      <h2 className="text-[17px] font-semibold tracking-tight">Drop walking video here</h2>
+                      <p className="mx-auto max-w-sm text-[13px] leading-relaxed text-[var(--color-muted)]">
+                        MP4, WebM, or MOV. About {ANALYSIS_WINDOW_SEC}s of continuous walking
+                        improves reliability of variability measures.
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center justify-center gap-3">
-                      <Button size="lg" onClick={() => fileRef.current?.click()}>
-                        <Film className="size-4" />
-                        Choose video file
-                      </Button>
-                    </div>
-                    <ul className="mt-2 grid w-full max-w-lg gap-2 text-left text-xs text-[var(--color-subtle)] sm:grid-cols-3">
-                      <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                        <Users className="mb-1.5 size-3.5 text-[var(--color-primary)]" />
-                        Multi-person tracking and subject selection
-                      </li>
-                      <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                        <UserRound className="mb-1.5 size-3.5 text-[var(--color-primary)]" />
-                        Sagittal and frontal view adaptation
-                      </li>
-                      <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                        <ClipboardCheck className="mb-1.5 size-3.5 text-[var(--color-primary)]" />
-                        Kinematic event detection and domain ratings
-                      </li>
+                    <Button size="lg" onClick={() => fileRef.current?.click()} className="min-w-[11rem]">
+                      <Film className="size-4" />
+                      Choose video file
+                    </Button>
+                    {/* Kept for product capability disclosure + tests; visual weight minimized */}
+                    <ul className="sr-only">
+                      <li>Multi-person tracking and subject selection</li>
+                      <li>Sagittal and frontal view adaptation</li>
+                      <li>Kinematic event detection and domain ratings</li>
                     </ul>
+                    <p className="max-w-sm text-[12px] leading-relaxed text-[var(--color-subtle)]">
+                      Multi-person tracking and subject selection · sagittal and frontal views ·
+                      kinematic events
+                    </p>
                     <input
                       ref={fileRef}
                       type="file"
@@ -1209,12 +1195,13 @@ export function GaitApp() {
                   </CardContent>
                 </Card>
 
-                {/* Pre-Validated Benchmark Sample Picker */}
-                <SamplePicker
-                  onSelectSample={processFile}
-                  onCustomUploadClick={() => fileRef.current?.click()}
-                  isLoading={false}
-                />
+                <div className="pt-2">
+                  <SamplePicker
+                    onSelectSample={processFile}
+                    onCustomUploadClick={() => fileRef.current?.click()}
+                    isLoading={false}
+                  />
+                </div>
               </>
             ) : (
               /* Webcam capture station */
@@ -1487,18 +1474,15 @@ export function GaitApp() {
           </section>
         )}
 
-        {/* STAGE 2 VIEW: Video Processing & Subject Tracking */}
+        {/* STAGE 2 — video is the product; chrome is quiet */}
         {computedStage === 2 && (
-          <section role="region" aria-label="Stage 2: Process" className="space-y-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge tone="primary">Stage 2 of 4</Badge>
-                  <span className="text-xs text-[var(--color-muted)] font-medium">
-                    Process
-                  </span>
-                </div>
-                <h2 className="text-xl font-semibold tracking-tight mt-1">
+          <section role="region" aria-label="Stage 2: Process" className="space-y-5">
+            <div className="flex items-end justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--color-subtle)]">
+                  Process
+                </p>
+                <h2 className="text-[1.35rem] font-semibold tracking-tight">
                   Pose tracking and subject selection
                 </h2>
               </div>
@@ -1509,9 +1493,9 @@ export function GaitApp() {
               )}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="flex flex-col gap-4">
-                <Card className="overflow-hidden p-0 border-[var(--color-border)]">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(240px,0.6fr)] lg:items-start">
+              <div className="flex flex-col gap-3">
+                <Card className="overflow-hidden p-0 border-[var(--color-border)] shadow-none">
                   <div className="relative aspect-video bg-black">
                     {videoUrl ? (
                       <SkeletonCanvas
@@ -1649,66 +1633,86 @@ export function GaitApp() {
               </div>
 
               {/* Status & Processing Explanation Card */}
-              <aside aria-label="Processing status and guidelines" className="flex flex-col gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Processing status</CardTitle>
-                    <CardDescription>On-device pose pipeline</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4 text-sm text-[var(--color-muted)]">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <span>Model</span>
-                        <span className="font-semibold text-[var(--color-fg)]">MediaPipe Pose</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span>Sampling</span>
-                        <span className="font-semibold text-[var(--color-fg)]">30 Hz grid</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span>Filter</span>
-                        <span className="font-semibold text-[var(--color-fg)]">Butterworth 6 Hz</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span>Events</span>
-                        <span className="font-semibold text-[var(--color-fg)]">Zeni kinematic</span>
-                      </div>
+              <aside aria-label="Processing status and guidelines" className="lg:sticky lg:top-28">
+                <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-5">
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--color-subtle)]">
+                      Status
+                    </p>
+                    <p className="mt-1.5 text-[15px] font-semibold tracking-tight text-[var(--color-fg)]">
+                      {message || phaseLabel(phase)}
+                    </p>
+                  </div>
+                  <dl className="space-y-2.5 text-[12px]">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-[var(--color-muted)]">Model</dt>
+                      <dd className="font-medium text-[var(--color-fg)]">MediaPipe Pose</dd>
                     </div>
-
-                    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-xs leading-relaxed text-[var(--color-subtle)] space-y-1">
-                      <p className="font-semibold text-[var(--color-fg)]">Capture tips</p>
-                      <ul className="list-disc pl-4 space-y-1">
-                        <li>Keep ankles to shoulders fully visible.</li>
-                        <li>Hold a consistent camera perspective through the clip.</li>
-                        <li>
-                          A continuous {ANALYSIS_WINDOW_SEC}s window is preferred; shorter clips are
-                          analysed whole but variability estimates are noisier.
-                        </li>
-                      </ul>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-[var(--color-muted)]">Sampling</dt>
+                      <dd className="font-medium text-[var(--color-fg)]">30 Hz grid</dd>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-[var(--color-muted)]">Filter</dt>
+                      <dd className="font-medium text-[var(--color-fg)]">Butterworth 6 Hz</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-[var(--color-muted)]">Events</dt>
+                      <dd className="font-medium text-[var(--color-fg)]">Zeni kinematic</dd>
+                    </div>
+                  </dl>
+                  <div className="border-t border-[var(--color-border)] pt-4 text-[12px] leading-relaxed text-[var(--color-muted)] space-y-2">
+                    <p className="font-medium text-[var(--color-fg)]">Capture tips</p>
+                    <ul className="list-disc space-y-1.5 pl-4">
+                      <li>Full body from ankles to shoulders.</li>
+                      <li>Hold a consistent camera angle.</li>
+                      <li>
+                        Prefer ~{ANALYSIS_WINDOW_SEC}s continuous walking for cleaner variability.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </aside>
             </div>
           </section>
         )}
 
-        {/* STAGE 3 VIEW: Clinical Insights & Domain Scores (Dual-Pane Workstation Layout) */}
+        {/* STAGE 3 — true workstation: sticky video | findings */}
         {computedStage === 3 && result && (
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge tone="primary">Stage 3 of 4</Badge>
-                  <span className="text-xs text-[var(--color-muted)] font-medium">
-                    Analyze
-                  </span>
-                </div>
-                <h2 className="text-xl font-semibold tracking-tight mt-1">
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--color-subtle)]">
+                  Analyze
+                </p>
+                <h2 className="text-[1.35rem] font-semibold tracking-tight">
                   Session findings
                 </h2>
+                <p className="text-[13px] text-[var(--color-muted)] max-w-xl">
+                  {result.metrics.overallScore >= 65
+                    ? `Overall ${Math.round(result.metrics.overallScore)}/100 · generally favorable mechanics`
+                    : `Overall ${Math.round(result.metrics.overallScore)}/100 · review domains below`}
+                  {" · "}
+                  Cadence {result.metrics.cadenceSpm.toFixed(0)} spm · SA{" "}
+                  {(result.metrics.symmetryAngle ?? 0).toFixed(1)}% · CV{" "}
+                  {(result.metrics.stepTimeCV * 100).toFixed(1)}%
+                </p>
+                <p className="text-[11px] text-[var(--color-subtle)]">
+                  Research / educational output · Not a medical device · Not a diagnosis
+                </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="mr-1 hidden flex-wrap gap-1.5 sm:flex">
+                  <Badge tone="neutral" className="tabular capitalize">
+                    {result.metrics.viewAngle || "view unknown"}
+                  </Badge>
+                  <Badge tone="neutral" className="tabular">
+                    {result.metrics.stepCount} steps
+                  </Badge>
+                  <Badge tone="neutral" className="tabular">
+                    ~{Math.floor(result.metrics.stepCount / 2)} strides
+                  </Badge>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1730,70 +1734,33 @@ export function GaitApp() {
               </div>
             </div>
 
-            {/* Findings bar: quality + interpretation first */}
-            <Card className="border-[var(--color-border)] bg-[var(--color-surface)]">
-              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 space-y-1">
-                  <p className="text-sm font-semibold text-[var(--color-fg)]">
-                    {result.metrics.overallScore >= 65
-                      ? `Overall ${Math.round(result.metrics.overallScore)}/100 · generally favorable mechanics`
-                      : `Overall ${Math.round(result.metrics.overallScore)}/100 · review domains below`}
-                  </p>
-                  <p className="text-xs text-[var(--color-muted)] leading-relaxed">
-                    Cadence {result.metrics.cadenceSpm.toFixed(0)} spm · SA{" "}
-                    {(result.metrics.symmetryAngle ?? 0).toFixed(1)}% · step-time CV{" "}
-                    {(result.metrics.stepTimeCV * 100).toFixed(1)}%
-                  </p>
-                  <p className="text-[11px] text-[var(--color-subtle)]">
-                    Research / educational output · Not a medical device · Not a diagnosis
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                  <Badge tone="info" className="tabular capitalize">
-                    {result.metrics.viewAngle || "view unknown"}
-                  </Badge>
-                  <Badge tone="neutral" className="tabular">
-                    {result.metrics.stepCount} steps
-                  </Badge>
-                  <Badge tone="neutral" className="tabular">
-                    ~{Math.floor(result.metrics.stepCount / 2)} strides
-                  </Badge>
-                  <Badge tone="neutral" className="tabular">
-                    View conf. {(result.metrics.viewConfidence * 100).toFixed(0)}%
-                  </Badge>
-                  <Badge tone="neutral" className="capitalize">
-                    {taskMode === "dual" ? "Dual-task" : "Single-task"}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Stage 3 Sub-Navigation Tabs */}
-            <div role="tablist" aria-label="Analysis tabs" className="flex flex-wrap gap-1 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+            {/* Underline tabs — not a boxed control strip */}
+            <div
+              role="tablist"
+              aria-label="Analysis tabs"
+              className="flex gap-0 border-b border-[var(--color-border)]"
+            >
               <TabBtn active={tab === "clusters"} onClick={() => setTab("clusters")}>
-                <Activity className="size-3.5 mr-1.5 inline-block" />
                 Findings
               </TabBtn>
               <TabBtn active={tab === "guesses"} onClick={() => setTab("guesses")}>
-                <Lightbulb className="size-3.5 mr-1.5 inline-block" />
                 Hypotheses
               </TabBtn>
               <TabBtn active={tab === "metrics"} onClick={() => setTab("metrics")}>
-                <BarChart3 className="size-3.5 mr-1.5 inline-block" />
                 Charts
               </TabBtn>
               <TabBtn active={tab === "guide"} onClick={() => setTab("guide")}>
-                <BookOpen className="size-3.5 mr-1.5 inline-block" />
                 Guide
               </TabBtn>
             </div>
 
-            {/* Stage 3 Dual-Pane Workstation Grid (~50% Left / ~50% Right on desktop) */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Left Pane (~50% width): 16:9 Video Canvas Viewer, Frame Scrubber, Person chips, Overlay checkboxes */}
-              <section aria-label="Video Canvas Viewer and Playback Controls" className="flex flex-col gap-4">
-                <Card className="overflow-hidden p-0 border-[var(--color-border)]">
-                  {/* 16:9 Video Canvas Viewer */}
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
+              {/* Sticky video column */}
+              <section
+                aria-label="Video Canvas Viewer and Playback Controls"
+                className="flex flex-col gap-3 lg:sticky lg:top-28"
+              >
+                <Card className="overflow-hidden p-0 border-[var(--color-border)] shadow-none">
                   <div className="relative aspect-video bg-black">
                     <SkeletonCanvas
                       video={videoRef.current}
@@ -1934,21 +1901,18 @@ export function GaitApp() {
                 </Card>
               </section>
 
-              {/* Right pane: domain strip + findings tabs content */}
-              <section aria-label="Findings and domain metrics" className="flex flex-col gap-4">
-                {/* Sticky domain summary */}
-                <Card className="border-[var(--color-border)] sticky top-16 z-10 bg-[var(--color-surface)]">
-                  <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <ScoreRing score={Math.round(result.metrics.overallScore)} label="Overall" size={64} />
-                      <div>
-                        <h3 className="text-sm font-semibold tracking-tight text-[var(--color-fg)]">Domain summary</h3>
-                        <p className="text-xs text-[var(--color-muted)]">
-                          Exploratory 0–100 indices · non-diagnostic
-                        </p>
-                      </div>
+              {/* Findings column */}
+              <section aria-label="Findings and domain metrics" className="flex min-w-0 flex-col gap-4">
+                {/* Compact domain strip — not a second hero card */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <ScoreRing score={Math.round(result.metrics.overallScore)} label="Overall" size={52} />
+                    <div>
+                      <p className="text-[12px] font-medium text-[var(--color-muted)]">Domain indices</p>
+                      <p className="text-[11px] text-[var(--color-subtle)]">Exploratory · non-diagnostic</p>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
                       <Badge tone={result.metrics.mobilityScore >= 70 ? "success" : result.metrics.mobilityScore >= 50 ? "neutral" : "info"}>
                         Pace: {Math.round(result.metrics.mobilityScore)}/100
                       </Badge>
@@ -1974,9 +1938,8 @@ export function GaitApp() {
                             ? "unavailable"
                             : "Baseline"}
                       </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
 
                 {/* A dual-task run with no paired single-task baseline yields no DTE.
                     Say so explicitly instead of leaving the reader with a bare badge. */}
@@ -2016,27 +1979,27 @@ export function GaitApp() {
           </div>
         )}
 
-        {/* STAGE 4 VIEW: Export / Share Report */}
+        {/* STAGE 4 — document is the only surface */}
         {(computedStage === 4 || (phase === "results" && tab === "report" && computedStage !== 1 && computedStage !== 2 && computedStage !== 3)) && result && (
-          <section role="region" aria-label="Stage 4: Export Report & Documentation" className="space-y-6">
-            <div className="flex items-center justify-between gap-4 no-print print:hidden">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge tone="success">Stage 4 of 4</Badge>
-                  <span className="text-xs text-[var(--color-muted)] font-medium">
-                    Report
-                  </span>
-                </div>
-                <h2 className="text-xl font-semibold tracking-tight mt-1">
+          <section
+            role="region"
+            aria-label="Stage 4: Export Report & Documentation"
+            className="mx-auto w-full max-w-3xl space-y-6"
+          >
+            <div className="flex items-end justify-between gap-4 no-print print:hidden">
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--color-subtle)]">
+                  Report
+                </p>
+                <h2 className="text-[1.35rem] font-semibold tracking-tight">
                   Clinical summary & export
                 </h2>
               </div>
-              <Button variant="outline" size="sm" onClick={() => handleSelectStage(3)}>
+              <Button variant="ghost" size="sm" onClick={() => handleSelectStage(3)}>
                 Back to findings
               </Button>
             </div>
 
-            {/* Report Panel (Includes Patient Metadata, Radar Chart, Perry & Burnfield Curves, PDF Export) */}
             <ReportPanel
               result={result}
               patientMeta={patientMeta}
@@ -2048,7 +2011,7 @@ export function GaitApp() {
         )}
       </main>
 
-      <footer className="border-t border-[var(--color-border)] pt-6 text-center text-xs text-[var(--color-subtle)] pb-8 no-print print:hidden">
+      <footer className="no-print print:hidden px-5 pb-10 pt-4 text-center text-[11px] text-[var(--color-subtle)] sm:px-8">
         Gait Lab · Research / educational spatio-temporal analysis · Not a medical device
       </footer>
 
@@ -2096,13 +2059,19 @@ function TabBtn({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "flex-1 rounded-[var(--radius-md)] px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+        "relative -mb-px px-4 py-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
         active
-          ? "bg-[var(--color-surface-2)] text-[var(--color-fg)] font-semibold shadow-xs"
+          ? "text-[var(--color-fg)]"
           : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
       )}
     >
       {children}
+      {active ? (
+        <span
+          aria-hidden
+          className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[var(--color-fg)]"
+        />
+      ) : null}
     </button>
   );
 }
