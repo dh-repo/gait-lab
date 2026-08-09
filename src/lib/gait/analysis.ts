@@ -424,7 +424,9 @@ function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
     98,
   );
   const rhythmScore = clamp(
-    100 - stepTimeCV * 120 - Math.abs(cadenceSpm - 110) * 0.25 + (harmonicRatioVertical - 2.0) * 5,
+    // ponytail: cap HR like the stability/automaticity terms — an unbounded ratio
+    // pins rhythmScore at its ceiling and stops discriminating among good walkers
+    100 - stepTimeCV * 120 - Math.abs(cadenceSpm - 110) * 0.25 + (Math.min(harmonicRatioVertical, 4.0) - 2.0) * 5,
     5,
     98,
   );
