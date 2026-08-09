@@ -74,9 +74,16 @@ function pct(v: number | undefined | null): number | undefined {
  * MetricsPanel.
  */
 const EPS_CV_PCT = 2.4;
-/** Not empirically derived: one display decimal on a percentage. */
+/**
+ * NOT empirically derived. An earlier version of this comment claimed these were
+ * "one display decimal" / "one display unit", which is arithmetically false: the
+ * asymmetry row renders at decimals:1 (one decimal = 0.1, not 1.0) and the index
+ * rows at decimals:3 (one unit = 0.001, not 0.02). They are arbitrary round
+ * numbers chosen to be conservative — large enough that display rounding alone
+ * cannot trip a badge — and nothing more. Replace with a measured MDC when one
+ * exists, the way EPS_CV_PCT above already is.
+ */
 const EPS_ASYM_PCT = 1.0;
-/** Not empirically derived: one display unit at 3 decimals on a 0-1 index. */
 const EPS_INDEX = 0.02;
 
 export interface SessionComparisonViewProps {
@@ -825,7 +832,7 @@ export function SessionComparisonView({
                         <th className="py-2.5 px-4">Metric</th>
                         <th className="py-2.5 px-3 text-right">Baseline A</th>
                         <th className="py-2.5 px-3 text-right">Target B</th>
-                        <th className="py-2.5 px-4 text-right">Clinical Delta</th>
+                        <th className="py-2.5 px-4 text-right" title="Change from Baseline A to Target B, compared against this tool's own measurement noise.">Change vs. measurement noise</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-border)]">
@@ -876,7 +883,7 @@ export function SessionComparisonView({
                         <th className="py-2.5 px-4">Metric</th>
                         <th className="py-2.5 px-3 text-right">Baseline A</th>
                         <th className="py-2.5 px-3 text-right">Target B</th>
-                        <th className="py-2.5 px-4 text-right">Clinical Delta</th>
+                        <th className="py-2.5 px-4 text-right" title="Change from Baseline A to Target B, compared against this tool's own measurement noise.">Change vs. measurement noise</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-border)]">
@@ -898,6 +905,21 @@ export function SessionComparisonView({
               </CardContent>
             </Card>
           </div>
+
+          {/* Provenance of the "unchanged" thresholds used by both delta tables above. */}
+          <p
+            data-testid="delta-threshold-footnote"
+            className="text-[11px] leading-relaxed text-[var(--color-subtle)]"
+          >
+            A change is flagged only when it exceeds a per-metric threshold. One of those thresholds has a
+            measured basis: the step-time and stride-time CV threshold (2.4 percentage points) comes from
+            between-run variability on <em>synthetic</em> walks with a known true CV — 40 runs per point,
+            between-run SD 0.0086 at ~18 strides, the yield of the 20 s window. It is not human test-retest data.
+            Every other threshold on this page — asymmetry 1.0 pp, the 0.02 index threshold, cadence 1.0 spm,
+            double support 0.5 pp, symmetry angle 0.2 pp, and the 0.5 default applied elsewhere — is an arbitrary
+            conservative value, not a measured minimal detectable change. A change smaller than any of these may
+            still be real, and none of them should be read as a clinical threshold.
+          </p>
 
           {/* Overlaid Joint Kinematic Trajectory Curves Section */}
           <Card className="border-[var(--color-border)]">

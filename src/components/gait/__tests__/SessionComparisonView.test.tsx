@@ -775,4 +775,62 @@ describe("SessionComparisonView Component & Delta Engine", () => {
       expect(markup).not.toContain("0.0 %");
     });
   });
+  describe("delta column wording and threshold provenance footnote", () => {
+    function markup(): string {
+      return renderToStaticMarkup(
+        React.createElement(SessionComparisonView, {
+          sessions: [sessionA, sessionB],
+          initialSessionAId: sessionA.id,
+          initialSessionBId: sessionB.id,
+        }),
+      );
+    }
+
+    it("labels both delta columns by what they actually mean, not 'Clinical Delta'", () => {
+      const html = markup();
+      expect(html).not.toContain("Clinical Delta");
+      // Both the spatio-temporal and the symmetry/variability tables.
+      const headers = html.match(/Change vs\. measurement noise/g) ?? [];
+      expect(headers.length).toBe(2);
+      // The badge must not over-promise beyond measurement noise.
+      expect(html).not.toContain("clinically significant");
+      expect(html).not.toContain("MDC");
+      expect(html).not.toContain("meaningful change");
+    });
+
+    it("footnotes which threshold is measured and names every threshold that is not", () => {
+      render(
+        <SessionComparisonView
+          sessions={[sessionA, sessionB]}
+          initialSessionA={sessionA}
+          initialSessionB={sessionB}
+        />,
+      );
+      const note = screen.getByTestId("delta-threshold-footnote");
+      const text = note.textContent ?? "";
+      // Derived threshold: EPS_CV_PCT, with its measured basis.
+      expect(text).toContain("2.4 percentage points");
+      expect(text).toContain("40 runs per point");
+      expect(text).toContain("0.0086");
+      expect(text).toContain("18 strides");
+      expect(text).toContain("20 s window");
+      // The other two are explicitly marked as not derived.
+      expect(text).toContain("not a measured minimal detectable change");
+      // The measured one must be disclosed as SYNTHETIC, not human test-retest data.
+      expect(text).toContain("synthetic");
+      // and the other thresholds on the page must be named, not silently omitted.
+      expect(text).toContain("cadence 1.0 spm");
+      expect(text).toContain("symmetry angle 0.2 pp");
+      expect(text).toContain("asymmetry 1.0 pp");
+      expect(text).toContain("0.02");
+      // Must NOT claim a display-precision derivation: the asymmetry row renders at
+      // decimals:1 (one decimal = 0.1, not 1.0) and the index rows at decimals:3
+      // (one unit = 0.001, not 0.02), so that wording was off by 10x and 20x.
+      expect(text).not.toContain("one display decimal");
+      expect(text).not.toContain("one display unit");
+      // It must instead admit they are arbitrary, and that a smaller change may be real.
+      expect(text).toContain("arbitrary");
+      expect(text).toMatch(/may still be real/);
+    });
+  });
 });

@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, Info, ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { DualTaskCost, EducatedGuess } from "@/lib/gait/types";
+import { resolveDteValues } from "@/lib/gait/guesses";
 import { cn } from "@/lib/utils";
 
 export function GuessesPanel({
@@ -28,7 +29,20 @@ export function GuessesPanel({
         </CardHeader>
       </Card>
 
-      {dualTaskCost && (
+      {dualTaskCost && <DualTaskCard dualTaskCost={dualTaskCost} />}
+
+      <div className="flex flex-col gap-3">
+        {guesses.map((g) => (
+          <GuessCard key={g.id} guess={g} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DualTaskCard({ dualTaskCost }: { dualTaskCost: DualTaskCost }) {
+  const { cadenceDte, stepTimeCvDte } = resolveDteValues(dualTaskCost);
+  return (
         <Card className="border-[color-mix(in_oklab,var(--color-accent)_35%,var(--color-border))]">
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
@@ -42,29 +56,18 @@ export function GuessesPanel({
             <CardDescription>{dualTaskCost.summary}</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <DtcStat label="Cadence DTE" value={`${(dualTaskCost.cadenceDTE ?? -dualTaskCost.cadenceCostPct).toFixed(1)}%`} />
+            <DtcStat label="Cadence DTE" value={`${cadenceDte.toFixed(1)}%`} />
+            <DtcStat label="Step Time CV DTE" value={`${stepTimeCvDte.toFixed(1)}%`} />
             <DtcStat
-              label="Step Time CV DTE"
-              value={`${(dualTaskCost.stepTimeCvDTE ?? -dualTaskCost.stepTimeCvCostPct).toFixed(1)}%`}
+              label="Stability DTE"
+              value={`${(-dualTaskCost.stabilityCostPts).toFixed(0)} pts`}
             />
             <DtcStat
-              label="Stability Δ"
-              value={`${dualTaskCost.stabilityCostPts.toFixed(0)} pts`}
-            />
-            <DtcStat
-              label="Automaticity Δ"
-              value={`${dualTaskCost.automaticityCostPts.toFixed(0)} pts`}
+              label="Automaticity DTE"
+              value={`${(-dualTaskCost.automaticityCostPts).toFixed(0)} pts`}
             />
           </CardContent>
         </Card>
-      )}
-
-      <div className="flex flex-col gap-3">
-        {guesses.map((g) => (
-          <GuessCard key={g.id} guess={g} />
-        ))}
-      </div>
-    </div>
   );
 }
 

@@ -278,7 +278,12 @@ export function ClinicalReportView({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold">Zeni Kinematic Gait Phase Breakdown</CardTitle>
-            <Badge tone="primary">SA: {(result.metrics.symmetryAngle ?? 0).toFixed(1)}%</Badge>
+            <Badge tone="primary">
+              SA:{" "}
+              {result.metrics.symmetryAngle != null
+                ? `${result.metrics.symmetryAngle.toFixed(1)}%`
+                : "N/A"}
+            </Badge>
           </div>
           <CardDescription>
             Stance phase, swing phase, and double support timing derived from foot AP position relative to pelvis (Zeni et al. 2008).
@@ -437,21 +442,33 @@ export function ClinicalReportView({
             <CardDescription>{result.dualTaskCost.summary}</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {/* All four tiles are DTE-signed: NEGATIVE = worse under dual task.
+                stabilityCostPts/automaticityCostPts are computed as (single - dual),
+                i.e. positive = worse, so they are negated here. Mixing the two
+                conventions in one row printed a uniformly degraded walk as
+                "-12% -18% +6pts +4pts" — four numbers, two meanings. */}
             <div className="rounded-md border border-[var(--color-border)] p-2.5 bg-[var(--color-surface-2)] print:bg-gray-50">
-              <p className="text-[10px] text-[var(--color-subtle)]">Cadence Cost</p>
-              <p className="tabular text-sm font-semibold">{result.dualTaskCost.cadenceCostPct.toFixed(0)}%</p>
+              <p className="text-[10px] text-[var(--color-subtle)]">Cadence DTE</p>
+              <p className="tabular text-sm font-semibold">
+                {(result.dualTaskCost.cadenceDTE ?? -result.dualTaskCost.cadenceCostPct).toFixed(0)}%
+              </p>
             </div>
             <div className="rounded-md border border-[var(--color-border)] p-2.5 bg-[var(--color-surface-2)] print:bg-gray-50">
-              <p className="text-[10px] text-[var(--color-subtle)]">Variability Cost</p>
-              <p className="tabular text-sm font-semibold">{result.dualTaskCost.stepTimeCvCostPct.toFixed(0)}%</p>
+              <p className="text-[10px] text-[var(--color-subtle)]">Step Time CV DTE</p>
+              <p className="tabular text-sm font-semibold">
+                {(
+                  result.dualTaskCost.stepTimeCvDTE ?? -result.dualTaskCost.stepTimeCvCostPct
+                ).toFixed(0)}
+                %
+              </p>
             </div>
             <div className="rounded-md border border-[var(--color-border)] p-2.5 bg-[var(--color-surface-2)] print:bg-gray-50">
-              <p className="text-[10px] text-[var(--color-subtle)]">Stability Δ</p>
-              <p className="tabular text-sm font-semibold">{result.dualTaskCost.stabilityCostPts.toFixed(0)} pts</p>
+              <p className="text-[10px] text-[var(--color-subtle)]">Stability DTE</p>
+              <p className="tabular text-sm font-semibold">{(-result.dualTaskCost.stabilityCostPts).toFixed(0)} pts</p>
             </div>
             <div className="rounded-md border border-[var(--color-border)] p-2.5 bg-[var(--color-surface-2)] print:bg-gray-50">
-              <p className="text-[10px] text-[var(--color-subtle)]">Automaticity Δ</p>
-              <p className="tabular text-sm font-semibold">{result.dualTaskCost.automaticityCostPts.toFixed(0)} pts</p>
+              <p className="text-[10px] text-[var(--color-subtle)]">Automaticity DTE</p>
+              <p className="tabular text-sm font-semibold">{(-result.dualTaskCost.automaticityCostPts).toFixed(0)} pts</p>
             </div>
           </CardContent>
         </Card>

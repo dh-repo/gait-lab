@@ -6,6 +6,25 @@ import { clamp } from "./landmarks";
  * Informed by observational gait categories (e.g. Stanford Medicine 25 style
  * pattern language) and dual-task / variability literature — never diagnoses.
  */
+/**
+ * Canonical dual-task effect (DTE) values, as percentages.
+ *
+ * analysis.ts (computeDualTaskCost) defines `cadenceCostPct = -cadenceDTE` and
+ * `stepTimeCvCostPct = -stepTimeCvDTE`: "cost" and "DTE" are the same quantity
+ * with opposite signs. When the optional DTE fields are absent, the cost fields
+ * must therefore be negated to recover DTE. Every consumer that labels a value
+ * "DTE" must go through this helper so the sign convention stays identical.
+ */
+export function resolveDteValues(dtc: DualTaskCost): {
+  cadenceDte: number;
+  stepTimeCvDte: number;
+} {
+  return {
+    cadenceDte: dtc.cadenceDTE ?? -dtc.cadenceCostPct,
+    stepTimeCvDte: dtc.stepTimeCvDTE ?? -dtc.stepTimeCvCostPct,
+  };
+}
+
 export function buildEducatedGuesses(
   m: GaitMetrics,
   opts?: { taskMode?: TaskMode; dualTaskCost?: DualTaskCost },
@@ -208,14 +227,15 @@ export function buildEducatedGuesses(
 
     const info = cmiMap[dtc.cmiClassification as keyof typeof cmiMap];
     if (info) {
+      const { cadenceDte, stepTimeCvDte } = resolveDteValues(dtc);
       guesses.push({
         id: "cmi-classification",
         title: info.title,
         summary: info.summary,
         evidence: [
           `CMI Taxonomy: ${dtc.cmiClassification}`,
-          `Cadence DTE: ${dtc.cadenceDTE?.toFixed(1) ?? dtc.cadenceCostPct.toFixed(1)}%`,
-          `Step-Time CV DTE: ${dtc.stepTimeCvDTE?.toFixed(1) ?? dtc.stepTimeCvCostPct.toFixed(1)}%`,
+          `Cadence DTE: ${cadenceDte.toFixed(1)}%`,
+          `Step-Time CV DTE: ${stepTimeCvDte.toFixed(1)}%`,
         ],
         confidence: 0.82,
         severity: info.severity,

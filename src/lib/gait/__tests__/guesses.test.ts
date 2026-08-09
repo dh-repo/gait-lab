@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildEducatedGuesses, DETERMINATION_LADDER } from "../guesses";
+import { buildEducatedGuesses, DETERMINATION_LADDER, resolveDteValues } from "../guesses";
 import { createMockMetrics } from "./testHelpers";
 import type { DualTaskCost } from "../types";
 
@@ -62,6 +62,49 @@ describe("Rule-Based Guesses Engine (guesses.ts)", () => {
       expect(cmiGuess).toBeDefined();
       expect(cmiGuess?.title).toBe("Mutual Cognitive-Motor Interference");
       expect(cmiGuess?.severity).toBe("elevated");
+      expect(cmiGuess?.evidence).toContain("Cadence DTE: -15.0%");
+      expect(cmiGuess?.evidence).toContain("Step-Time CV DTE: -50.0%");
+    });
+
+    it("negates the cost fields when the optional DTE fields are absent", () => {
+      const metrics = createMockMetrics();
+      const dualTaskCost: DualTaskCost = {
+        cadenceCostPct: 15.0,
+        stepTimeCvCostPct: 50.0,
+        stabilityCostPts: 10.0,
+        automaticityCostPts: 12.0,
+        summary: "Mutual interference",
+        cmiClassification: "mutual_interference",
+      };
+
+      const cmiGuess = buildEducatedGuesses(metrics, { dualTaskCost }).find(
+        (g) => g.id === "cmi-classification",
+      );
+
+      // cost = -DTE (analysis.ts computeDualTaskCost), so a +15% cadence cost
+      // is a -15% cadence DTE.
+      expect(cmiGuess?.evidence).toContain("Cadence DTE: -15.0%");
+      expect(cmiGuess?.evidence).toContain("Step-Time CV DTE: -50.0%");
+    });
+
+    it("resolveDteValues keeps explicit DTE fields and negates cost fallbacks", () => {
+      const base = {
+        stabilityCostPts: 0,
+        automaticityCostPts: 0,
+        summary: "",
+      };
+      expect(
+        resolveDteValues({ ...base, cadenceCostPct: 15, stepTimeCvCostPct: 50 }),
+      ).toEqual({ cadenceDte: -15, stepTimeCvDte: -50 });
+      expect(
+        resolveDteValues({
+          ...base,
+          cadenceCostPct: 15,
+          stepTimeCvCostPct: 50,
+          cadenceDTE: -15,
+          stepTimeCvDTE: -50,
+        }),
+      ).toEqual({ cadenceDte: -15, stepTimeCvDte: -50 });
     });
 
     it("triggers bag-load when armSwingAsymmetry > 0.35", () => {

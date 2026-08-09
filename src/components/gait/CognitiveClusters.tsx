@@ -25,6 +25,10 @@ const STATUS_LABEL: Record<ClinicalStatus, string> = {
   Pathological: "Outside typical range",
 };
 
+/** Shown wherever dual-task values are unavailable because no paired recording exists. */
+const NOT_ASSESSED_CAPTION =
+  "Requires a paired single-task and dual-task recording";
+
 export function CognitiveClusters({
   metrics,
   dualTaskCost,
@@ -60,10 +64,15 @@ export function CognitiveClusters({
 
   // Derived metrics calculations
   const cadence = metrics.cadenceSpm || 0;
-  const avgStepTime = metrics.avgStepTimeSec || 0.5;
-  const gaitSpeed = avgStepTime > 0 ? Number((1.32 / (avgStepTime * 2)).toFixed(2)) : Number((cadence * 0.0115).toFixed(2));
-  const strideLength = avgStepTime > 0 ? Number((gaitSpeed * avgStepTime * 2).toFixed(2)) : 1.32;
+  // No `|| 0.5` fallback: analysis.ts sets avgStepTimeSec to 0 when no step
+  // intervals were recovered, and a 0.5 substitution rendered a hard "1.00 s"
+  // stride time that no measurement produced. Null means unmeasured, and the
+  // tile says so — the same N/A convention MetricsPanel already uses.
+  const strideTimeSec =
+    metrics.avgStepTimeSec > 0 ? metrics.avgStepTimeSec * 2 : null;
   const stepTimeCvPct = (metrics.stepTimeCV * 100).toFixed(1);
+  const symmetryAngleText =
+    metrics.symmetryAngle != null ? `${metrics.symmetryAngle.toFixed(1)}%` : "N/A";
 
   // 1. Spatiotemporal status
   const paceStatus: ClinicalStatus =
@@ -87,10 +96,21 @@ export function CognitiveClusters({
         : "Pathological";
 
   // 4. Dual-task cost status
-  const dteCadence = dualTaskCost?.cadenceDTE ?? dualTaskCost?.cadenceCostPct ?? 0;
-  const absDte = Math.abs(dteCadence);
-  const dualTaskStatus: ClinicalStatus =
-    !dualTaskCost || absDte < 5.0 ? "Normal" : absDte <= 12.0 ? "Borderline" : "Pathological";
+  // `cadenceCostPct` is the negated DTE in analysis.ts, so flip its sign when used as fallback.
+  const dteCadence = dualTaskCost
+    ? (dualTaskCost.cadenceDTE ?? -dualTaskCost.cadenceCostPct)
+    : null;
+  const dteStepTimeCv = dualTaskCost
+    ? (dualTaskCost.stepTimeCvDTE ?? -dualTaskCost.stepTimeCvCostPct)
+    : null;
+  const dualTaskStatus: ClinicalStatus | null =
+    dteCadence == null
+      ? null
+      : Math.abs(dteCadence) < 5.0
+        ? "Normal"
+        : Math.abs(dteCadence) <= 12.0
+          ? "Borderline"
+          : "Pathological";
 
   const statusTone = (status: ClinicalStatus): "success" | "warn" | "info" => {
     switch (status) {
@@ -134,7 +154,7 @@ export function CognitiveClusters({
               <div>
                 <CardTitle className="text-base font-semibold">1. Spatiotemporal Pace</CardTitle>
                 <p className="text-xs text-[var(--color-muted)]">
-                  Cadence, walking velocity, stride dimensions, & step interval variability
+                  Cadence, stride time, & step interval variability
                 </p>
               </div>
             </div>
@@ -143,12 +163,12 @@ export function CognitiveClusters({
                 <Badge tone={statusTone(paceStatus)} data-testid="status-badge-pace">
                   {STATUS_LABEL[paceStatus]}
                 </Badge>
-                <div className="hidden sm:flex items-center gap-2 text-xs font-semibold tabular">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular">
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
                     {cadence.toFixed(0)} spm
                   </span>
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
-                    {gaitSpeed.toFixed(2)} m/s
+                    CV: {stepTimeCvPct}%
                   </span>
                 </div>
               </div>
@@ -168,7 +188,7 @@ export function CognitiveClusters({
             aria-labelledby="cluster-header-spatiotemporal"
             className="p-4 space-y-4"
           >
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                 <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Cadence</p>
                 <p className="tabular text-lg font-bold mt-0.5">{cadence.toFixed(0)} <span className="text-xs font-normal text-[var(--color-muted)]">spm</span></p>
@@ -180,21 +200,37 @@ export function CognitiveClusters({
               </div>
 
               <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Gait Speed</p>
-                <p className="tabular text-lg font-bold mt-0.5">{gaitSpeed.toFixed(2)} <span className="text-xs font-normal text-[var(--color-muted)]">m/s</span></p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Normative: 1.2–1.4 m/s</p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Stride Length</p>
-                <p className="tabular text-lg font-bold mt-0.5">{strideLength.toFixed(2)} <span className="text-xs font-normal text-[var(--color-muted)]">m</span></p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Estimated step x 2</p>
+                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Stride Time</p>
+                <p className="tabular text-lg font-bold mt-0.5">
+                  {strideTimeSec != null ? (
+                    <>
+                      {strideTimeSec.toFixed(2)}{" "}
+                      <span className="text-xs font-normal text-[var(--color-muted)]">s</span>
+                    </>
+                  ) : (
+                    "N/A"
+                  )}
+                </p>
+                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
+                  {strideTimeSec != null ? "Mean step interval x 2" : "No step intervals detected"}
+                </p>
               </div>
 
               <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                 <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Step Time</p>
-                <p className="tabular text-lg font-bold mt-0.5">{avgStepTime.toFixed(2)} <span className="text-xs font-normal text-[var(--color-muted)]">s</span></p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Mean step interval</p>
+                <p className="tabular text-lg font-bold mt-0.5">
+                  {metrics.avgStepTimeSec > 0 ? (
+                    <>
+                      {metrics.avgStepTimeSec.toFixed(2)}{" "}
+                      <span className="text-xs font-normal text-[var(--color-muted)]">s</span>
+                    </>
+                  ) : (
+                    "N/A"
+                  )}
+                </p>
+                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
+                  {metrics.avgStepTimeSec > 0 ? "Mean step interval" : "No step intervals detected"}
+                </p>
               </div>
 
               <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
@@ -245,9 +281,9 @@ export function CognitiveClusters({
                 <Badge tone={statusTone(symmetryStatus)} data-testid="status-badge-symmetry">
                   {STATUS_LABEL[symmetryStatus]}
                 </Badge>
-                <div className="hidden sm:flex items-center gap-2 text-xs font-semibold tabular">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular">
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
-                    SA: {(metrics.symmetryAngle ?? 0).toFixed(1)}%
+                    SA: {symmetryAngleText}
                   </span>
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
                     Asym: {(metrics.stepTimeAsymmetry * 100).toFixed(0)}%
@@ -273,7 +309,7 @@ export function CognitiveClusters({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                 <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Symmetry Angle (SA)</p>
-                <p className="tabular text-lg font-bold mt-0.5">{(metrics.symmetryAngle ?? 0).toFixed(1)}%</p>
+                <p className="tabular text-lg font-bold mt-0.5">{symmetryAngleText}</p>
                 <p className="text-[10px] text-[var(--color-subtle)] mt-1">Zifchock et al. (0% = perfect)</p>
               </div>
 
@@ -288,7 +324,7 @@ export function CognitiveClusters({
                 <p className="tabular text-lg font-bold mt-0.5">
                   {metrics.leftStancePct != null && metrics.leftSwingPct != null
                     ? (metrics.leftStancePct / metrics.leftSwingPct).toFixed(2)
-                    : "1.50"}
+                    : "N/A (Requires Side View)"}
                 </p>
                 <p className="text-[10px] text-[var(--color-subtle)] mt-1">Normal ~1.50 (60% / 40%)</p>
               </div>
@@ -408,7 +444,7 @@ export function CognitiveClusters({
                 <Badge tone={statusTone(stabilityStatus)} data-testid="status-badge-stability">
                   {STATUS_LABEL[stabilityStatus]}
                 </Badge>
-                <div className="hidden sm:flex items-center gap-2 text-xs font-semibold tabular">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular">
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
                     Smooth: {(metrics.pathSmoothness * 100).toFixed(0)}%
                   </span>
@@ -501,15 +537,20 @@ export function CognitiveClusters({
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Badge tone={statusTone(dualTaskStatus)} data-testid="status-badge-dualtask">
-                  {STATUS_LABEL[dualTaskStatus]}
+                <Badge
+                  tone={dualTaskStatus ? statusTone(dualTaskStatus) : "info"}
+                  data-testid="status-badge-dualtask"
+                >
+                  {dualTaskStatus ? STATUS_LABEL[dualTaskStatus] : "Not assessed"}
                 </Badge>
-                <div className="hidden sm:flex items-center gap-2 text-xs font-semibold tabular">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular">
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
-                    DTE: {dteCadence.toFixed(1)}%
+                    DTE: {dteCadence != null ? `${dteCadence.toFixed(1)}%` : "N/A"}
                   </span>
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)] capitalize">
-                    {dualTaskCost?.cmiClassification ? dualTaskCost.cmiClassification.replace(/_/g, " ") : "Baseline"}
+                    {dualTaskCost?.cmiClassification
+                      ? dualTaskCost.cmiClassification.replace(/_/g, " ")
+                      : "Single-Task Baseline"}
                   </span>
                 </div>
               </div>
@@ -532,24 +573,37 @@ export function CognitiveClusters({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                 <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Cadence DTE</p>
-                <p className="tabular text-lg font-bold mt-0.5">{dteCadence.toFixed(1)}%</p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Plummer & Eskes (2015) DTE formula</p>
+                <p className="tabular text-lg font-bold mt-0.5">
+                  {dteCadence != null ? `${dteCadence.toFixed(1)}%` : "N/A"}
+                </p>
+                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
+                  {dteCadence != null
+                    ? "Plummer & Eskes (2015) DTE formula"
+                    : NOT_ASSESSED_CAPTION}
+                </p>
               </div>
 
               <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                 <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Step Time CV DTE</p>
                 <p className="tabular text-lg font-bold mt-0.5">
-                  {(dualTaskCost?.stepTimeCvDTE ?? dualTaskCost?.stepTimeCvCostPct ?? 0).toFixed(1)}%
+                  {dteStepTimeCv != null ? `${dteStepTimeCv.toFixed(1)}%` : "N/A"}
                 </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Secondary task variability impact</p>
+                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
+                  {dteStepTimeCv != null
+                    ? "Secondary task variability impact"
+                    : NOT_ASSESSED_CAPTION}
+                </p>
               </div>
 
               <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Stability Delta</p>
+                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Stability DTE</p>
                 <p className="tabular text-lg font-bold mt-0.5">
-                  {(dualTaskCost?.stabilityCostPts ?? 0).toFixed(1)} pts
+                  {/* DTE-signed (negative = worse), matching the sibling DTE tiles. */}
+                  {dualTaskCost ? `${(-(dualTaskCost.stabilityCostPts ?? 0)).toFixed(1)} pts` : "N/A"}
                 </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Trunk stability point shift</p>
+                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
+                  {dualTaskCost ? "Trunk stability point shift" : NOT_ASSESSED_CAPTION}
+                </p>
               </div>
 
               <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3 flex flex-col justify-between">
@@ -563,7 +617,11 @@ export function CognitiveClusters({
                     </Badge>
                   </div>
                 </div>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Kelly et al. (2010) cognitive interference</p>
+                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
+                  {dualTaskCost
+                    ? "Kelly et al. (2010) cognitive interference"
+                    : NOT_ASSESSED_CAPTION}
+                </p>
               </div>
             </div>
 

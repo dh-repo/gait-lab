@@ -138,4 +138,72 @@ describe("ClinicalReportView Component", () => {
 
     win.print = origPrint;
   });
+
+  it("renders SA badge as N/A when symmetryAngle is unmeasured", () => {
+    const noSa: AnalysisResult = {
+      ...mockResult,
+      metrics: { ...mockResult.metrics, symmetryAngle: undefined },
+    };
+    const html = renderToStaticMarkup(
+      <ClinicalReportView result={noSa} patientMeta={mockPatientMeta} />,
+    );
+
+    expect(html).toContain("SA: N/A");
+    expect(html).not.toContain("SA: 0.0%");
+  });
+
+  it("renders the measured SA value when symmetryAngle is present", () => {
+    const html = renderToStaticMarkup(
+      <ClinicalReportView result={mockResult} patientMeta={mockPatientMeta} />,
+    );
+
+    expect(html).toContain("SA: 3.2%");
+  });
+
+  it("prints dual-task tiles with DTE sign convention, not cost sign", () => {
+    const withDte: AnalysisResult = {
+      ...mockResult,
+      taskMode: "dual",
+      dualTaskCost: {
+        cadenceCostPct: 12.0,
+        stepTimeCvCostPct: 18.0,
+        stabilityCostPts: 6,
+        automaticityCostPts: 4,
+        summary:
+          "Dual-Task Effect (mutual_interference): Cadence DTE = -12%, Step Time CV DTE = -18%, Symmetry DTE = -3%.",
+        cadenceDTE: -12.0,
+        stepTimeCvDTE: -18.0,
+        cmiClassification: "mutual_interference",
+      },
+    };
+    const html = renderToStaticMarkup(
+      <ClinicalReportView result={withDte} patientMeta={mockPatientMeta} />,
+    );
+
+    expect(html).toContain("Cadence DTE");
+    expect(html).toContain("Step Time CV DTE");
+    expect(html).toContain(">-12%<");
+    expect(html).toContain("-18");
+    expect(html).not.toContain(">12%<");
+  });
+
+  it("falls back to negated cost values when DTE fields are absent", () => {
+    const noDte: AnalysisResult = {
+      ...mockResult,
+      taskMode: "dual",
+      dualTaskCost: {
+        cadenceCostPct: 12.0,
+        stepTimeCvCostPct: 18.0,
+        stabilityCostPts: 6,
+        automaticityCostPts: 4,
+        summary: "Dual-task summary",
+      },
+    };
+    const html = renderToStaticMarkup(
+      <ClinicalReportView result={noDte} patientMeta={mockPatientMeta} />,
+    );
+
+    expect(html).toContain(">-12%<");
+    expect(html).toContain("-18");
+  });
 });

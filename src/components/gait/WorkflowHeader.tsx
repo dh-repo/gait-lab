@@ -104,7 +104,7 @@ export function WorkflowHeader({
               onClick={onOpenCompare}
               aria-label="Open session comparison view"
               data-testid="header-compare-button"
-              className="text-[var(--color-muted)]"
+              className="min-h-11 min-w-11 text-[var(--color-muted)] sm:min-h-0 sm:min-w-0"
             >
               <Columns2 className="size-3.5" />
               <span className="hidden sm:inline">Compare</span>
@@ -116,7 +116,7 @@ export function WorkflowHeader({
               size="sm"
               onClick={onOpenHistory}
               aria-label="Open session history"
-              className="text-[var(--color-muted)]"
+              className="min-h-11 min-w-11 text-[var(--color-muted)] sm:min-h-0 sm:min-w-0"
             >
               <Clock className="size-3.5" />
               <span className="hidden sm:inline">History</span>
@@ -128,7 +128,7 @@ export function WorkflowHeader({
               size="sm"
               onClick={onReset}
               aria-label="Start new session"
-              className="text-[var(--color-muted)]"
+              className="min-h-11 min-w-11 text-[var(--color-muted)] sm:min-h-0 sm:min-w-0"
             >
               <RotateCcw className="size-3.5" />
               <span className="hidden sm:inline">New session</span>
@@ -170,7 +170,7 @@ export function WorkflowHeader({
                   aria-current={isActive ? "step" : undefined}
                   aria-label={`Stage ${s.number}: ${s.title} - ${s.description}`}
                   className={cn(
-                    "group flex w-full items-center justify-center gap-2 px-1 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)] sm:justify-start sm:px-3",
+                    "group flex min-h-11 w-full items-center justify-center gap-2 px-1 py-2.5 text-left sm:min-h-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)] sm:justify-start sm:px-3",
                     isActive
                       ? "text-[var(--color-fg)]"
                       : isSelectable

@@ -34,4 +34,34 @@ describe("WorkflowHeader Accessibility & Semantic Markup", () => {
     expect(html).toContain("Stage 3: Analyze");
     expect(html).toContain("Stage 4: Report");
   });
+
+  it("gives stage-rail and header action buttons the 44px touch-target utility below sm", () => {
+    const html = renderToStaticMarkup(
+      <WorkflowHeader
+        currentStage={2}
+        hasResults={true}
+        onSelectStage={() => {}}
+        onReset={() => {}}
+        onOpenHistory={() => {}}
+        onOpenCompare={() => {}}
+      />,
+    );
+
+    // jsdom/SSR does no layout, so assert the utility classes instead of pixels.
+    const buttons = html.match(/<button[^>]*>/g) ?? [];
+    expect(buttons.length).toBeGreaterThanOrEqual(7); // 4 rail + compare + history + new session
+
+    for (const button of buttons) {
+      expect(button).toContain("min-h-11");
+      expect(button).toContain("sm:min-h-0");
+    }
+
+    // Header action buttons additionally need width, since their labels are hidden below sm.
+    const headerActions = buttons.filter((b) => b.includes("aria-label=\"Open session"));
+    expect(headerActions).toHaveLength(2);
+    for (const button of headerActions) {
+      expect(button).toContain("min-w-11");
+      expect(button).toContain("sm:min-w-0");
+    }
+  });
 });

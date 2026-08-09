@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { ReactNode } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScoreRing } from "./ScoreRing";
@@ -39,47 +40,26 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>Exploratory domain indices</CardTitle>
-            <Badge tone="info" className="capitalize">{metrics.viewAngle} view</Badge>
-            <Badge tone="neutral">
-              {(metrics.viewConfidence * 100).toFixed(0)}% view confidence
-            </Badge>
-          </div>
-          <CardDescription>
-            Secondary 0–100 research indices — not clinical scores or a diagnosis.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap justify-around gap-4">
-            <ScoreRing score={metrics.overallScore} label="Overall" />
-            <ScoreRing score={metrics.stabilityScore} label="Stability" />
-            <ScoreRing score={metrics.symmetryScore} label="Symmetry" />
-            <ScoreRing score={metrics.rhythmScore} label="Rhythm" />
-            <ScoreRing score={metrics.mobilityScore} label="Mobility" />
-            <ScoreRing score={metrics.automaticityScore} label="Automaticity" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone="info" className="capitalize">{metrics.viewAngle} view</Badge>
+        <Badge tone="neutral">
+          {(metrics.viewConfidence * 100).toFixed(0)}% view confidence
+        </Badge>
+      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Band
+        title="Directly measured"
+        caption="Estimated directly from the detected pose landmarks in this clip."
+      >
         <Stat
           label="Cadence"
           value={`${metrics.cadenceSpm.toFixed(0)}`}
           unit="spm"
           ci={metrics.confidenceIntervals?.cadenceSpm}
         />
-        <Stat label="Steps detected" value={`${metrics.stepCount}`} unit="steps" />
         <Stat
           label="Avg step time"
           value={metrics.avgStepTimeSec ? metrics.avgStepTimeSec.toFixed(2) : "—"}
-          unit="s"
-        />
-        <Stat
-          label="Clip duration"
-          value={metrics.durationSec.toFixed(1)}
           unit="s"
         />
         <Stat
@@ -123,15 +103,6 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
           unit={metrics.strideAsymmetry != null ? "%" : ""}
         />
         <Stat
-          label="Lateral sway"
-          value={metrics.lateralSway != null ? metrics.lateralSway.toFixed(3) : "N/A (Requires Front View)"}
-          unit={metrics.lateralSway != null ? "idx" : ""}
-          ci={metrics.confidenceIntervals?.lateralSway}
-        />
-        <Stat label="Vertical bounce" value={metrics.verticalBounce.toFixed(3)} unit="idx" />
-        <Stat label="Arm swing L" value={metrics.armSwingLeft.toFixed(2)} unit="rng" />
-        <Stat label="Arm swing R" value={metrics.armSwingRight.toFixed(2)} unit="rng" />
-        <Stat
           label="Knee flex L"
           value={metrics.kneeFlexLeft != null ? metrics.kneeFlexLeft.toFixed(0) : "N/A (Requires Side View)"}
           unit={metrics.kneeFlexLeft != null ? "°" : ""}
@@ -157,6 +128,19 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
           ci={metrics.confidenceIntervals?.strideTimeCV}
           basis={strideBasis}
         />
+      </Band>
+
+      <Band
+        title="Uncalibrated indices"
+        caption="No calibrated scale. Interpret only as change against this subject's own earlier session; the absolute value has no reference range."
+      >
+        <Stat
+          label="Lateral sway"
+          value={metrics.lateralSway != null ? metrics.lateralSway.toFixed(3) : "N/A (Requires Front View)"}
+          unit={metrics.lateralSway != null ? "idx" : ""}
+          ci={metrics.confidenceIntervals?.lateralSway}
+        />
+        <Stat label="Vertical bounce" value={metrics.verticalBounce.toFixed(3)} unit="idx" />
         <Stat
           label="Pelvic obliquity"
           value={metrics.pelvicObliquity != null ? metrics.pelvicObliquity.toFixed(3) : "N/A (Requires Front View)"}
@@ -169,9 +153,44 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
           unit={metrics.meanStepWidth != null ? "idx" : ""}
           ci={metrics.confidenceIntervals?.meanStepWidth}
         />
+        <Stat label="Arm swing L" value={metrics.armSwingLeft.toFixed(2)} unit="rng" />
+        <Stat label="Arm swing R" value={metrics.armSwingRight.toFixed(2)} unit="rng" />
         <Stat label="Path smoothness" value={(metrics.pathSmoothness * 100).toFixed(0)} unit="%" />
-        <Stat label="Automaticity" value={metrics.automaticityScore.toFixed(0)} unit="/100" />
-      </div>
+      </Band>
+
+      <section className="flex flex-col gap-2">
+        <BandHeading title="Composite research indices (unvalidated weighting)" />
+        <Card>
+          <CardHeader>
+            <CardTitle>Exploratory domain indices</CardTitle>
+            <CardDescription>
+              Secondary 0–100 research indices — not clinical scores or a diagnosis.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap justify-around gap-4">
+              <ScoreRing score={metrics.overallScore} label="Overall" />
+              <ScoreRing score={metrics.stabilityScore} label="Stability" />
+              <ScoreRing score={metrics.symmetryScore} label="Symmetry" />
+              <ScoreRing score={metrics.rhythmScore} label="Rhythm" />
+              <ScoreRing score={metrics.mobilityScore} label="Mobility" />
+              <ScoreRing score={metrics.automaticityScore} label="Automaticity" />
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <Band
+        title="Recording context (not scored)"
+        caption="Describes the clip itself, not the walk (context, not scored)."
+      >
+        <Stat label="Steps detected" value={`${metrics.stepCount}`} unit="steps" />
+        <Stat
+          label="Clip duration"
+          value={metrics.durationSec.toFixed(1)}
+          unit="s"
+        />
+      </Band>
 
       {series.length > 2 && (
         <>
@@ -334,6 +353,35 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
         </>
       )}
     </div>
+  );
+}
+
+function BandHeading({ title, caption }: { title: string; caption?: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+      {caption ? (
+        <p className="text-xs text-[var(--color-subtle)]">{caption}</p>
+      ) : null}
+    </div>
+  );
+}
+
+/** A labelled provenance band. Always renders its children — no collapsing. */
+function Band({
+  title,
+  caption,
+  children,
+}: {
+  title: string;
+  caption?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      <BandHeading title={title} caption={caption} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
+    </section>
   );
 }
 

@@ -175,6 +175,12 @@ export function GaitApp() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  /**
+   * Why a save failed, or null. persistence.saveGaitSession throws when the row's
+   * user_id ownership guard rejects the upsert; without this the failure was only
+   * ever logged to the console and the clinician assumed the session was stored.
+   */
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<WorkflowStage | null>(null);
   const [viewMode, setViewMode] = useState<"workflow" | "comparison">("workflow");
   const [compareSessionA, setCompareSessionA] = useState<GaitSessionRecord | null>(null);
@@ -971,6 +977,7 @@ export function GaitApp() {
   const handleSaveSession = useCallback(async () => {
     if (!result) return;
     setIsSaving(true);
+    setSaveError(null);
     try {
       const sessionName = fileName ? fileName.replace(/\.[^/.]+$/, "") : "Gait Session";
       // Pass the id of the row this result already lives in, so the server's
@@ -984,10 +991,17 @@ export function GaitApp() {
         },
       });
       if (saved?.id) setCurrentSessionId(saved.id);
+      setSaveError(null);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e) {
       console.error("Failed to save session:", e);
+      setSaveSuccess(false);
+      setSaveError(
+        e instanceof Error && e.message
+          ? e.message
+          : "Session could not be saved. Please try again.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -1114,7 +1128,7 @@ export function GaitApp() {
                     setInputMode("file");
                   }}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                    "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:min-h-0 sm:min-w-0",
                     inputMode === "file"
                       ? "bg-[var(--color-fg)] text-white"
                       : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
@@ -1127,7 +1141,7 @@ export function GaitApp() {
                   type="button"
                   onClick={() => setInputMode("webcam")}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                    "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:min-h-0 sm:min-w-0",
                     inputMode === "webcam"
                       ? "bg-[var(--color-fg)] text-white"
                       : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
@@ -1259,6 +1273,7 @@ export function GaitApp() {
                       <Button
                         size="sm"
                         variant="outline"
+                        className="min-h-11 min-w-11 sm:min-h-0 sm:min-w-0"
                         onClick={() => void enumerateDevices()}
                         title="Refresh camera devices"
                       >
@@ -1694,7 +1709,10 @@ export function GaitApp() {
                     : `Overall ${Math.round(result.metrics.overallScore)}/100 · review domains below`}
                   {" · "}
                   Cadence {result.metrics.cadenceSpm.toFixed(0)} spm · SA{" "}
-                  {(result.metrics.symmetryAngle ?? 0).toFixed(1)}% · CV{" "}
+                  {result.metrics.symmetryAngle != null
+                    ? `${result.metrics.symmetryAngle.toFixed(1)}%`
+                    : "N/A"}{" "}
+                  · CV{" "}
                   {(result.metrics.stepTimeCV * 100).toFixed(1)}%
                 </p>
                 <p className="text-[11px] text-[var(--color-subtle)]">
@@ -1728,6 +1746,14 @@ export function GaitApp() {
                   )}
                   {saveSuccess ? "Saved" : "Save session"}
                 </Button>
+                {saveError && (
+                  <p
+                    role="alert"
+                    className="max-w-xs text-[12px] leading-snug text-[var(--color-danger)]"
+                  >
+                    {saveError}
+                  </p>
+                )}
                 <Button size="sm" onClick={() => handleSelectStage(4)}>
                   Open report <ArrowRight className="size-3.5 ml-1.5" />
                 </Button>
@@ -1922,22 +1948,32 @@ export function GaitApp() {
                       <Badge tone={result.metrics.stabilityScore >= 70 ? "success" : result.metrics.stabilityScore >= 50 ? "neutral" : "info"}>
                         Stability: {Math.round(result.metrics.stabilityScore)}/100
                       </Badge>
-                      <Badge
-                        tone={
-                          result.dualTaskCost
-                            ? Math.abs(result.dualTaskCost.cadenceCostPct) < 5
-                              ? "success"
-                              : "warn"
-                            : "neutral"
-                        }
-                      >
-                        Dual-Task:{" "}
-                        {result.dualTaskCost
-                          ? `${result.dualTaskCost.cadenceDTE != null ? result.dualTaskCost.cadenceDTE.toFixed(1) : result.dualTaskCost.cadenceCostPct.toFixed(1)}%`
-                          : result.taskMode === "dual"
-                            ? "unavailable"
-                            : "Baseline"}
-                      </Badge>
+                      {(() => {
+                        // One canonical value for both the tone and the number. analysis.ts
+                        // defines cadenceCostPct = -cadenceDTE, so reading the badge tone
+                        // from one and the label from the other let them disagree in sign.
+                        const cadenceDte = result.dualTaskCost
+                          ? (result.dualTaskCost.cadenceDTE ?? -result.dualTaskCost.cadenceCostPct)
+                          : null;
+                        return (
+                          <Badge
+                            tone={
+                              cadenceDte != null
+                                ? Math.abs(cadenceDte) < 5
+                                  ? "success"
+                                  : "warn"
+                                : "neutral"
+                            }
+                          >
+                            Dual-Task:{" "}
+                            {cadenceDte != null
+                              ? `${cadenceDte.toFixed(1)}%`
+                              : result.taskMode === "dual"
+                                ? "unavailable"
+                                : "Baseline"}
+                          </Badge>
+                        );
+                      })()}
                   </div>
                 </div>
 
@@ -2020,6 +2056,36 @@ export function GaitApp() {
         onClose={() => setIsHistoryOpen(false)}
         onLoadSession={(loadedResult, name, sessionId?: string) => {
           setResult(loadedResult);
+          // A loaded session carries numbers only — no video and no pose frames. Anything
+          // still on screen belongs to the previously analysed clip, so it must go, or the
+          // stage-2 canvas paints clip A's skeleton beside session B's metrics.
+          //
+          // Clearing videoUrl state is NOT enough: the <video> element is permanently
+          // mounted and its source is assigned imperatively (video.src = url), so state
+          // alone leaves clip A decoded in the element. Stage 3 draws that element
+          // directly via SkeletonCanvas, and the transport controls drive it. Tear the
+          // element down explicitly, and do it BEFORE revoking the blob URL so the
+          // element is not still holding a revoked source.
+          const vid = videoRef.current;
+          if (vid) {
+            vid.pause();
+            vid.removeAttribute("src");
+            vid.srcObject = null;
+            vid.load();
+          }
+          if (videoUrl) URL.revokeObjectURL(videoUrl);
+          setVideoUrl(null);
+          setCurrentTime(0);
+          setDuration(0);
+          setIsPlaying(false);
+          // Invalidate any in-flight file analysis: without this its completion handler
+          // lands after the load and overwrites the session the user just opened.
+          abortRef.current++;
+          stopWebcam();
+          setScanPoses([]);
+          setPeople([]);
+          setSelectedPersonId(null);
+          setSaveError(null);
           // Re-saving a loaded session must update its row, not clone it. The drawer
           // does not pass the row id yet; until it does this falls back to null and a
           // re-save creates a new row (the pre-existing behaviour).
