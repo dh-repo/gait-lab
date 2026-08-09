@@ -1,16 +1,13 @@
-## 2026-08-09T11:14:13Z
-You are teamwork_preview_worker for gait-lab executing Final Cleanliness & Build Verification.
-Your working directory is `/Users/damian/GitHub/gait-lab/.agents/worker_final_clean`.
+## 2026-08-09T15:06:32Z
+You are worker_final_update.
+Working directory: /Users/damian/GitHub/gait-lab/.agents/worker_final_clean
 
-MANDATORY INTEGRITY WARNING:
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
-
-Context & Instructions:
-1. Check for any temporary test scratchpad files in `src/lib/gait/__tests__/` (such as `m4_challenger_verification.test.ts`) that have syntax/lint warnings. Either fix the lint issue (formatting/semicolons) or clean up temporary files if they were transient.
-2. Execute:
-   - `npm test`
-   - `npm run typecheck`
-   - `npm run lint`
-   - `npm run build`
-3. Verify that all 4 commands execute with 100% pass rate, 0 type errors, 0 lint errors, and 0 build errors.
-4. Deliver handoff report to `/Users/damian/GitHub/gait-lab/.agents/worker_final_clean/handoff.md` and send a message to parent with final outputs.
+Your task:
+1. Read `/Users/damian/GitHub/gait-lab/PROJECT.md`.
+2. Update `/Users/damian/GitHub/gait-lab/PROJECT.md` to document the newly implemented R1 & R2 features, architecture, interface contracts, and code layout:
+   - Feature Inventory: Add Joint Kinematic calculations (`angles.ts`), 0-100% gait cycle time-normalization, Recharts `JointAnglesChart.tsx`, 5-Domain Radar Chart & Patient Metadata `ClinicalReportView.tsx`, `@media print` styles, and 1-click PDF print export button. Mark all as DONE.
+   - Interface Contracts: Document `src/lib/gait/angles.ts` interfaces (`JointAnglePoint`, `NormativeRangePoint`, `JointAngleMetrics`, `GaitAngleAnalysis`, `computeGaitAngleAnalysis`, `getNormativeGaitCurves`).
+   - Code Layout: Add `src/lib/gait/angles.ts`, `src/components/gait/JointAnglesChart.tsx`, `src/components/gait/ClinicalReportView.tsx`, `src/components/gait/__tests__/JointAnglesChart.test.tsx`, `src/components/gait/__tests__/ClinicalReportView.test.tsx`, `src/lib/gait/__tests__/angles.test.ts`.
+3. Execute `npm run typecheck` and `npm test` to verify zero regressions.
+4. Write handoff report in `/Users/damian/GitHub/gait-lab/.agents/worker_final_clean/handoff.md`.
+5. Send a message to parent when done.

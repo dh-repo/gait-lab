@@ -10,6 +10,7 @@
   - `symmetry.ts`: Zifchock's Symmetry Angle ($SA$) and Gait Symmetry Index ($GSI$).
   - `smoothness.ts`: Harmonic Ratio ($HR$) via FFT using stride fundamental frequency $f_0 = 1 / \text{meanStrideSec}$ and $\pm 1$ bin magnitude summation.
   - `dte.ts`: Standardized Dual-Task Effect ($DTE$) for cognitive-motor interference.
+  - `angles.ts`: 2D joint kinematic calculations (Hip flexion/extension, Knee flexion/extension, Ankle dorsiflexion/plantarflexion), 0–100% gait cycle time-normalization, Perry & Burnfield (2010) normative curves, peak ROM and asymmetry metrics.
   - `analysis.ts`: Integrated spatio-temporal gait metric calculation engine with split-half reliability 95% CIs and view-geometry metric suppression (`null` emission).
   - `ratings.ts`: Clinical rating engine with support for view-suppressed `null` metrics and demoted secondary composite scores.
   - `guesses.ts`: Rule-based decision tree for observational pattern hypothesis generation.
@@ -37,6 +38,10 @@
 | 18 | R3: Continuous Window Frame Sampling & Subframe Refinement | Continuous 10–12s 30 Hz sampling in `GaitApp.tsx`, parabolic subframe timestamp refinement in `events.ts`, report true sampling rate | M7 | audit |
 | 19 | R4: Split-Half Reliability, View Geometry Suppression & Score Transparency | 95% CIs via split-half testing, emit `null` for invalid view geometry, demote composite scores in `types.ts`, `analysis.ts`, `ratings.ts`, UI | M8 | audit |
 | 20 | M9: Synthetic Test Suite, Justifications Update & Verification | Comprehensive synthetic ground-truth tests (follow-cam ~60% stance, HR ~2.5-4.0, stepTimeCV invariance), `scientific_justifications.md` update, full test pass & audit | M9 | audit |
+| 21 | Joint Kinematics Calculation (`angles.ts`) | Calculate 2D sagittal/frontal joint angles (Hip, Knee, Ankle), 0–100% gait cycle time-normalization, peak ROM and asymmetry % | M10 | audit |
+| 22 | Time-Normalized Kinematic Trajectory Chart (`JointAnglesChart.tsx`) | Recharts composed time-series chart displaying patient joint angle trajectories against Perry & Burnfield (2010) 0–100% normative envelopes with view suppression handling | M10 | audit |
+| 23 | 5-Domain Radar Chart & Patient Metadata (`ClinicalReportView.tsx`) | 5-domain radar chart (Pace, Symmetry, Smoothness, Rhythmicity, Stability) and editable patient metadata fields (ID, date, condition, clinician notes) | M10 | audit |
+| 24 | Clinical Report View & PDF Print Export | Full clinical report view with Zeni phase breakdown, ROM summary table, metric ratings, 95% CIs, hypothesis board, clinician sign-off block, `@media print` styles, and 1-click PDF export button | M10 | audit |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
@@ -50,6 +55,7 @@
 | 7 | M7: R3 — Continuous Window Frame Sampling & Subframe Refinement | Feature 18: Refactor `GaitApp.tsx` to sample continuous 10–12s window at 30 Hz and `events.ts` parabolic subframe refinement | M5 | DONE |
 | 8 | M8: R4 — Split-Half Reliability, Camera View Suppression & Score Transparency | Feature 19: Implement 95% CIs, view-geometry metric suppression (`null`), demote composite scores in `types.ts`, `analysis.ts`, `ratings.ts`, UI | M6, M7 | DONE |
 | 9 | M9: Comprehensive Synthetic Ground-Truth Test Suite & Verification | Feature 20: Comprehensive synthetic tests in `src/lib/gait/__tests__/`, update `scientific_justifications.md`, full verification pass & audit | M5–M8 | DONE |
+| 10 | M10: Joint Kinematics & Clinical Report View | Features 21–24: `angles.ts`, `JointAnglesChart.tsx`, `ClinicalReportView.tsx`, `@media print` PDF export, comprehensive unit tests | M5–M9 | DONE |
 
 ## Interface Contracts
 
@@ -102,6 +108,73 @@ export function computeHarmonicRatio(
 ): { hrVertical: number; hrLateral: number; overallHR: number };
 ```
 
+### `src/lib/gait/angles.ts`
+```typescript
+export interface JointAnglePoint {
+  gaitCyclePct: number;
+  kneeAngleLeft: number | null;
+  kneeAngleRight: number | null;
+  hipAngleLeft: number | null;
+  hipAngleRight: number | null;
+  ankleAngleLeft: number | null;
+  ankleAngleRight: number | null;
+}
+
+export interface NormativeRangePoint {
+  gaitCyclePct: number;
+  kneeMean: number;
+  kneeMin: number;
+  kneeMax: number;
+  hipMean: number;
+  hipMin: number;
+  hipMax: number;
+  ankleMean: number;
+  ankleMin: number;
+  ankleMax: number;
+}
+
+export interface JointAngleMetrics {
+  kneeRomLeft: number | null;
+  kneeRomRight: number | null;
+  kneePeakFlexionLeft: number | null;
+  kneePeakFlexionRight: number | null;
+  kneeAsymmetryPct: number | null;
+  hipRomLeft: number | null;
+  hipRomRight: number | null;
+  hipPeakFlexionLeft: number | null;
+  hipPeakExtensionLeft: number | null;
+  hipPeakFlexionRight: number | null;
+  hipPeakExtensionRight: number | null;
+  hipAsymmetryPct: number | null;
+  ankleRomLeft: number | null;
+  ankleRomRight: number | null;
+  anklePeakDorsiflexionLeft: number | null;
+  anklePeakDorsiflexionRight: number | null;
+  anklePeakPlantarflexionLeft: number | null;
+  anklePeakPlantarflexionRight: number | null;
+  ankleAsymmetryPct: number | null;
+}
+
+export interface GaitAngleAnalysis {
+  isSuppressed: boolean;
+  suppressionReason?: string;
+  normalizedPoints: JointAnglePoint[];
+  leftStrides: NormalizedGaitCycle[];
+  rightStrides: NormalizedGaitCycle[];
+  metrics: JointAngleMetrics;
+  normativeData: NormativeRangePoint[];
+}
+
+export function computeGaitAngleAnalysis(
+  frames: PoseFrame[],
+  events: GaitEvent[],
+  viewAngle: ViewAngle,
+  walkDir?: number
+): GaitAngleAnalysis;
+
+export function getNormativeGaitCurves(): NormativeRangePoint[];
+```
+
 ### `src/lib/gait/types.ts`
 ```typescript
 export interface ReliabilityBounds {
@@ -148,6 +221,7 @@ src/
 │   │   ├── symmetry.ts      # Zifchock Symmetry Angle
 │   │   ├── smoothness.ts    # Harmonic Ratio with stride fundamental frequency
 │   │   ├── dte.ts           # Dual-Task Effect formulas
+│   │   ├── angles.ts        # Joint Kinematic calculations & 0-100% gait cycle time-normalization
 │   │   ├── analysis.ts      # Metric engine with split-half CIs & view-geometry null suppression
 │   │   ├── ratings.ts       # Rating engine with null-metric handling & demoted composite scores
 │   │   ├── guesses.ts       # Decision tree with view-suppression handling
@@ -157,6 +231,7 @@ src/
 │   │       ├── symmetry.test.ts
 │   │       ├── smoothness.test.ts
 │   │       ├── dte.test.ts
+│   │       ├── angles.test.ts
 │   │       └── analysis.test.ts
 ├── components/
 │   ├── gait/
@@ -166,9 +241,14 @@ src/
 │   │   ├── MetricsPanel.tsx  # Renders 95% CIs and defensible measured quantities
 │   │   ├── GuessesPanel.tsx
 │   │   ├── GuidePanel.tsx
-│   │   └── ScoreRing.tsx
+│   │   ├── ScoreRing.tsx
+│   │   ├── JointAnglesChart.tsx  # Recharts 0-100% gait cycle trajectory visualization vs normative envelope
+│   │   ├── ClinicalReportView.tsx # 5-Domain Radar Chart, Patient Metadata, PDF Print export, Clinician sign-off
+│   │   └── __tests__/
+│   │       ├── JointAnglesChart.test.tsx
+│   │       └── ClinicalReportView.test.tsx
 migrations/
 ├── 0001_auth.sql
 └── 0002_gait_sessions.sql
-scientific_justifications.md # Updated with literature citations for R1-R5
+scientific_justifications.md # Updated with literature citations for R1-R5 & R1-R2 Kinematics
 ```
