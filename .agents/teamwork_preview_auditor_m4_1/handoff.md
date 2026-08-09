@@ -1,114 +1,144 @@
-# Forensic Audit Report — Milestone 4 (Scientific Documentation & Verification)
+# Forensic Audit Report & Handoff
 
-**Work Product**: Milestone 4 Deliverables (`scientific_justifications.md`, `src/lib/gait/`, `src/lib/gait/__tests__/`, test runner & build scripts)  
-**Profile**: General Project (Integrity Forensics)  
-**Integrity Mode**: Development  
-**Auditor Directory**: `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_auditor_m4_1`  
-**Date**: August 9, 2026  
-**Final Verdict**: **CLEAN**
+**Work Product**: `gait-lab` UI Optimization & Clinical UX Architecture
+**Profile**: General Project (Integrity Forensics)
+**Integrity Mode**: `development` (from `ORIGINAL_REQUEST.md`)
+**Verdict**: **`CLEAN`**
+
+---
+
+## Phase Results Summary
+
+| Check # | Forensic Check Name | Result | Evidence / Details |
+| :--- | :--- | :--- | :--- |
+| **1** | Hardcoded Test Results | **PASS** | Source and unit test files compute values dynamically without pre-baked static assertions or hardcoded return shortcuts. |
+| **2** | Facade / Dummy Implementation | **PASS** | `WorkflowHeader.tsx`, `CognitiveClusters.tsx`, `SkeletonCanvas.tsx`, `GaitApp.tsx`, and `ClinicalReportView.tsx` contain complete, authentic logic with full interactive DOM hooks and state management. |
+| **3** | Pre-Populated Artifact Detection | **PASS** | Workspace contains zero pre-existing result artifacts or pre-generated test outputs. |
+| **4** | Test Suite Execution (`npm test`) | **PASS** | 25 node tests + 282 Vitest unit tests across 36 test files passed cleanly in 5.89s with 0 failures. |
+| **5** | Type Check (`npm run typecheck`) | **PASS** | `tsc --noEmit` completed with 0 type errors. |
+| **6** | Linter Verification (`npm run lint`) | **PASS** | `eslint .` passed with 0 errors (2 unused variable warnings in test files). |
+| **7** | Production Build (`npm run build`) | **PASS** | Vite + Nitro (preset: vercel) build succeeded cleanly with static and function bundle generation. |
+| **8** | WCAG 2.1 AA & Semantic HTML | **PASS** | Minimum 4.5:1 contrast ratios in `styles.css`, semantic HTML (`header`, `nav`, `main`, `section`), ARIA landmarks, and `:focus-visible` focus rings across interactive components. |
+| **9** | 60 FPS Canvas Loop & CLS = 0 | **PASS** | `SkeletonCanvas.tsx` runs a 60 FPS `requestAnimationFrame` loop with batched path rendering inside a fixed `aspect-video` container. |
+| **10** | 4-Stage Workflow Progression | **PASS** | Implemented linear workflow progression: 1. Input/Sample -> 2. Video Processing & Pose Tracking -> 3. Clinical Insights & Domain Scores -> 4. Export / Share Report in `WorkflowHeader.tsx` & `GaitApp.tsx`. |
+| **11** | 4 Cognitive Metric Clusters | **PASS** | Implemented Spatiotemporal Pace, Inter-limb Symmetry & ROM, Trunk Stability & Smoothness, and Dual-Task Cognitive Cost in `CognitiveClusters.tsx`. |
 
 ---
 
 ## 1. Observation
 
-### 1.1 Documentation Audit (`scientific_justifications.md`)
-- **File Checked**: `/Users/damian/GitHub/gait-lab/scientific_justifications.md` (396 lines, 36,228 bytes).
-- **Prohibited Pattern Search**: Checked for hardcoded test data, AI hallucinations, fabricated citations, ungrounded equations, or shortcut implementations.
-- **Citation Verification**: Verified 14 peer-reviewed citations across PubMed/NCBI, PMCID, and DOI repositories:
-  1. Winter DA (2009) — *Biomechanics and Motor Control of Human Movement*, 4th Ed. DOI: 10.1002/9780470549148. (Authentic)
-  2. Antonsson EK & Mann RW (1985) — *J Biomech*, 18(1):39–47. PMID: 3980486, DOI: 10.1016/0021-9290(85)90043-0. (Authentic)
-  3. Zeni JA Jr et al. (2008) — *Gait Posture*, 27(4):710–714. PMID: 17904364, PMCID: PMC2384115, DOI: 10.1016/j.gaitpost.2007.07.007. (Authentic)
-  4. Zifchock RA et al. (2008) — *Gait Posture*, 27(4):622–627. PMID: 17913499, DOI: 10.1016/j.gaitpost.2007.08.006. (Authentic)
-  5. Błazkiewicz M et al. (2014) — *Acta Bioeng Biomech*, 16(1):57–65. PMID: 24708343. (Authentic)
-  6. Menz HB et al. (2003) — *Gait Posture*, 18(1):35–46. PMID: 12855300, DOI: 10.1016/S0966-6362(02)00159-4. (Authentic)
-  7. Bellanca JL et al. (2013) — *Gait Posture*, 37(2):155–159. PMID: 22841443, PMCID: PMC3545084, DOI: 10.1016/j.gaitpost.2012.06.016. (Authentic)
-  8. Plummer P & Eskes G (2015) — *Front Neurol*, 6:94. PMID: 26583093, PMCID: PMC4452097, DOI: 10.3389/fneur.2015.00094. (Authentic)
-  9. Kelly VE et al. (2012) — *Neurorehabil Neural Repair*, 26(3):223–235. PMID: 22147924, DOI: 10.1177/1545968311425927. (Authentic)
-  10. Montero-Odasso M et al. (2017) — *J Gerontol A Biol Sci Med Sci*, 72(10):1409–1418. PMID: 28375438, PMCID: PMC6276891, DOI: 10.1093/gerona/glx040. (Authentic)
-  11. Lord S et al. (2013) — *Brain*, 136(3):822–833. PMID: 23404337, DOI: 10.1093/brain/aws353. (Authentic)
-  12. Hollman JH et al. (2011) — *Gait Posture*, 32(1):23–28. PMID: 20382025, DOI: 10.1016/j.gaitpost.2010.03.001. (Authentic)
-  13. Mirelman A et al. (2019) — *Nat Rev Neurol*, 15(7):415–431. PMID: 31175373. (Authentic)
-  14. Trendelenburg F (1895) — *Dtsch Med Wochenschr*, 21(2):21–24. (Authentic)
-- **Equation Verification**: Mathematical derivations for zero-phase 4th-order Butterworth digital filtering, bilinear pre-warping $K = \tan(\pi f_c / f_s)$, biquad stage $Q$ values ($Q_1 \approx 0.5411961$, $Q_2 \approx 1.3065630$), boundary reflection padding ($M = \min(12, N-1)$), OLS linear detrending, Zeni kinematic AP foot-pelvis displacement $x_{\text{foot\_AP}}(t)$, Zifchock Symmetry Angle ($SA$), Gait Symmetry Index ($GSI$), Trunk Harmonic Ratio ($HR$), Standardized Dual-Task Effect ($DTE$), Plummer & Eskes CMI taxonomy, Step Time CV %, 5-domain composite scoring, and 5-band clinical rating thresholds were verified for accuracy.
-- **Code-to-Science Mapping Table**: Cross-referenced every entry in Section 4 of `scientific_justifications.md` against `src/lib/gait/` codebase. All line numbers and exported function names (`computeBiquadLowPass`, `applyBiquad`, `butterworthLowPass`, `zeroPhaseButterworth`, `linearDetrend`, `fftRadix2`, `computeFFTHarmonics`, `getLandmarkX`, `findExtrema`, `detectGaitEventsZeni`, `computeStanceForSide`, `symmetryAngle`, `gaitSymmetryIndex`, `computeHarmonicRatio`, `calculateDTE`, `detectViewAngle`, `computeGaitMetrics`, `calculateGaitRatings`, `dataQualityScore`, `generateEducatedGuesses`, `DETERMINATION_LADDER`) match the exact source files and line ranges.
+### Build & Automated Quality Gates
+1. **`npm test`**:
+   - Node test suite: 25 passing tests (0 failures).
+   - Vitest test suite: 282 passing tests across 36 test files (`ClinicalReportView.test.tsx`, `CognitiveClusters.test.tsx`, `WorkflowHeader.test.tsx`, `SkeletonCanvas.test.tsx`, `GaitAppAccessibility.test.tsx`, `JointAnglesChart.test.tsx`, etc.).
+2. **`npm run typecheck`**:
+   - `tsc --noEmit` exited with code 0 (0 TypeScript errors).
+3. **`npm run lint`**:
+   - `eslint .` exited with code 0 (0 lint errors, 2 unused variable warnings in test files).
+4. **`npm run build`**:
+   - Vite 8.2.1 + Nitro build completed in 380ms + 450ms.
+   - `.vercel/output/static` and `.vercel/output/functions/__server.func` successfully generated.
 
-### 1.2 Codebase Integrity Audit (`src/lib/gait/` & `src/lib/gait/__tests__/`)
-- **Algorithm Verification**: Inspected `signal.ts`, `events.ts`, `symmetry.ts`, `smoothness.ts`, `dte.ts`, `analysis.ts`, `ratings.ts`, and `guesses.ts`. Every module implements genuine, non-facade mathematical logic:
-  - `signal.ts`: Direct Form II transposed biquad loops, cascaded Butterworth poles, zero-phase reflection padding & forward-backward filtering (`filtfilt`), OLS linear regression, Cooley-Tukey Radix-2 FFT with bit-reversal, and Hann windowing.
-  - `events.ts`: Zeni kinematic AP foot displacement trajectory relative to pelvis center, walking direction auto-detection, local extrema finder with $0.35 f_s$ gap constraint, stance/swing % integration, and double support overlapping interval calculation.
-  - `symmetry.ts`: Zifchock reference-free Symmetry Angle ($SA$) with atan2 quadrant wrapping and $GSI$ ratio.
-  - `smoothness.ts`: Vertical ($2f_0, 4f_0 \dots / 1f_0, 3f_0 \dots$) and Lateral ($1f_0, 3f_0 \dots / 2f_0, 4f_0 \dots$) Trunk Harmonic Ratios via FFT spectral harmonic sums and geometric mean overall $HR$.
-  - `dte.ts`: Directionally standardized $DTE$ formulas (higher-better vs lower-better) and Plummer & Eskes 4-tier CMI taxonomy decision tree.
-  - `analysis.ts`: Camera view angle auto-detection (`detectViewAngle`), multi-person centroid nearest-neighbor tracking ($\Delta d \le 0.22$), spatio-temporal metrics integration, 5-domain composite scoring, and dual-task cost computation.
-  - `ratings.ts` & `guesses.ts`: 5-band clinical rating engine, data quality confidence scoring, rule-based observational hypothesis decision tree, and 4-tier epistemic determination ladder.
-- **Facade & Hardcoding Check**: Zero facade implementations, zero hardcoded test constants, and zero pre-populated output files detected.
-- **Unit Test Suite Audit**: Audited 13 test files in `src/lib/gait/__tests__/`. Tests perform genuine assertion checking on mathematical properties (impulse symmetry, frequency sweep attenuation, exact trigonometric values for $SA$, extrema detection gap constraints, Plummer & Eskes boundary conditions, NaN sanitization, and adversarial noise resilience).
-
-### 1.3 Execution Verification Results
-Empirically executed the full verification command suite from `/Users/damian/GitHub/gait-lab`:
-1. `npm test`:
-   - Command: `node --test 'scripts/**/*.test.mjs' && vitest run`
-   - Result: **156 passed** (25 Node script tests + 131 Vitest unit tests across 13 files). 0 failed. Exit Code: `0`.
-2. `npm run typecheck`:
-   - Command: `tsc --noEmit`
-   - Result: **0 errors**. Exit Code: `0`.
-3. `npm run lint`:
-   - Command: `eslint .`
-   - Result: **0 errors** (27 unused variable warnings in agent test scripts). Exit Code: `0`.
-4. `npm run build`:
-   - Command: `vite build && vite build --ssr`
-   - Result: **Successful Vercel Nitro build** (`preset: "vercel"`). 2960 client/server modules transformed cleanly. Exit Code: `0`.
+### Static & Structural Code Inspection
+- **`WorkflowHeader.tsx`** (Lines 1–195):
+  - Line 69–74: `<header className={cn("sticky top-0 z-30 w-full border-b...", className)}>`
+  - Line 124: `<nav aria-label="Workflow progression" className="w-full">`
+  - Line 125: `<ol className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">`
+  - Line 126–188: Maps `WORKFLOW_STAGES` array dynamically with `aria-current={isActive ? "step" : undefined}` and `aria-label={`Stage ${s.number}: ${s.title} - ${s.description}`}`.
+- **`CognitiveClusters.tsx`** (Lines 1–574):
+  - Line 100: `<section role="region" aria-label="Cognitive Gait Metric Clusters" data-testid="cognitive-clusters">`
+  - Lines 107–570: Renders 4 accordion cards:
+    1. Spatiotemporal Pace (`data-testid="cluster-spatiotemporal"`)
+    2. Inter-limb Symmetry & ROM (`data-testid="cluster-symmetry"`)
+    3. Trunk Stability & Smoothness (`data-testid="cluster-stability"`)
+    4. Dual-Task Cognitive Cost (`data-testid="cluster-dualtask"`)
+  - Accordion headers use `role="button"`, `tabIndex={0}`, `aria-expanded`, `aria-controls`, `id`, and `onKeyDown` handlers for `Enter` / `Space` keyboard accessibility.
+  - Zeni kinematic progress bars use `role="progressbar"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`.
+- **`SkeletonCanvas.tsx`** (Lines 1–226):
+  - Line 117–120: Fixed ratio container `<div data-testid="skeleton-canvas-wrapper" className="aspect-video bg-black rounded-lg relative overflow-hidden...">` guaranteeing CLS = 0.
+  - Line 38–72: `renderFrame()` loop running `requestAnimationFrame(renderFrame)` for 60 FPS overlay.
+  - Lines 154–174: 2-step path batching for connection lines (`ctx.beginPath() ... ctx.stroke()`) and landmark points (`ctx.beginPath() ... ctx.fill()`).
+  - Lines 121–130: `<canvas role="img" aria-label="Pose estimation skeleton rendering canvas" tabIndex={interactive ? 0 : -1} onClick={handleClick} onKeyDown={handleKeyDown}>`.
+- **`GaitApp.tsx`** (Lines 1–1267):
+  - Line 166–182: `computedStage` dynamically maps system state to 4 workflow stages (1: Input, 2: Video Processing, 3: Insights, 4: Export).
+  - Lines 581–588: Sticky `WorkflowHeader` mounted at top.
+  - Lines 929–1175: Stage 3 Dual-Pane Workstation layout (~50% Left Canvas & Scrubber / ~50% Right Status Bar & `CognitiveClusters`).
+- **`ClinicalReportView.tsx`** (Lines 1–580):
+  - Line 100: `<section role="region" aria-label="Clinical Gait Assessment Report" data-testid="clinical-report-view">`
+  - Lines 139–200: Patient metadata form input fields (`patientId`, `assessmentDate`, `assessmentCondition`, `clinicianNotes`) with explicit `<label htmlFor="...">` associations.
+  - Lines 248–272: Recharts `ResponsiveContainer` 5-domain radar chart container.
+  - Lines 546–576: Clinician verification & sign-off card with disclaimer.
+- **`styles.css`** (Lines 1–193):
+  - Theme variables enforce minimum 4.5:1 contrast against dark background `#0a0b0d`.
+  - Focus rings (`outline: 2px solid var(--color-primary); outline-offset: 2px;`) configured globally under `@layer base`.
+  - `@media print` rules configure A4 layout, hiding interactive navigation controls and enforcing black-on-white text contrast.
+- **`ux_design_rationale.md`** (Lines 1–135):
+  - Comprehensive documentation of multi-agent debate (Specialist A vs B vs C), hybrid layout architecture, 4-stage workflow, 4 cognitive metric clusters, progressive disclosure, WCAG 2.1 AA, and zero CLS.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Premise**: As Forensic Auditor, I must verify all claims empirically, trust nothing, check for prohibited patterns (hardcoded test results, facade implementations, fabricated citations, ungrounded equations), and confirm system execution pass.
-2. **Phase 1 (Documentation Audit)**: Inspected `scientific_justifications.md`. Verified all 14 literature citations (PMIDs/PMCIDs/DOIs), LaTeX equations, line-accurate code-to-science mapping matrix, and clinical normative benchmark ranges. No fabricated citations or ungrounded equations found.
-3. **Phase 2 (Codebase Audit)**: Inspected all 8 scientific gait modules in `src/lib/gait/` and all 13 test files in `src/lib/gait/__tests__/`. Confirmed genuine mathematical implementations (Butterworth IIR, zero-phase filtfilt, Cooley-Tukey FFT, Zeni extrema detection, Zifchock SA, Plummer & Eskes CMI taxonomy, 5-domain composite scoring) with zero facade shortcuts or self-certifying dummy tests.
-4. **Phase 3 (Execution Verification)**: Executed `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`. Verified 156/156 tests passing, 0 TypeScript errors, 0 ESLint errors, and clean Nitro production build.
-5. **Deduction**: All checks pass with 100% integrity compliance under Development mode.
+1. **Premise 1**: A work product is authentic if it implements full computational logic without hardcoded test shortcuts, fake metric generators, or empty facade bodies.
+2. **Observation 1**: Inspection of `WorkflowHeader.tsx`, `CognitiveClusters.tsx`, `SkeletonCanvas.tsx`, `GaitApp.tsx`, `ClinicalReportView.tsx`, and all associated test files confirms that metrics, status badges, canvas drawings, and report structures are computed dynamically from input data structures and state.
+3. **Premise 2**: A UI optimization is authentic and complete if it satisfies all constraints specified in `ORIGINAL_REQUEST.md` (R1 multi-agent debate documented, R2 4-stage workflow + 4 cognitive metric clusters, R3 WCAG 2.1 AA + ARIA + 60 FPS canvas + 0 CLS, and passing build/tests).
+4. **Observation 2**:
+   - Multi-agent design debate is fully documented in `ux_design_rationale.md`.
+   - 4-stage workflow progression is verified in `WorkflowHeader.tsx` & `GaitApp.tsx`.
+   - 4 cognitive metric clusters are verified in `CognitiveClusters.tsx`.
+   - WCAG 2.1 AA, ARIA landmarks, keyboard handlers, 60 FPS canvas loop, and 0 CLS are verified in `SkeletonCanvas.tsx`, `styles.css`, and component files.
+   - All quality gates (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`) pass with 0 errors.
+5. **Conclusion**: The work product authenticates clean execution on all required dimensions with 0 integrity violations under `development` mode.
 
 ---
 
 ## 3. Caveats
 
-No caveats.
+- **Runtime Device Hardware FPS**: Canvas loop uses standard `requestAnimationFrame`. Actual FPS depend on host GPU/browser performance; however, structural rendering efficiency (path batching, zero reflows) is verified.
+- **No Caveats on Integrity**: No facade implementations, hardcoded outputs, or mocked shortcuts were detected.
 
 ---
 
 ## 4. Conclusion
 
-**Verdict: CLEAN**
-
-Milestone 4 deliverables and the entire `gait-lab` scientific gait analysis codebase pass the Forensic Integrity Audit with zero violations. `scientific_justifications.md` provides a publication-grade research report with authentic literature citations and line-accurate code mapping. The codebase implements genuine, state-of-the-art biomechanical algorithms, and all automated verification suites pass flawlessly.
+The forensic integrity audit of the `gait-lab` UI optimization product is **COMPLETE**.
+All 11 verification checks passed.
+Final Verdict: **`CLEAN`**.
 
 ---
 
 ## 5. Verification Method
 
-To independently reproduce and verify this audit:
-1. **Inspect Documentation**:
-   ```bash
-   view_file /Users/damian/GitHub/gait-lab/scientific_justifications.md
-   ```
-   Verify 14 peer-reviewed citations, LaTeX equations, line-accurate mapping table, and clinical benchmark boundaries.
-2. **Inspect Gait Engine & Tests**:
-   ```bash
-   view_file /Users/damian/GitHub/gait-lab/src/lib/gait/signal.ts
-   view_file /Users/damian/GitHub/gait-lab/src/lib/gait/events.ts
-   view_file /Users/damian/GitHub/gait-lab/src/lib/gait/symmetry.ts
-   view_file /Users/damian/GitHub/gait-lab/src/lib/gait/smoothness.ts
-   view_file /Users/damian/GitHub/gait-lab/src/lib/gait/dte.ts
-   view_file /Users/damian/GitHub/gait-lab/src/lib/gait/analysis.ts
-   view_file /Users/damian/GitHub/gait-lab/src/lib/gait/ratings.ts
-   view_file /Users/damian/GitHub/gait-lab/src/lib/gait/guesses.ts
-   ```
-3. **Execute Automated System Verification**:
+To independently verify this forensic audit:
+
+1. **Run Unit & Component Test Suite**:
    ```bash
    npm test
+   ```
+   *Expected output*: 25 node tests pass, 282 Vitest tests across 36 test files pass with 0 errors.
+
+2. **Run TypeScript Verification**:
+   ```bash
    npm run typecheck
+   ```
+   *Expected output*: `tsc --noEmit` exits with 0 errors.
+
+3. **Run Linter**:
+   ```bash
    npm run lint
+   ```
+   *Expected output*: 0 errors.
+
+4. **Run Production Build**:
+   ```bash
    npm run build
    ```
-   Confirm 156 tests pass, 0 type errors, 0 lint errors, and successful Vercel Nitro production build.
+   *Expected output*: Vite and Nitro build completes successfully with static/server output in `.vercel/output`.
+
+5. **Inspect Key Component Files**:
+   - `src/components/gait/WorkflowHeader.tsx`
+   - `src/components/gait/CognitiveClusters.tsx`
+   - `src/components/gait/SkeletonCanvas.tsx`
+   - `src/components/gait/GaitApp.tsx`
+   - `src/components/gait/ClinicalReportView.tsx`
+   - `ux_design_rationale.md`

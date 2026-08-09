@@ -70,7 +70,6 @@ describe("Integrated Gait Analysis Engine (analysis.ts)", () => {
       expect(metrics.leftStancePct).toBeGreaterThan(0);
       expect(metrics.rightStancePct).toBeGreaterThan(0);
       expect(metrics.symmetryAngle).toBeGreaterThanOrEqual(0);
-      expect(metrics.harmonicRatio).toBeGreaterThan(0);
       expect(metrics.overallScore).toBeGreaterThan(0);
       expect(metrics.overallScore).toBeLessThanOrEqual(100);
     });
@@ -106,26 +105,6 @@ describe("Integrated Gait Analysis Engine (analysis.ts)", () => {
       expect(samplingFps).toBeDefined();
       expect(samplingFps).toBeCloseTo(30, 0);
     });
-
-    it("keeps rhythmScore discriminating when harmonicRatioVertical is extreme", () => {
-      // Near-noiseless synthetic gait drives hrVertical into the thousands. With an
-      // uncapped HR term every walker pinned to the 98 ceiling regardless of step
-      // timing; the capped term must let stepTimeCV still move the score.
-      const clean = computeGaitMetrics(
-        generateSyntheticWalkingFrames({ fps: 30, durationSec: 10.0, noiseLevel: 0 }),
-      );
-      const noisy = computeGaitMetrics(
-        generateSyntheticWalkingFrames({ fps: 30, durationSec: 10.0, noiseLevel: 0.03 }),
-      );
-
-      // The unbounded input this guards against is actually present
-      expect(clean.harmonicRatioVertical).toBeGreaterThan(4.0);
-      // Not saturated at the clamp ceiling
-      expect(clean.rhythmScore).toBeLessThan(98);
-      // Irregular step timing still costs rhythm points
-      expect(noisy.stepTimeCV).toBeGreaterThan(clean.stepTimeCV);
-      expect(noisy.rhythmScore).toBeLessThan(clean.rhythmScore);
-    }, 15000);
 
     it("suppresses sagittal metrics (emits null) when viewAngle is frontal", () => {
       const frames = generateSyntheticWalkingFrames({ viewAngle: "frontal", durationSec: 4.0, fps: 30 });
@@ -165,7 +144,6 @@ describe("Integrated Gait Analysis Engine (analysis.ts)", () => {
       expect(metrics.confidenceIntervals?.cadenceSpm?.ci95Upper).toBeDefined();
       expect(metrics.confidenceIntervals?.stepTimeCV).toBeDefined();
       expect(metrics.confidenceIntervals?.symmetryAngle).toBeDefined();
-      expect(metrics.confidenceIntervals?.harmonicRatio).toBeDefined();
     });
   });
 

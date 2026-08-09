@@ -29,21 +29,6 @@ describe("Rule-Based Guesses Engine (guesses.ts)", () => {
       expect(highSaGuess?.severity).toBe("elevated");
     });
 
-    it("triggers fft-hr-dysrhythmia when harmonicRatio < 1.8", () => {
-      const metrics = createMockMetrics({ harmonicRatio: 1.4, harmonicRatioVertical: 1.3, harmonicRatioLateral: 1.5 });
-      const guesses = buildEducatedGuesses(metrics);
-
-      const hrGuess = guesses.find((g) => g.id === "fft-hr-dysrhythmia");
-      expect(hrGuess).toBeDefined();
-      expect(hrGuess?.severity).toBe("moderate");
-      expect(hrGuess?.category).toBe("neuromotor");
-
-      // Extremely low HR (< 1.3) upgrades severity to elevated
-      const lowHrMetrics = createMockMetrics({ harmonicRatio: 1.1, harmonicRatioVertical: 1.0, harmonicRatioLateral: 1.2 });
-      const lowHrGuess = buildEducatedGuesses(lowHrMetrics).find((g) => g.id === "fft-hr-dysrhythmia");
-      expect(lowHrGuess?.severity).toBe("elevated");
-    });
-
     it("triggers zeni-stance-breakdown when stance diff > 6% or double support > 26%", () => {
       const metrics = createMockMetrics({
         leftStancePct: 68.0,
@@ -150,7 +135,6 @@ describe("Rule-Based Guesses Engine (guesses.ts)", () => {
     it("sorts guesses strictly by severity (elevated -> moderate -> low), then confidence", () => {
       const metrics = createMockMetrics({
         symmetryAngle: 12.0, // elevated
-        harmonicRatio: 1.6, // moderate
       });
 
       const guesses = buildEducatedGuesses(metrics);

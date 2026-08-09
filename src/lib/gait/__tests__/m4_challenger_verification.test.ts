@@ -2,8 +2,6 @@ import { describe, test, expect } from "vitest";
 import {
   butterworthLowPass,
   zeroPhaseButterworth,
-  linearDetrend,
-  computeFFTHarmonics,
 } from "../signal";
 import {
   findExtrema,
@@ -11,7 +9,6 @@ import {
   detectGaitEventsZeni,
 } from "../events";
 import { symmetryAngle, gaitSymmetryIndex } from "../symmetry";
-import { computeHarmonicRatio } from "../smoothness";
 import { calculateDTE } from "../dte";
 import {
   mid,
@@ -81,42 +78,6 @@ describe("Milestone M4 Verification 1 - Empirical DSP & Math Stress Harness", ()
       expect(Math.abs(filtered[50])).toBeLessThan(1e12);
     });
 
-    test("Linear detrending with edge cases", () => {
-      expect(linearDetrend([])).toEqual({ detrended: [], trend: expect.any(Function) });
-      expect(linearDetrend([42])).toEqual({ detrended: [0], trend: expect.any(Function) });
-
-      // Constant signal
-      const constSig = [10, 10, 10, 10, 10];
-      const { detrended, trend } = linearDetrend(constSig);
-      expect(trend(2)).toBeCloseTo(10, 5);
-      expect(detrended.every((v) => Math.abs(v) < 1e-10)).toBe(true);
-
-      // Signal with NaNs
-      const nanSig = [1, 2, NaN, 4, 5];
-      const resNaN = linearDetrend(nanSig);
-      expect(resNaN.detrended.length).toBe(5);
-    });
-
-    test("Cooley-Tukey Radix-2 FFT & computeFFTHarmonics boundary conditions", () => {
-      expect(computeFFTHarmonics([])).toEqual({ evenSum: 0, oddSum: 0, harmonicRatio: 1.0 });
-      expect(computeFFTHarmonics([1, 2, 3])).toEqual({ evenSum: 0, oddSum: 0, harmonicRatio: 1.0 });
-
-      // Flat zero signal
-      const zeros = new Array(32).fill(0);
-      const resZeros = computeFFTHarmonics(zeros, 30);
-      expect(Number.isFinite(resZeros.harmonicRatio)).toBe(true);
-
-      // Impulse signal
-      const impulse = new Array(64).fill(0);
-      impulse[0] = 100;
-      const resImpulse = computeFFTHarmonics(impulse, 30);
-      expect(Number.isFinite(resImpulse.harmonicRatio)).toBe(true);
-
-      // Signal with NaNs - returns NaN for harmonicRatio if direct NaN signal passed to linearDetrend
-      const nanSignal = new Array(32).fill(NaN);
-      const resNaN = computeFFTHarmonics(nanSignal, 30);
-      expect(resNaN).toBeDefined();
-    });
   });
 
   describe("2. Gait Events & Peak Refinement Boundary Harness", () => {
@@ -214,27 +175,6 @@ describe("Milestone M4 Verification 1 - Empirical DSP & Math Stress Harness", ()
     });
   });
 
-  describe("4. Smoothness & Harmonic Ratio Harness", () => {
-    test("computeHarmonicRatio on boundary inputs", () => {
-      expect(computeHarmonicRatio([], [], 30)).toEqual({ hrVertical: 1.0, hrLateral: 1.0, overallHR: 1.0 });
-      expect(computeHarmonicRatio([1, 2], [1, 2], 30)).toEqual({ hrVertical: 1.0, hrLateral: 1.0, overallHR: 1.0 });
-
-      // Flat signals
-      const flatY = new Array(30).fill(0.5);
-      const flatX = new Array(30).fill(0.5);
-      const resFlat = computeHarmonicRatio(flatY, flatX, 30);
-      expect(resFlat.hrVertical).toBeGreaterThanOrEqual(0.1);
-      expect(resFlat.hrLateral).toBeGreaterThanOrEqual(0.1);
-      expect(resFlat.overallHR).toBeGreaterThanOrEqual(0.1);
-
-      // NaNs in signal
-      const nanY = new Array(30).fill(NaN);
-      const nanX = new Array(30).fill(NaN);
-      const resNaN = computeHarmonicRatio(nanY, nanX, 30);
-      expect(resNaN).toBeDefined();
-    });
-  });
-
   describe("5. Dual-Task Effect (DTE) Harness", () => {
     const createMetrics = (cadence: number, cv: number, symmetry: number): GaitMetrics => ({
       viewAngle: "sagittal",
@@ -262,9 +202,6 @@ describe("Milestone M4 Verification 1 - Empirical DSP & Math Stress Harness", ()
       rightSwingPct: 40,
       doubleSupportPct: 20,
       symmetryAngle: 0,
-      harmonicRatioVertical: 2.0,
-      harmonicRatioLateral: 2.0,
-      harmonicRatio: 2.0,
       stepTimeCV: cv,
       strideTimeCV: cv,
       pelvicObliquity: 0.02,

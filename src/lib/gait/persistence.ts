@@ -19,6 +19,11 @@ export interface GaitSessionRecord {
   durationSec: number;
   viewAngle: string;
   symmetryAngle?: number;
+  /**
+   * Legacy column. The trunk harmonic ratio was removed from the metrics engine
+   * (not valid for camera-derived positional data), so new rows always write null.
+   * Kept nullable rather than dropped so historical rows retain their recorded value.
+   */
   harmonicRatio?: number;
   metricsJson: GaitMetrics;
   guessesJson: EducatedGuess[];
@@ -42,6 +47,7 @@ export const saveGaitSession = createServerFn({ method: "POST" })
     const id =
       data.id || `gs_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const { metrics, guesses, taskMode, dualTaskCost } = data.result;
+    // harmonicRatio is no longer produced by the engine; the column persists for old rows.
     const extMetrics = metrics as GaitMetrics & { symmetryAngle?: number; harmonicRatio?: number };
 
     const rows = await sql`

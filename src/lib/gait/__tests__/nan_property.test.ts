@@ -2,8 +2,6 @@ import { describe, test, expect } from "vitest";
 import {
   butterworthLowPass,
   zeroPhaseButterworth,
-  linearDetrend,
-  computeFFTHarmonics,
 } from "../signal";
 import { detectGaitEventsZeni } from "../events";
 import { symmetryAngle } from "../symmetry";
@@ -15,8 +13,6 @@ describe("Milestone 1 Robustness & NaN Injection Tests", () => {
       const dataWithNaN = [1, 2, NaN, 4, 5, 6, 7, 8, 9, 10];
       expect(() => butterworthLowPass(dataWithNaN, 30)).not.toThrow();
       expect(() => zeroPhaseButterworth(dataWithNaN, 30)).not.toThrow();
-      expect(() => linearDetrend(dataWithNaN)).not.toThrow();
-      expect(() => computeFFTHarmonics(dataWithNaN)).not.toThrow();
     });
 
     test("signal containing Infinity does not crash process", () => {

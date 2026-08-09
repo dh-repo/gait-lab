@@ -1,7 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { detectGaitEventsZeni, refinePeakTimestamp } from "../events";
-import { computeHarmonicRatio } from "../smoothness";
-import { computeFFTHarmonics } from "../signal";
 import { computeGaitMetrics } from "../analysis";
 import { generateSyntheticWalkingFrames } from "./testHelpers";
 
@@ -82,86 +80,6 @@ describe("Milestone M9: Comprehensive Synthetic Ground-Truth Test Suite (R1-R5 A
       expect(result.rightStancePct).toBeLessThanOrEqual(80);
       expect(result.doubleSupportPct).toBeGreaterThan(0);
       expect(result.doubleSupportPct).toBeLessThanOrEqual(45);
-    });
-  });
-
-  describe("R2: Harmonic Ratio f0 Fundamental Frequency & Hann Window Leakage Integration", () => {
-    it("computes vertical Harmonic Ratio in literature-aligned range (~2.5 to 4.0+) for synthetic symmetric walking", () => {
-      const fps = 30;
-      const durationSec = 5.0;
-      const totalFrames = Math.floor(fps * durationSec);
-      const strideFreq = 0.8; // 0.8 Hz stride freq (1.6 Hz step freq)
-      const meanStrideSec = 1 / strideFreq; // 1.25 s
-
-      const hipY: number[] = [];
-      const hipX: number[] = [];
-
-      for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps;
-        // Pure symmetric vertical trajectory driven by 2nd & 4th stride harmonics (even harmonics)
-        const y = 0.5 + 0.03 * Math.cos(2 * Math.PI * (2 * strideFreq) * t) + 0.008 * Math.cos(2 * Math.PI * (4 * strideFreq) * t);
-        // Pure symmetric lateral trajectory driven by 1st & 3rd stride harmonics (odd harmonics)
-        const x = 0.5 + 0.04 * Math.sin(2 * Math.PI * (1 * strideFreq) * t) + 0.01 * Math.sin(2 * Math.PI * (3 * strideFreq) * t);
-
-        hipY.push(y);
-        hipX.push(x);
-      }
-
-      const hrResult = computeHarmonicRatio(hipY, hipX, fps, meanStrideSec);
-
-      // Literature threshold for symmetric gait is HR >= 2.0 (higher indicates smoother, symmetric gait)
-      expect(hrResult.hrVertical).toBeGreaterThanOrEqual(2.5);
-      expect(hrResult.hrLateral).toBeGreaterThanOrEqual(2.0);
-      expect(hrResult.overallHR).toBeGreaterThan(2.0);
-    });
-
-    it("verifies computeFFTHarmonics with explicit strideFreq parameter and +/- 1 FFT bin Hann leakage summation", () => {
-      const fps = 30;
-      const durationSec = 6.0;
-      const totalFrames = Math.floor(fps * durationSec);
-      const strideFreq = 0.85; // Unaligned fractional frequency
-
-      const data: number[] = [];
-      for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps;
-        // Strong 2nd harmonic (even) relative to 1st harmonic (odd)
-        data.push(1.0 * Math.sin(2 * Math.PI * (2 * strideFreq) * t) + 0.1 * Math.sin(2 * Math.PI * (1 * strideFreq) * t));
-      }
-
-      const harmonics = computeFFTHarmonics(data, fps, strideFreq, 10);
-
-      expect(harmonics.evenSum).toBeGreaterThan(harmonics.oddSum * 2);
-      expect(harmonics.harmonicRatio).toBeGreaterThan(2.0);
-    });
-
-    it("detects reduction in vertical HR when step asymmetry (odd stride harmonic) is introduced", () => {
-      const fps = 30;
-      const durationSec = 5.0;
-      const totalFrames = Math.floor(fps * durationSec);
-      const strideFreq = 0.8;
-      const meanStrideSec = 1 / strideFreq;
-
-      const hipYSymmetric: number[] = [];
-      const hipYAsymmetric: number[] = [];
-      const hipX: number[] = [];
-
-      for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps;
-        // Symmetric hipY (even harmonics only)
-        const ySym = 0.5 + 0.03 * Math.cos(2 * Math.PI * (2 * strideFreq) * t);
-        // Asymmetric hipY (injecting odd harmonic 1*f0)
-        const yAsym = 0.5 + 0.03 * Math.cos(2 * Math.PI * (2 * strideFreq) * t) + 0.025 * Math.cos(2 * Math.PI * (1 * strideFreq) * t);
-        const x = 0.5 + 0.04 * Math.sin(2 * Math.PI * (1 * strideFreq) * t);
-
-        hipYSymmetric.push(ySym);
-        hipYAsymmetric.push(yAsym);
-        hipX.push(x);
-      }
-
-      const hrSym = computeHarmonicRatio(hipYSymmetric, hipX, fps, meanStrideSec);
-      const hrAsym = computeHarmonicRatio(hipYAsymmetric, hipX, fps, meanStrideSec);
-
-      expect(hrAsym.hrVertical).toBeLessThan(hrSym.hrVertical);
     });
   });
 
@@ -281,7 +199,6 @@ describe("Milestone M9: Comprehensive Synthetic Ground-Truth Test Suite (R1-R5 A
       expect(ci.cadenceSpm).toBeDefined();
       expect(ci.stepTimeCV).toBeDefined();
       expect(ci.symmetryAngle).toBeDefined();
-      expect(ci.harmonicRatio).toBeDefined();
 
       const cadenceBounds = ci.cadenceSpm!;
       expect(cadenceBounds.value).toBeCloseTo(metrics.cadenceSpm!, 2);

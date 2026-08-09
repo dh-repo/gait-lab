@@ -3,7 +3,7 @@
 ## Document Metadata
 - **Project**: `gait-lab` — Markerless Quantitative Spatio-Temporal Gait Analysis Platform
 - **Version**: 3.0.0 (Milestone 9 Final Scientific & Synthetic Ground-Truth Audit Specification)
-- **Primary Scientific Scope**: Digital Signal Processing, Kinematic Gait Event Detection, Handheld Follow-Cam Orientation Inference, Spectral Harmonic Ratio Smoothness, Temporal Decimation Variance Elimination, View Geometry Metric Suppression, Split-Half Reliability 95% CIs, Inter-Limb Symmetry, Standardized Dual-Task Effect, and Observational Hypothesis Generation.
+- **Primary Scientific Scope**: Digital Signal Processing, Kinematic Gait Event Detection, Handheld Follow-Cam Orientation Inference, Spectral Analysis Smoothness, Temporal Decimation Variance Elimination, View Geometry Metric Suppression, Split-Half Reliability 95% CIs, Inter-Limb Symmetry, Standardized Dual-Task Effect, and Observational Hypothesis Generation.
 - **Repository Path**: `/Users/damian/GitHub/gait-lab`
 
 ---
@@ -15,7 +15,7 @@
 
 Following a rigorous forensic audit, `gait-lab` has integrated five major scientific remediations (R1–R5):
 1. **Follow-Cam Direction Inference (R1)** via foot orientation vector difference ($x_{\text{toe}} - x_{\text{heel}}$).
-2. **Harmonic Ratio $f_0$ Alignment (R2)** using stride fundamental frequency $f_0 = 1 / \text{meanStrideSec}$ from Zeni events and $\pm 1$ FFT bin Hann window leakage integration.
+2. **Trunk Harmonic Ratio Removal (R2)** — the $f_0$ misalignment was fixed, then the metric was removed entirely as invalid for camera-derived positional data (see §3.4).
 3. **Temporal Decimation Bias Elimination (R3)** via continuous 10–12s 30 Hz window sampling and 3-point parabolic subframe peak refinement.
 4. **View-Geometry Validity & Split-Half 95% CIs (R4)** via metric suppression (`null` emission for out-of-plane metrics), split-half standard error bounds $\text{SE}_{\text{split}} = \frac{|M^{(1)} - M^{(2)}|}{\sqrt{2}}$, and demotion of 0–100 composite scores.
 5. **Topographic Peak Prominence Filtering (R5)** in kinematic event detection ($P_{\text{min}} = \max(0.01, 0.15 \times \text{sigRange})$).
@@ -38,15 +38,14 @@ The computational pipeline of `gait-lab` transitions through 7 discrete algorith
    - Infers walking direction in follow-cam shots using median foot orientation difference ($x_{\text{toe}} - x_{\text{heel}}$).
    - Filters candidate peaks using topographic prominence $P_{\text{min}} = \max(0.01, 0.15 \times \text{sigRange})$ and refines timestamps via 3-point parabolic interpolation.
    - Identifies Initial Contact (Heel Strike, IC) and Terminal Contact (Toe Off, TO), deriving Stance Phase %, Swing Phase %, Stride Duration, and Double Support Time %.
-5. **Advanced Biomechanical Analytics (`symmetry.ts`, `smoothness.ts`, `dte.ts`)**:
+5. **Advanced Biomechanical Analytics (`symmetry.ts`, `dte.ts`)**:
    - **Inter-Limb Symmetry**: Evaluates Zifchock's reference-free Symmetry Angle ($SA$) and Gait Symmetry Index ($GSI$) across step time, arm swing, and knee flexion.
-   - **Trunk Smoothness & Rhythmicity**: Computes Trunk Harmonic Ratio ($HR$) for vertical ($HR_{\text{vertical}}$) and lateral ($HR_{\text{lateral}}$) pelvis trajectories using Radix-2 FFT spectral harmonic decomposition aligned to true stride frequency $f_0$ with $\pm 1$ bin Hann window leakage integration.
    - **Cognitive-Motor Interference**: Computes Standardized Dual-Task Effect ($DTE$) across cadence, step time CV, and symmetry, classifying performance into Plummer & Eskes' 4-tier CMI taxonomy.
 6. **Split-Half Reliability Bounds & Secondary Score Demotion (`ratings.ts`, `analysis.ts`)**:
-   - Calculates Split-Half Standard Error $\text{SE}_{\text{split}}$ and 95% Confidence Intervals ($\text{CI}_{95\%}$) for cadence, stepTimeCV, symmetryAngle, and harmonicRatio.
+   - Calculates Split-Half Standard Error $\text{SE}_{\text{split}}$ and 95% Confidence Intervals ($\text{CI}_{95\%}$) for cadence, stepTimeCV, and symmetryAngle.
    - Demotes 0–100 composite scores to secondary exploratory non-diagnostic indices.
 7. **Observational Pattern Hypothesis Generation (`guesses.ts`)**:
-   - Executes a rule-based decision tree evaluating SOTA clinical rules ($SA > 5\%$, $HR < 1.80$, Zeni stance asymmetry $> 6\%$, CMI classification, variability thresholds) to generate non-diagnostic observational hypotheses bounded by a 4-tier epistemic determination ladder.
+   - Executes a rule-based decision tree evaluating SOTA clinical rules ($SA > 5\%$, Zeni stance asymmetry $> 6\%$, CMI classification, variability thresholds) to generate non-diagnostic observational hypotheses bounded by a 4-tier epistemic determination ladder.
 
 ---
 
@@ -81,17 +80,17 @@ The algorithmic methods implemented in `gait-lab` are directly grounded in peer-
 6. **Menz HB, Lord SR, Fitzpatrick RC (2003)**  
    - **Citation**: Menz, H. B., Lord, S. R., & Fitzpatrick, R. C. Acceleration patterns of the head and pelvis when walking on level and irregular surfaces. *Gait & Posture*, 18(1), 35–46, 2003.  
    - **PMID**: [12855299](https://pubmed.ncbi.nlm.nih.gov/12855299/) | **DOI**: [10.1016/s0966-6362(02)00159-5](https://doi.org/10.1016/s0966-6362(02)00159-5)  
-   - **Biomechanical Relevance**: Defines Trunk Harmonic Ratio ($HR$) via FFT spectral decomposition to assess center-of-mass rhythmicity and gait smoothness. Demonstrates significant $HR$ reductions in older fallers.
+   - **Relevance to this project**: Defines $HR$ on trunk *accelerometry*. Cited as the reason the metric was **removed** (§3.4), not as justification for computing it here. Original: significant $HR$ reductions in older fallers.
 
 7. **Bellanca JL, Lowry KA, Vanswearingen JM, Brach JS, Redfern MS (2013)**  
    - **Citation**: Bellanca, J. L., Lowry, K. A., Vanswearingen, J. M., Brach, J. S., & Redfern, M. S. Harmonic ratios: a quantification of step to step symmetry. *Journal of Biomechanics*, 46(4), 828–831, 2013.  
    - **PMID**: [23317758](https://pubmed.ncbi.nlm.nih.gov/23317758/) | **PMCID**: [PMC4745116](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4745116/) | **DOI**: [10.1016/j.jbiomech.2012.12.008](https://doi.org/10.1016/j.jbiomech.2012.12.008)  
-   - **Biomechanical Relevance**: Validates $HR$ as a reliable biomarker for dynamic stability and step-to-step rhythmicity in clinical populations.
+   - **Relevance to this project**: States $HR$ is best defined as step-to-step symmetry within a stride, **not** rhythmicity or stability — a key reason the metric was removed (§3.4).
 
 8. **Pasciuto I, Bergamini E, Iosa M, Vannozzi G, Cappozzo A (2015)**  
    - **Citation**: Pasciuto, I., Bergamini, E., Iosa, M., Vannozzi, G., & Cappozzo, A. Overcoming the limitations of harmonic ratio computation in human gait analysis. *Gait & Posture*, 42(3), 345–350, 2015.  
    - **PMID**: [26255198](https://pubmed.ncbi.nlm.nih.gov/26255198/) | **DOI**: [10.1016/j.gaitpost.2015.06.019](https://doi.org/10.1016/j.gaitpost.2015.06.019)  
-   - **Biomechanical Relevance**: Establishes that deriving fundamental frequency $f_0$ from stride events ($f_0 = 1 / \text{meanStrideSec}$) and integrating spectral energy across adjacent FFT bins eliminates spectral leakage errors in Harmonic Ratio calculation.
+   - **Relevance to this project**: Documents $HR$ values spanning $\approx 1.35$–$17$ for comparable populations due to unstandardised harmonic and stride counts — a key reason the metric was removed (§3.4). Establishes that deriving $f_0$ from stride events and integrating spectral energy across adjacent FFT bins eliminates spectral leakage errors in Harmonic Ratio calculation.
 
 9. **Plummer P & Eskes G (2015)**  
    - **Citation**: Plummer, P., & Eskes, G. Measuring treatment effects on dual-task performance: a framework for research and clinical practice. *Frontiers in Human Neuroscience*, 9, 225, 2015.  
@@ -237,20 +236,32 @@ $$SA = \frac{|45^\circ - \theta_{\text{deg}}|}{90^\circ} \times 100\%$$
 
 ---
 
-### 3.4 Trunk Smoothness & Harmonic Ratio (`smoothness.ts`)
+### 3.4 Trunk Harmonic Ratio — REMOVED
 
-#### A. Stride Fundamental Frequency Alignment & Hann Leakage Integration (R2)
-1. Derivation of fundamental stride frequency:
-   $$f_0 = \frac{1}{\text{meanStrideSec}} \quad (\text{Hz})$$
-2. For harmonic index $k \in [1, 10]$, calculate exact fractional bin $c_k = \text{round}(k \cdot f_0 \cdot N_{\text{fft}} / f_s)$.
-3. Sum harmonic magnitude over $\pm 1$ bin neighborhood:
-   $$M(k) = \sum_{b = \max(1, c_k - 1)}^{\min(N_{\text{half}}-1, c_k + 1)} \text{mag}[b]$$
-4. **Vertical Harmonic Ratio**:
-   $$HR_{\text{vertical}} = \frac{\sum_{m=1}^{5} M(2m)}{\sum_{m=1}^{5} M(2m-1) + 10^{-6}}$$
-5. **Lateral Harmonic Ratio**:
-   $$HR_{\text{lateral}} = \frac{\sum_{m=1}^{5} M(2m-1)}{\sum_{m=1}^{5} M(2m) + 10^{-6}}$$
-6. **Overall HR**:
-   $$HR_{\text{overall}} = \sqrt{HR_{\text{vertical}} \cdot HR_{\text{lateral}}}$$
+The Trunk Harmonic Ratio ($HR$) and the FFT harmonic-decomposition stack that produced it
+(`smoothness.ts`, `computeFFTHarmonics`) were **removed** from the engine. Reasons, from the
+primary literature:
+
+1. **Wrong signal modality.** $HR$ is defined on body-fixed trunk *accelerations* (Menz 2003;
+   Bellanca 2013). Every located $HR$/$iHR$ study uses trunk-mounted accelerometry. No published
+   work computes $HR$ from camera-derived image-coordinate landmarks. The nearest positional
+   analogue, a 10-harmonic Fourier symmetry index on marker-based centre-of-mass trajectories,
+   differs significantly from accelerometer $iHR$ in all three axes ($p < 0.0001$).
+2. **Wrong construct.** Bellanca et al. (2013) state $HR$ "may be better defined, not as a measure
+   of rhythmicity or stability, but as a measure of step-to-step symmetry within a stride." It was
+   consumed here as a rhythmicity and smoothness term.
+3. **Unstandardised and unstable.** Pasciuto et al. (2017) report published AP-direction values
+   spanning $\approx 1.35$ to $17$ for comparable populations, because neither the harmonic count
+   nor the stride count is standardised. $HR$ is also strongly walking-speed dependent, and this
+   pipeline measures no speed.
+4. **Destroyed by this pipeline anyway.** $HR$ depends on harmonics 10–20 ($\approx 9\text{–}18$ Hz
+   at normal cadence). The 6 Hz zero-phase Butterworth removes them before the FFT, and 30 Hz
+   sampling places the 20th harmonic beyond Nyquist.
+
+**Empirical consequence of removal.** With the $HR$ terms present, injecting landmark noise
+*raised* `stabilityScore` ($48.1 \rightarrow 62.2$) and `overallScore` ($76.7 \rightarrow 80.4$)
+— the terms were sign-inverted in practice. After removal all composite scores move in the
+correct direction as noise increases.
 
 ---
 
@@ -279,13 +290,11 @@ Below is the complete mapping matrix connecting scientific literature, mathemati
 | Winter DA (2009) | Zero-Phase Reflection Padding (`filtfilt`) | `src/lib/gait/signal.ts` | `zeroPhaseButterworth` | 97–141 |
 | Antonsson & Mann (1985) | OLS Linear Detrending ($y_d = y - (\alpha + \beta i)$) | `src/lib/gait/signal.ts` | `linearDetrend` | 147–187 |
 | Cooley & Tukey (1965) | Radix-2 In-Place Fast Fourier Transform | `src/lib/gait/signal.ts` | `fftRadix2` | 192–248 |
-| Menz et al. (2003), Pasciuto (2015) | FFT Harmonics, $f_0$ Alignment & $\pm 1$ Bin Leakage | `src/lib/gait/signal.ts` | `computeFFTHarmonics` | 254–363 |
 | Zeni JA et al. (2008) | Follow-Cam Foot Vector Direction Inference ($x_{\text{toe}} - x_{\text{heel}}$) | `src/lib/gait/events.ts` | `detectGaitEventsZeni` (Direction) | 224–276 |
 | Zeni JA et al. (2008) | Topographic Peak Prominence Filtering ($P_{\text{min}}$) | `src/lib/gait/events.ts` | `calculateProminence` & `findExtrema` | 42–135 |
 | Zeni JA et al. (2008) | 3-Point Parabolic Subframe Peak Refinement | `src/lib/gait/events.ts` | `refinePeakTimestamp` | 142–170 |
 | Zeni JA et al. (2008) | AP Foot Displacement Kinematic Algorithm | `src/lib/gait/events.ts` | `detectGaitEventsZeni` | 177–438 |
 | Zifchock RA et al. (2008) | Reference-Free Symmetry Angle ($SA$) | `src/lib/gait/symmetry.ts` | `symmetryAngle` | 19–42 |
-| Menz et al. (2003), Bellanca (2013) | Stride-Based Vertical & Lateral Harmonic Ratio | `src/lib/gait/smoothness.ts` | `computeHarmonicRatio` | 24–51 |
 | Kelly VE et al. (2012) | Standardized Cadence DTE (Higher-Better) | `src/lib/gait/dte.ts` | `calculateDTE` (Cadence) | 48–53 |
 | Plummer & Eskes (2015) | 4-Tier Cognitive-Motor Interference Taxonomy | `src/lib/gait/dte.ts` | CMI Classification Tree | 72–89 |
 | O'Brien et al. (2019) | Camera View Angle Auto-Detection & Metric Suppression | `src/lib/gait/analysis.ts` | `detectViewAngle` & `computeGaitMetricsCore` | 73–516 |
@@ -309,8 +318,6 @@ The table below summarizes clinical normative boundaries for healthy young and o
 | **Double Support Time %**| $15.0\%\text{–}25.0\%$ | $26.0\%\text{–}30.0\%$ | $> 30.0\%$ (Ataxic fall risk) | Elevated double support serves as compensatory widening of support base (Perry 2010). |
 | **Symmetry Angle ($SA$)** | $< 3.0\%$ | $3.0\%\text{–}8.0\%$ | $> 8.0\%$ (Severe Asymmetry) | $SA > 5.0\%$ indicates hemiparetic stroke, antalgic favored stance, or ACL deficit (Zifchock 2008). |
 | **Gait Symmetry Index** | $> 95.0\%$ | $88.0\%\text{–}94.0\%$ | $< 88.0\%$ (Asymmetric gait) | High ratio confirms inter-limb temporal/kinematic equivalence (Błażkiewicz 2014). |
-| **Vertical Harmonic Ratio**| $> 2.50$ | $1.80\text{–}2.49$ | $< 1.80$ (Trunk dysrhythmia) | Reduced vertical HR reflects loss of step-to-step rhythmicity (Menz 2003). |
-| **Lateral Harmonic Ratio** | $> 2.00$ | $1.50\text{–}1.99$ | $< 1.50$ (Lateral unsteadiness) | Reduced lateral HR indicates lateral trunk wobbling and fall risk (Bellanca 2013). |
 | **Step Time CV (%)** | $< 4.0\%$ | $4.0\%\text{–}8.0\%$ | $> 8.0\%$ (High variability) | Elevated CV is an independent biomarker for neurological fall risk (Lord 2013). |
 | **Dual-Task Effect ($DTE$)**| $|DTE| \le 5.0\%$ | $-5.1\%\text{ to }-15.0\%$ | $< -15.0\%$ (High CMI) | Negative DTE indicates cognitive-motor interference and executive deficit (Plummer 2015). |
 | **Normalized Step Width** | $0.25\text{–}0.45\text{ norm}$ | $0.46\text{–}0.60\text{ norm}$ | $> 0.60\text{ norm}$ (Broad-based) | Broad-based gait compensates for vestibular or cerebellar ataxia (Hollman 2010). |
@@ -338,7 +345,6 @@ Full system verification commands were executed across the entire codebase to co
 | `signal.test.ts` | 17 | Butterworth $f_c=6\text{ Hz}$ zero phase lag, Nyquist clamping, DC preservation, OLS detrending slope recovery, FFT harmonic decomposition. |
 | `events.test.ts` | 14 | Zeni AP heel/toe displacement extrema detection, follow-cam orientation direction inference, ANKLE fallback, parabolic subframe peak refinement. |
 | `symmetry.test.ts` | 8 | Zifchock $SA$ reference-free limb invariance ($SA(L,R) = SA(R,L)$), exact mathematical verification ($1:1 \to 0\%$, $2:1 \to 20.48\%$, $10:1 \to 43.65\%$), $GSI$ ratios. |
-| `smoothness.test.ts` | 5 | Harmonic Ratio vertical/lateral equations, geometric mean $HR_{\text{overall}} = \sqrt{HR_{\text{vert}} \cdot HR_{\text{lat}}}$, fallback for short signals. |
 | `dte.test.ts` | 8 | Standardized DTE formulas (higher-better vs lower-better), Plummer & Eskes 4-tier CMI taxonomy classification, $\pm 5\%$ boundary checks. |
 | `analysis.test.ts` | 11 | Integrated spatio-temporal engine, camera view angle auto-detection, split-half 95% CIs, view metric suppression. |
 | `ratings.test.ts` | 5 | 5-domain composite scoring, favorability mappings, 5-band clinical rating thresholds, data quality scoring. |
@@ -360,12 +366,9 @@ Full system verification commands were executed across the entire codebase to co
   $$\mathcal{S} = \{ \Delta X_{\text{L}, i} \} \cup \{ \Delta X_{\text{R}, i} \}$$
   $$\text{direction} = \begin{cases} +1 & \text{if } |\mathcal{S}| \ge 5 \land \text{median}(\mathcal{S}) > 0.005 \\ -1 & \text{if } |\mathcal{S}| \ge 5 \land \text{median}(\mathcal{S}) < -0.005 \\ (\Delta X_{\text{hip}} < -0.05 ? -1 : +1) & \text{otherwise} \end{cases}$$
 
-### 7.2 Audit Remediation R2: FFT Harmonic Ratio Fundamental Frequency $f_0$ & Hann Window Leakage Integration
-- **Problem Statement**: Independent spectral peak search on vertical hip trajectory `hipY` sets $f_0$ equal to the step frequency $2 f_{\text{stride}}$ because the center of mass rises/falls twice per stride. This skips odd stride harmonics ($1 f_0, 3 f_0, 5 f_0$) and misclassifies even harmonics, invalidating Vertical Harmonic Ratio. Reading isolated FFT single bins loses up to 60% spectral power under Hann windowing.
-- **Biomechanical Solution**: The true fundamental gait frequency $f_0$ is derived directly from kinematic stride duration: $f_0 = 1 / \text{meanStrideSec}$. Harmonic magnitude is extracted by integrating energy across a 3-bin window ($\pm 1$ bin neighborhood) centered at $c_k = \text{round}(k \cdot f_0 \cdot N_{\text{fft}} / f_s)$ to capture the Hann window mainlobe.
-- **Mathematical Formulation**:
-  $$M(k) = \sum_{b = \max(1, c_k - 1)}^{\min(N_{\text{half}}-1, c_k + 1)} \text{mag}[b]$$
-  $$HR_{\text{vertical}} = \frac{\sum_{m=1}^{5} M(2m)}{\sum_{m=1}^{5} M(2m-1) + 10^{-6}}, \quad HR_{\text{lateral}} = \frac{\sum_{m=1}^{5} M(2m-1)}{\sum_{m=1}^{5} M(2m) + 10^{-6}}$$
+### 7.2 Audit Remediation R2: FFT Harmonic Ratio $f_0$ Alignment — SUPERSEDED BY REMOVAL
+- **Original Remediation**: $f_0$ was corrected to the stride fundamental $1/\text{meanStrideSec}$ with $\pm 1$ bin Hann-leakage integration, fixing a real defect (independent peak search locked onto $2 f_{\text{stride}}$, inverting $HR_{\text{vertical}}$).
+- **Current Status**: The metric itself was subsequently removed — see §3.4. Correcting $f_0$ made the computation faithful to the formula, but the formula is not defined for camera-derived positional data in the first place. Retained here as a record of the defect and its resolution.
 
 ### 7.3 Audit Remediation R3: Elimination of Temporal Decimation Bias & Subframe Timestamp Refinement
 - **Problem Statement**: Capping video seek operations at 300 samples across variable clip lengths (e.g. 30s or 60s) degrades sampling frequency $f_s$ to 10 Hz or 5 Hz ($\Delta t = 100\text{ ms}$ or $200\text{ ms}$). This temporal decimation adds quantization variance $\sigma_{\text{sampling}}^2 = \frac{\Delta t^2}{12}$ to event timing, inflating `stepTimeCV` by up to 300% on long clips. Spline interpolation cannot recover high-frequency peak timing above the Nyquist limit.

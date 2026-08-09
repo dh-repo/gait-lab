@@ -14,7 +14,6 @@ describe("Session Persistence Module (persistence.ts)", () => {
     it("serializes and deserializes full GaitMetrics correctly", () => {
       const metrics = createMockMetrics({
         symmetryAngle: 3.5,
-        harmonicRatio: 2.1,
         leftStancePct: 62.0,
         rightStancePct: 58.0,
       });
@@ -25,7 +24,6 @@ describe("Session Persistence Module (persistence.ts)", () => {
       expect(deserialized.viewAngle).toBe("sagittal");
       expect(deserialized.overallScore).toBe(metrics.overallScore);
       expect(deserialized.symmetryAngle).toBe(3.5);
-      expect(deserialized.harmonicRatio).toBe(2.1);
       expect(deserialized.leftStancePct).toBe(62.0);
     });
 
@@ -109,7 +107,6 @@ describe("Session Persistence Module (persistence.ts)", () => {
         durationSec: 6.5,
         viewAngle: "sagittal",
         symmetryAngle: 2.1,
-        harmonicRatio: 2.3,
         metricsJson: createMockMetrics(),
         guessesJson: [],
         createdAt: "2026-08-08T23:50:00Z",
@@ -120,7 +117,6 @@ describe("Session Persistence Module (persistence.ts)", () => {
       expect(mockRecord.userId).toBe("usr_test_123");
       expect(mockRecord.taskMode).toBe("single");
       expect(mockRecord.symmetryAngle).toBe(2.1);
-      expect(mockRecord.harmonicRatio).toBe(2.3);
     });
   });
 });

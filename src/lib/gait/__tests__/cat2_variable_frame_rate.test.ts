@@ -40,7 +40,6 @@ describe('Category 2: Variable Frame Rates & Frame Drop Rates Stress Tests', () 
     expect(metrics).toBeDefined();
     expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
     expect(metrics.durationSec).toBeGreaterThan(0);
-    expect(Number.isFinite(metrics.harmonicRatio)).toBe(true);
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
   });
 

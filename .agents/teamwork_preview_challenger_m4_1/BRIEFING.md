@@ -1,58 +1,50 @@
-# BRIEFING — 2026-08-09T00:20:05Z
+# BRIEFING — 2026-08-09T12:08:15Z
 
 ## Mission
-Empirically challenge and verify the scientific claims, mathematical fidelity, and build/test integrity of gait-lab Milestone 4 documentation (`scientific_justifications.md`).
+Empirically challenge and stress-test the UI components and keyboard event handlers in `gait-lab` (WorkflowHeader, CognitiveClusters, SkeletonCanvas, GaitApp, hotkeys, CLS, aspect ratio) and issue a verdict.
 
 ## 🔒 My Identity
 - Archetype: EMPIRICAL CHALLENGER
 - Roles: critic, specialist
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_challenger_m4_1
-- Original parent: cdc5e8e4-f9ec-4538-803f-b0067408932b
-- Milestone: Milestone 4 (Scientific Documentation & Verification)
+- Original parent: 760fe4f4-6775-4874-a1d4-40b1facb911b
+- Milestone: m4_1
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code unless creating test harnesses/validation scripts in workspace.
-- Execute all tests, typecheck, lint, build directly.
-- Spot-check equations against actual implementations in `src/lib/gait/*.ts`.
-- Deliver explicit verdict (`APPROVE` or `REQUEST_CHANGES`) in `handoff.md`.
+- Review-only — do NOT modify implementation code (report findings as findings, do NOT fix them yourself)
+- Empirical verification required (write and execute tests/harnesses, run build/tests)
+- Produce handoff.md with 5-component report
 
 ## Current Parent
-- Conversation ID: cdc5e8e4-f9ec-4538-803f-b0067408932b / fb5ae544-7969-42cd-a15d-bd3a26d0e95d
-- Updated: 2026-08-09T00:20:05Z
+- Conversation ID: 760fe4f4-6775-4874-a1d4-40b1facb911b
+- Updated: 2026-08-09T12:08:15Z
 
 ## Review Scope
-- **Files to review**:
-  - `scientific_justifications.md`
-  - `src/lib/gait/signal.ts`
-  - `src/lib/gait/events.ts`
-  - `src/lib/gait/symmetry.ts`
-  - `src/lib/gait/smoothness.ts`
-  - `src/lib/gait/dte.ts`
-  - `src/lib/gait/analysis.ts`
-  - `src/lib/gait/ratings.ts`
-  - `src/lib/gait/guesses.ts`
-  - `.agents/teamwork_preview_worker_m4_1/handoff.md`
-- **Interface contracts**: PROJECT.md, SCOPE.md
-- **Review criteria**: 100% mathematical fidelity, empirical test suite passage, zero build/lint/type errors, adversarial challenge of edge cases and assumptions.
-
-## Attack Surface
-- **Hypotheses tested**: Verified all math equations in `scientific_justifications.md` against `src/lib/gait/*.ts`, ran empirical verification script `verify_math.ts` for SA, GSI, DTE, linear detrending, and Butterworth DC preservation.
-- **Vulnerabilities found**: 0 defects found. All equations match code 100%. All 156 unit/integration tests pass. Typecheck, lint, build zero errors.
-- **Untested angles**: None.
-
-## Loaded Skills
-None loaded.
+- **Files to review**: `WorkflowHeader`, `CognitiveClusters`, `SkeletonCanvas`, `GaitApp`, keyboard event handlers, CLS, aspect ratio.
+- **Interface contracts**: PROJECT.md / codebase standards.
+- **Review criteria**: Correctness, keyboard navigation & event propagation, layout stability (CLS = 0), aspect-video canvas wrapper rendering, edge cases.
 
 ## Key Decisions Made
-- Executed `npm test` (156 pass), `npm run typecheck` (0 errors), `npm run lint` (0 errors), `npm run build` (0 errors).
-- Wrote and executed `verify_math.ts` to empirically prove mathematical precision.
-- Issued verdict: `APPROVE`.
+- Executed full empirical test suite (`npm test`, `npm run typecheck`, `npm run lint`).
+- Created challenger test suite `src/components/gait/__tests__/m4_1_ui_keyboard_cls_challenger.test.tsx` (14 empirical tests passing).
+- Verified interactive behavior, hotkey propagation guardrails, CLS = 0 layout wrappers, and component resilience against null/sparse metric inputs.
+- Final Verdict: APPROVE.
 
 ## Artifact Index
-- `.agents/teamwork_preview_challenger_m4_1/DISPATCH.md` — Dispatch log
-- `.agents/teamwork_preview_challenger_m4_1/BRIEFING.md` — Persistent briefing
-- `.agents/teamwork_preview_challenger_m4_1/progress.md` — Liveness heartbeat
-- `.agents/teamwork_preview_challenger_m4_1/verify_math.ts` — Empirical math test script
-- `.agents/teamwork_preview_challenger_m4_1/handoff.md` — Handoff challenge report with APPROVE verdict
+- /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_challenger_m4_1/DISPATCH.md — Dispatch log
+- /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_challenger_m4_1/BRIEFING.md — Working memory index
+- /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_challenger_m4_1/progress.md — Liveness heartbeat & progress log
+- /Users/damian/GitHub/gait-lab/src/components/gait/__tests__/m4_1_ui_keyboard_cls_challenger.test.tsx — Challenger empirical test harness
 
+## Attack Surface
+- **Hypotheses tested**:
+  1. Stage button accessibility and locking state transitions in `WorkflowHeader`.
+  2. Metric calculation & accordion keydown resilience in `CognitiveClusters`.
+  3. Hit-testing accuracy, keydown cycling, and `aspect-video` wrapper CLS = 0 in `SkeletonCanvas`.
+  4. Form input event propagation safety for playback hotkeys in `GaitApp`.
+- **Vulnerabilities found**: None. All components pass empirical stress verification.
+- **Untested angles**: Hardware GPU canvas acceleration on legacy mobile browsers (out of scope for unit test runner).
+
+## Loaded Skills
+None

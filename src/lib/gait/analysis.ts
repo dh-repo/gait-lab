@@ -1,7 +1,6 @@
 import { zeroPhaseButterworth } from "./signal";
 import { detectGaitEventsZeni, refinePeakTimestamp, type GaitEvent } from "./events";
 import { symmetryAngle } from "./symmetry";
-import { computeHarmonicRatio } from "./smoothness";
 import { calculateDTE } from "./dte";
 import {
   LM,
@@ -401,18 +400,18 @@ function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
   const pelvicObliquityVar = !isSagittal ? rawPelvicObliquityVar : null;
   const meanStepWidth = !isSagittal ? rawMeanStepWidth : null;
 
-  // Compute FFT Trunk Harmonic Ratios (HR)
-  const meanStrideSec = meanStride > 0 ? meanStride : (avgStepTimeSec > 0 ? avgStepTimeSec * 2 : undefined);
-  const hrMetrics = computeHarmonicRatio(midHipY, midHipX, fps, meanStrideSec);
-  const harmonicRatioVertical = hrMetrics.hrVertical;
-  const harmonicRatioLateral = hrMetrics.hrLateral;
-  const harmonicRatio = hrMetrics.overallHR;
+  // Trunk harmonic ratio removed: HR is defined on body-fixed trunk ACCELERATIONS with
+  // per-stride segmentation (Menz 2003; Bellanca 2013; Pasciuto 2017). It measures
+  // step-to-step symmetry, not rhythmicity, and no published work computes it from
+  // camera-derived image-coordinate landmarks. It also depends on harmonics 10-20
+  // (~9-18 Hz), which this pipeline's 6 Hz low-pass deletes before the FFT sees them.
 
   // Path smoothness: 1 - residual lateral deviation relative to progress
   const prog = midHipX;
   const det = detrend(prog);
-  const linearSmoothness = clamp(1 - std(det) / Math.max(range(prog), 0.02), 0, 1);
-  const pathSmoothness = Number((0.6 * linearSmoothness + 0.4 * Math.min(1.0, harmonicRatio / 3.0)).toFixed(2));
+  const pathSmoothness = Number(
+    clamp(1 - std(det) / Math.max(range(prog), 0.02), 0, 1).toFixed(2),
+  );
 
   // Secondary exploratory composite scores (demoted indices, non-diagnostic)
   const effSway = lateralSway ?? rawLateralSway;
@@ -421,14 +420,12 @@ function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
   const effKneeFlexR = kneeFlexRight ?? 45;
 
   const stabilityScore = clamp(
-    100 - (effSway * 220 + verticalBounce * 180 + Math.min(effStepWidthVar, 0.25) * 35) + Math.min(harmonicRatioLateral, 3.0) * 6,
+    100 - (effSway * 220 + verticalBounce * 180 + Math.min(effStepWidthVar, 0.25) * 35),
     8,
     98,
   );
   const rhythmScore = clamp(
-    // ponytail: cap HR like the stability/automaticity terms — an unbounded ratio
-    // pins rhythmScore at its ceiling and stops discriminating among good walkers
-    100 - stepTimeCV * 120 - Math.abs(cadenceSpm - 110) * 0.25 + (Math.min(harmonicRatioVertical, 4.0) - 2.0) * 5,
+    100 - stepTimeCV * 120 - Math.abs(cadenceSpm - 110) * 0.25,
     5,
     98,
   );
@@ -447,7 +444,7 @@ function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
     98,
   );
   const automaticityScore = clamp(
-    100 - stepTimeCV * 180 - strideTimeCV * 80 - effSway * 200 - (1 - pathSmoothness) * 25 + (harmonicRatioLateral - 1.5) * 4,
+    100 - stepTimeCV * 180 - strideTimeCV * 80 - effSway * 200 - (1 - pathSmoothness) * 25,
     5,
     98,
   );
@@ -487,9 +484,6 @@ function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
     rightSwingPct,
     doubleSupportPct,
     symmetryAngle: symmetryAngleVal,
-    harmonicRatioVertical,
-    harmonicRatioLateral,
-    harmonicRatio,
     stepTimeCV,
     strideTimeCV,
     pelvicObliquity,
@@ -538,10 +532,6 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
     stepTimeCV: buildReliabilityBounds(full.stepTimeCV, m1.stepTimeCV, m2.stepTimeCV),
     symmetryAngle: buildReliabilityBounds(full.symmetryAngle, m1.symmetryAngle, m2.symmetryAngle),
     symmetryIndex: buildReliabilityBounds(full.symmetryAngle, m1.symmetryAngle, m2.symmetryAngle),
-    harmonicRatioVertical: buildReliabilityBounds(full.harmonicRatioVertical, m1.harmonicRatioVertical, m2.harmonicRatioVertical),
-    harmonicRatioLateral: buildReliabilityBounds(full.harmonicRatioLateral, m1.harmonicRatioLateral, m2.harmonicRatioLateral),
-    harmonicRatio: buildReliabilityBounds(full.harmonicRatio, m1.harmonicRatio, m2.harmonicRatio),
-    harmonicRatioOverall: buildReliabilityBounds(full.harmonicRatio, m1.harmonicRatio, m2.harmonicRatio),
     strideTimeCV: buildReliabilityBounds(full.strideTimeCV, m1.strideTimeCV, m2.strideTimeCV),
     leftStancePct: buildReliabilityBounds(full.leftStancePct, m1.leftStancePct, m2.leftStancePct),
     rightStancePct: buildReliabilityBounds(full.rightStancePct, m1.rightStancePct, m2.rightStancePct),
@@ -584,9 +574,6 @@ function emptyMetrics(frames: PoseFrame[]): GaitMetrics {
     rightSwingPct: null,
     doubleSupportPct: null,
     symmetryAngle: 0.0,
-    harmonicRatioVertical: 1.0,
-    harmonicRatioLateral: 1.0,
-    harmonicRatio: 1.0,
     stepTimeCV: 0,
     strideTimeCV: 0,
     pelvicObliquity: null,

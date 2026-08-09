@@ -279,11 +279,6 @@ export function buildStructuredReport(
         : "Irregular intervals — reduced harmonic ratio or timing variability detected.",
       [
         {
-          label: "Harmonic Ratio (HR)",
-          value: (m.harmonicRatio ?? 1.0).toFixed(2),
-          hint: (m.harmonicRatio ?? 1.0) < 1.8 ? "down" : "up",
-        },
-        {
           label: "Step-time CV",
           value: `${(m.stepTimeCV * 100).toFixed(0)}%`,
           hint: m.stepTimeCV > 0.12 ? "down" : "up",
@@ -331,7 +326,6 @@ export function buildStructuredReport(
         { label: "Step-time CV", value: `${(m.stepTimeCV * 100).toFixed(0)}%` },
         { label: "Stride-time CV", value: `${(m.strideTimeCV * 100).toFixed(0)}%` },
         { label: "Path smoothness", value: `${(m.pathSmoothness * 100).toFixed(0)}%` },
-        { label: "Lateral HR", value: (m.harmonicRatioLateral ?? 1.0).toFixed(2) },
       ],
     ),
     domain(
@@ -365,16 +359,6 @@ export function buildStructuredReport(
       favorability: clamp(100 - (m.symmetryAngle ?? 0) * 10, 5, 98),
       band: bandFromBurden(clamp((m.symmetryAngle ?? 0) / 10, 0, 1)),
       note: "Reference-free symmetry angle (Zifchock et al. 2008). 0% = perfect symmetry.",
-    },
-    {
-      id: "harmonicRatio",
-      group: "Smoothness",
-      label: "Trunk Harmonic Ratio (HR)",
-      display: (m.harmonicRatio ?? 1.0).toFixed(2),
-      unit: "idx",
-      favorability: clamp((m.harmonicRatio ?? 1.0) * 25, 5, 98),
-      band: bandFromScore(clamp((m.harmonicRatio ?? 1.0) * 25, 5, 98)),
-      note: "FFT harmonic power ratio (Menz et al. 2003). Higher indicates smoother gait rhythm.",
     },
     {
       id: "zeniStance",

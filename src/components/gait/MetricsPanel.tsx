@@ -78,12 +78,6 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
           ci={metrics.confidenceIntervals?.symmetryAngle}
         />
         <Stat
-          label="Harmonic Ratio (HR)"
-          value={metrics.harmonicRatio != null ? metrics.harmonicRatio.toFixed(2) : "—"}
-          unit="idx"
-          ci={metrics.confidenceIntervals?.harmonicRatio}
-        />
-        <Stat
           label="Stance Phase (L / R)"
           value={
             metrics.leftStancePct != null && metrics.rightStancePct != null

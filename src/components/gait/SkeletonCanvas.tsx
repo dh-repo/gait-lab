@@ -3,44 +3,84 @@ import { useEffect, useRef } from "react";
 import { POSE_CONNECTIONS, PERSON_COLORS } from "@/lib/gait/landmarks";
 import type { Landmark } from "@/lib/gait/types";
 
-export function SkeletonCanvas({
-  video,
-  poses,
-  selectedId,
-  personColors,
-  onSelectPerson,
-  interactive,
-}: {
+export interface SkeletonCanvasProps {
   video: HTMLVideoElement | null;
   poses: { id: number; landmarks: Landmark[] }[];
   selectedId: number | null;
   personColors: Record<number, string>;
   onSelectPerson?: (id: number) => void;
   interactive?: boolean;
-}) {
+  showSkeleton?: boolean;
+  showJointArcs?: boolean;
+  showSwayVector?: boolean;
+}
+
+export function SkeletonCanvas({
+  video,
+  poses,
+  selectedId,
+  personColors,
+  onSelectPerson,
+  interactive = false,
+  showSkeleton = true,
+  showJointArcs = true,
+  showSwayVector = true,
+}: SkeletonCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !video) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
 
-    const w = video.videoWidth || 640;
-    const h = video.videoHeight || 360;
-    if (canvas.width !== w) canvas.width = w;
-    if (canvas.height !== h) canvas.height = h;
+    let isSubscribed = true;
 
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(video, 0, 0, w, h);
+    const renderFrame = () => {
+      if (!isSubscribed || !canvas || !video) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-    for (const pose of poses) {
-      const color = personColors[pose.id] ?? PERSON_COLORS[pose.id % PERSON_COLORS.length];
-      const isSel = selectedId === null || selectedId === pose.id;
-      const alpha = isSel ? 1 : 0.28;
-      drawPose(ctx, pose.landmarks, w, h, color, alpha, isSel && selectedId === pose.id);
-    }
-  }, [video, poses, selectedId, personColors]);
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 360;
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(video, 0, 0, w, h);
+
+      for (const pose of poses) {
+        const color = personColors[pose.id] ?? PERSON_COLORS[pose.id % PERSON_COLORS.length];
+        const isSel = selectedId === null || selectedId === pose.id;
+        const alpha = isSel ? 1 : 0.28;
+        drawPoseOptimized(
+          ctx,
+          pose.landmarks,
+          w,
+          h,
+          color,
+          alpha,
+          isSel && selectedId === pose.id,
+          showSkeleton,
+          showJointArcs,
+          showSwayVector,
+        );
+      }
+
+      if (!video.paused && !video.ended) {
+        animationFrameRef.current = requestAnimationFrame(renderFrame);
+      }
+    };
+
+    renderFrame();
+
+    return () => {
+      isSubscribed = false;
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [video, poses, selectedId, personColors, showSkeleton, showJointArcs, showSwayVector]);
 
   function handleClick(e: MouseEvent<HTMLCanvasElement>) {
     if (!interactive || !onSelectPerson || !canvasRef.current) return;
@@ -62,17 +102,37 @@ export function SkeletonCanvas({
     if (best && best.d < 0.2) onSelectPerson(best.id);
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLCanvasElement>) {
+    if (!interactive || !onSelectPerson || poses.length === 0) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      const ids = poses.map((p) => p.id);
+      const currIdx = selectedId !== null ? ids.indexOf(selectedId) : -1;
+      const nextIdx = (currIdx + 1) % ids.length;
+      onSelectPerson(ids[nextIdx]);
+    }
+  }
+
   return (
-    <canvas
-      ref={canvasRef}
-      onClick={handleClick}
-      className="h-full w-full object-contain"
-      style={{ cursor: interactive ? "pointer" : "default" }}
-    />
+    <div
+      data-testid="skeleton-canvas-wrapper"
+      className="aspect-video bg-black rounded-lg relative overflow-hidden w-full h-full flex items-center justify-center"
+    >
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label="Pose estimation skeleton rendering canvas"
+        tabIndex={interactive ? 0 : -1}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        className="h-full w-full object-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+        style={{ cursor: interactive ? "pointer" : "default" }}
+      />
+    </div>
   );
 }
 
-function drawPose(
+function drawPoseOptimized(
   ctx: CanvasRenderingContext2D,
   lm: Landmark[],
   w: number,
@@ -80,6 +140,9 @@ function drawPose(
   color: string,
   alpha: number,
   highlight: boolean,
+  showSkeleton: boolean,
+  showJointArcs: boolean,
+  showSwayVector: boolean,
 ) {
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -88,32 +151,75 @@ function drawPose(
   ctx.lineWidth = highlight ? 3.5 : 2.5;
   ctx.lineCap = "round";
 
-  for (const [a, b] of POSE_CONNECTIONS) {
-    if (!lm[a] || !lm[b]) continue;
-    if ((lm[a].visibility ?? 1) < 0.25 || (lm[b].visibility ?? 1) < 0.25) continue;
+  if (showSkeleton) {
+    // 1. Batch connection lines into single stroke path
     ctx.beginPath();
-    ctx.moveTo(lm[a].x * w, lm[a].y * h);
-    ctx.lineTo(lm[b].x * w, lm[b].y * h);
+    for (const [a, b] of POSE_CONNECTIONS) {
+      if (!lm[a] || !lm[b]) continue;
+      if ((lm[a].visibility ?? 1) < 0.25 || (lm[b].visibility ?? 1) < 0.25) continue;
+      ctx.moveTo(lm[a].x * w, lm[a].y * h);
+      ctx.lineTo(lm[b].x * w, lm[b].y * h);
+    }
     ctx.stroke();
-  }
 
-  for (const p of lm) {
-    if ((p.visibility ?? 1) < 0.25) continue;
+    // 2. Batch landmark point dots into single fill path
     ctx.beginPath();
-    ctx.arc(p.x * w, p.y * h, highlight ? 4 : 3, 0, Math.PI * 2);
+    const radius = highlight ? 4 : 3;
+    for (const p of lm) {
+      if ((p.visibility ?? 1) < 0.25) continue;
+      ctx.moveTo(p.x * w + radius, p.y * h);
+      ctx.arc(p.x * w, p.y * h, radius, 0, Math.PI * 2);
+    }
     ctx.fill();
   }
 
-  if (highlight && lm[23] && lm[24]) {
-    const minX = Math.min(...lm.filter((p) => (p.visibility ?? 1) > 0.25).map((p) => p.x));
-    const maxX = Math.max(...lm.filter((p) => (p.visibility ?? 1) > 0.25).map((p) => p.x));
-    const minY = Math.min(...lm.filter((p) => (p.visibility ?? 1) > 0.25).map((p) => p.y));
-    const maxY = Math.max(...lm.filter((p) => (p.visibility ?? 1) > 0.25).map((p) => p.y));
-    ctx.strokeStyle = color;
+  // Draw Sway Vector (Center of Mass line through hips)
+  if (showSwayVector && lm[23] && lm[24]) {
+    const hipX = ((lm[23].x + lm[24].x) / 2) * w;
+    const hipY = ((lm[23].y + lm[24].y) / 2) * h;
+    ctx.strokeStyle = "#38bdf8"; // cyan sway line
     ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
-    ctx.strokeRect(minX * w - 8, minY * h - 8, (maxX - minX) * w + 16, (maxY - minY) * h + 16);
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(hipX, hipY - 40);
+    ctx.lineTo(hipX, hipY + 40);
+    ctx.stroke();
     ctx.setLineDash([]);
+  }
+
+  // Draw Joint Arcs (Knee flex arcs)
+  if (showJointArcs && lm[23] && lm[25] && lm[27]) {
+    const kx = lm[25].x * w;
+    const ky = lm[25].y * h;
+    ctx.strokeStyle = "#3b82f6";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(kx, ky, 14, 0, Math.PI * 1.2);
+    ctx.stroke();
+  }
+  if (showJointArcs && lm[24] && lm[26] && lm[28]) {
+    const kx = lm[26].x * w;
+    const ky = lm[26].y * h;
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(kx, ky, 14, 0, Math.PI * 1.2);
+    ctx.stroke();
+  }
+
+  if (highlight && lm[23] && lm[24]) {
+    const validLandmarks = lm.filter((p) => (p.visibility ?? 1) > 0.25);
+    if (validLandmarks.length > 0) {
+      const minX = Math.min(...validLandmarks.map((p) => p.x));
+      const maxX = Math.max(...validLandmarks.map((p) => p.x));
+      const minY = Math.min(...validLandmarks.map((p) => p.y));
+      const maxY = Math.max(...validLandmarks.map((p) => p.y));
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(minX * w - 8, minY * h - 8, (maxX - minX) * w + 16, (maxY - minY) * h + 16);
+      ctx.setLineDash([]);
+    }
   }
   ctx.restore();
 }

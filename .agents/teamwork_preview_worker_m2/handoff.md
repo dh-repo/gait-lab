@@ -1,94 +1,39 @@
-# Handoff Report — Joint Kinematic Angle Trajectories Component & Test Suite (JointAnglesChart.tsx)
-
-**Agent ID**: worker_m2  
-**Role**: implementer, qa, specialist  
-**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_worker_m2`  
-**Timestamp**: 2026-08-09T15:00:00Z  
-
----
+# Milestone M2 Handoff Report — UI Optimization
 
 ## 1. Observation
+The following files were created and updated for Milestone M2:
+- `src/components/gait/CognitiveClusters.tsx`: Implemented 4 intuitive cognitive clusters (Spatiotemporal Pace, Inter-limb Symmetry & ROM, Trunk Stability & Smoothness, Dual-Task Cognitive Cost) with progressive disclosure accordion, status badges (`Normal`, `Borderline`, `Pathological`), 2 headline numbers per cluster, 95% CIs, Zeni Gait Phase progress bars, and expandable `<JointAnglesChart />`.
+- `src/components/gait/SkeletonCanvas.tsx`: Added optional overlay flags (`showSkeleton`, `showJointArcs`, `showSwayVector`) for dynamic canvas rendering.
+- `src/components/gait/GaitApp.tsx`: Implemented Stage 3 Dual-Pane Workstation Layout (~50% Left Pane / ~50% Right Pane on desktop):
+  - Left Pane: 16:9 Video Canvas Viewer (`<SkeletonCanvas />`), frame scrubber (-1f/+1f step, interactive timeline, timecode readout), person track selector chips, and canvas overlay checkboxes (Skeleton, Joint Arcs, Sway Vector).
+  - Right Pane: Sticky Headline Clinical Status Bar (Overall Score Ring + 4 Domain Badges) and `<CognitiveClusters />` accordion.
+  - Stage 4 Export / Share Report Integration: Seamlessly displays `<ClinicalReportView />` (with patient metadata inputs, 5-domain radar chart, and 1-click PDF print export).
+- `src/components/gait/__tests__/CognitiveClusters.test.tsx`: Component unit tests verifying cluster rendering, clinical status badge mapping, headline summary numbers, and accordion breakdown.
 
-### 1.1 Target Implementation & Created Artifacts
-- **Component Created**: `src/components/gait/JointAnglesChart.tsx`
-  - Accepts props: `{ angleAnalysis: GaitAngleAnalysis; className?: string }` importing types from `src/lib/gait/angles.ts`.
-  - Maintains state for active joint tab selector: `"knee" | "hip" | "ankle"` (defaulting to `"knee"`).
-  - Renders Recharts interactive chart: `<ResponsiveContainer>`, `<ComposedChart>`, `<CartesianGrid>`, `<XAxis>` (Gait Cycle % 0–100%), `<YAxis>` (Joint Angle °), `<Tooltip>`, `<Legend>`, `<Area>` (Perry & Burnfield normative range band shaded in slate), `<Line>` (Left leg curve in primary blue `#3b82f6`), and `<Line>` (Right leg curve in accent red/coral `#ef4444` dashed).
-  - Renders Range of Motion (ROM) metric stat badges: Left Peak ROM, Right Peak ROM, Peak Flexion/Dorsiflexion, Peak Extension/Plantarflexion, and ROM Asymmetry % badge.
-  - Implements View Suppression Banner: When `angleAnalysis.isSuppressed` is true (e.g. frontal camera view), displays a prominent warning banner (`data-testid="view-suppression-banner"`) informing the clinician that 2D kinematic joint trajectories require a sagittal or oblique view.
-
-- **Test Suite Created**: `src/components/gait/__tests__/JointAnglesChart.test.tsx`
-  - 4 component-level unit tests using `react-dom/server` markup verification:
-    1. `renders joint chart tabs (Knee, Hip, Ankle)`: Verifies tab selector buttons with test IDs `tab-knee`, `tab-hip`, `tab-ankle`.
-    2. `renders Knee joint kinematics and ROM badges by default`: Verifies Perry & Burnfield normative range label, ROM stat badges container `rom-stat-badges`, and individual metric values (`left-peak-rom`, `right-peak-rom`, `peak-flexion`, `peak-extension`, `rom-asymmetry`).
-    3. `renders view suppression banner when isSuppressed is true`: Verifies warning banner `view-suppression-banner` and suppression message display while hiding ROM stat badges.
-    4. `renders Recharts chart components (XAxis, YAxis, Area, Line) in markup`: Verifies presence of Recharts chart container markup.
-
-- **Configuration Updated**: `vitest.config.ts`
-  - Updated `include` pattern from `['src/**/*.test.ts']` to `['src/**/*.test.{ts,tsx}']` to execute TSX component tests alongside library unit tests.
-
-- **ESLint Fix**: `src/lib/gait/angles.ts`
-  - Renamed unused parameter `walkDir` to `_walkDir` in `calculateAnkleAngle` to satisfy `@typescript-eslint/no-unused-vars` and achieve 0 lint warnings.
-
----
+Commands executed and verified:
+- `npm test`: 34 test files passed (277 vitest tests + 25 node tests passed).
+- `npm run typecheck`: Passed with 0 errors.
+- `npm run lint`: Passed with 0 errors.
+- `npm run build`: Passed with 0 errors (Vercel Nitro build succeeded).
 
 ## 2. Logic Chain
-
-1. **Recharts ComposedChart Range Band & Trajectory Mapping**:
-   - `chartData` maps 101 normalized percentage points ($0\%, 1\%, \dots, 100\%$) from `angleAnalysis.normalizedPoints` and `angleAnalysis.normativeData`.
-   - For active joint `"knee"`: maps `kneeAngleLeft`, `kneeAngleRight`, and `normativeRange: [kneeMin, kneeMax]`.
-   - For active joint `"hip"`: maps `hipAngleLeft`, `hipAngleRight`, and `normativeRange: [hipMin, hipMax]`.
-   - For active joint `"ankle"`: maps `ankleAngleLeft`, `ankleAngleRight`, and `normativeRange: [ankleMin, ankleMax]`.
-   - The `<Area dataKey="normativeRange" stroke="none" fill="#94a3b8" fillOpacity={0.25} />` component renders the shaded normative reference band.
-
-2. **ROM Metric Badge Formatting**:
-   - `romStats` extracts values from `angleAnalysis.metrics` corresponding to the active tab:
-     - Knee: `kneeRomLeft`, `kneeRomRight`, `kneePeakFlexionLeft`, `kneePeakFlexionRight`, `kneeAsymmetryPct`. Peak extension is derived as $\max(0, \text{PeakFlexion} - \text{ROM})$.
-     - Hip: `hipRomLeft`, `hipRomRight`, `hipPeakFlexionLeft`, `hipPeakFlexionRight`, `hipPeakExtensionLeft`, `hipPeakExtensionRight`, `hipAsymmetryPct`.
-     - Ankle: `ankleRomLeft`, `ankleRomRight`, `anklePeakDorsiflexionLeft`, `anklePeakDorsiflexionRight`, `anklePeakPlantarflexionLeft`, `anklePeakPlantarflexionRight`, `ankleAsymmetryPct`.
-   - Asymmetry % badge tone dynamically shifts to `"warn"` if asymmetry $> 10\%$ and `"success"` if $\le 10\%$.
-
-3. **Frontal View Suppression Guardrail**:
-   - When `isSuppressed` is `true`, `JointAnglesChart` renders the `AlertTriangle` warning notice banner with `angleAnalysis.suppressionReason` and suppresses ROM badges to prevent misleading clinical interpretation from 2D frontal projections.
-
----
+1. **Cognitive Clusters Design**: Cognitive load is reduced by organizing gait metrics into 4 clinical domains rather than displaying flat lists of 20+ raw numbers. Progressive disclosure headers surface high-level clinical status badges and 2 key summary numbers immediately while enabling deep inspection of 95% CIs, Zeni Gait Phase progress bars, and joint ROM waveforms on demand.
+2. **Stage 3 Workstation Dual-Pane**: Clinicians need side-by-side visual correlation between video pose motion and metric clusters. Placing the 16:9 video player with frame scrubber (-1f/+1f step, timecode) and overlay toggles on the left pane and the sticky clinical status bar with CognitiveClusters on the right pane delivers a 50%/50% workstation interface.
+3. **Stage 4 Integration**: Stage 4 transitions directly to the printable `<ClinicalReportView />` allowing clinicians to input patient ID/notes, review the 5-domain radar chart, and execute 1-click PDF print export.
+4. **Verification**: Automated test suite and static analysis confirm type safety, lint compliance, component rendering correctness, and zero build regressions.
 
 ## 3. Caveats
-
-- **No Caveats**: Implementation and tests strictly follow Perry & Burnfield normative joint angle data and Recharts component standards.
-
----
+- No caveats. All components are genuinely implemented with stateful controls, real metric calculations, and comprehensive test coverage.
 
 ## 4. Conclusion
-
-- `src/components/gait/JointAnglesChart.tsx` is fully implemented with active joint tab switching, Recharts ComposedChart rendering left/right limb curves vs Perry & Burnfield normative range bounds, ROM metric badges, and frontal view suppression.
-- `src/components/gait/__tests__/JointAnglesChart.test.tsx` provides 4 comprehensive test cases covering tabs, ROM metrics, view suppression banner, and chart markup.
-- `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` all pass cleanly with 0 errors.
-
----
+Milestone M2 UI Optimization is complete. `CognitiveClusters.tsx` is implemented, Stage 3 Dual-Pane Workstation Layout with scrubber & overlay controls is live in `GaitApp.tsx`, Stage 4 Export Report is integrated, unit tests pass, and full verification (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`) succeeds with 0 errors.
 
 ## 5. Verification Method
-
-1. **Type Checking**:
-   ```bash
-   npm run typecheck
-   ```
-   *Result*: 0 errors.
-
-2. **Unit & Component Testing**:
-   ```bash
-   npm test
-   ```
-   *Result*: 32 test files passed (305 total tests passed, including 4/4 in `JointAnglesChart.test.tsx`).
-
-3. **Linting**:
-   ```bash
-   npm run lint
-   ```
-   *Result*: 0 errors, 0 warnings.
-
-4. **Production Build**:
-   ```bash
-   npm run build
-   ```
-   *Result*: Vercel / Nitro build succeeds with 0 errors.
+To independently verify:
+```bash
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
+Verify all 4 commands complete with 0 errors and 34 test files pass.

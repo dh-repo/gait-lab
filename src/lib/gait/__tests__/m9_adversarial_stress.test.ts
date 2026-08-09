@@ -1,7 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { detectGaitEventsZeni, refinePeakTimestamp, findExtrema } from "../events";
-import { computeHarmonicRatio } from "../smoothness";
-import { computeFFTHarmonics } from "../signal";
 import { computeGaitMetrics } from "../analysis";
 import { generateSyntheticWalkingFrames } from "./testHelpers";
 
@@ -88,62 +86,6 @@ describe("Milestone M9: Comprehensive Adversarial Stress Test Suite (Challenger)
 
       // Prominence thresholding prevents ripple noise from duplicating peaks
       expect(noisyPeaks.length).toBe(cleanPeaks.length);
-    });
-  });
-
-  describe("2. R2 Harmonic Ratio & FFT Spectral Stress", () => {
-    it("handles invalid or extreme meanStrideSec (0, -1, NaN, Infinity, undefined) gracefully", () => {
-      const fps = 30;
-      const hipY = Array.from({ length: 90 }, (_, i) => 0.5 + 0.03 * Math.cos(2 * Math.PI * 1.6 * (i / fps)));
-      const hipX = Array.from({ length: 90 }, (_, i) => 0.5 + 0.04 * Math.sin(2 * Math.PI * 0.8 * (i / fps)));
-
-      const invalidStrides = [0, -1, NaN, Infinity, -Infinity, undefined];
-
-      for (const strideSec of invalidStrides) {
-        const hr = computeHarmonicRatio(hipY, hipX, fps, strideSec);
-        expect(hr).toBeDefined();
-        expect(Number.isNaN(hr.hrVertical)).toBe(false);
-        expect(Number.isNaN(hr.hrLateral)).toBe(false);
-        expect(Number.isNaN(hr.overallHR)).toBe(false);
-        expect(hr.hrVertical).toBeGreaterThan(0);
-      }
-    });
-
-    it("computeFFTHarmonics handles short signals (< 16 points) and zero data without throwing", () => {
-      const shortData = [0.1, 0.2, 0.1, 0.3, 0.2];
-      const resShort = computeFFTHarmonics(shortData, 30, 0.8, 5);
-
-      expect(resShort).toBeDefined();
-      expect(Number.isNaN(resShort.harmonicRatio)).toBe(false);
-
-      const zeroData = new Array(30).fill(0);
-      const resZero = computeFFTHarmonics(zeroData, 30, 0.8, 5);
-
-      expect(resZero).toBeDefined();
-      expect(resZero.harmonicRatio).toBeGreaterThanOrEqual(0);
-    });
-
-    it("R2 Pathological Limp: HR decreases sharply (< 1.8) when strong odd stride harmonics dominate", () => {
-      const fps = 30;
-      const durationSec = 6.0;
-      const n = Math.floor(fps * durationSec);
-      const strideFreq = 0.8;
-      const meanStrideSec = 1 / strideFreq;
-
-      const hipYLimp: number[] = [];
-      const hipXLimp: number[] = [];
-
-      for (let i = 0; i < n; i++) {
-        const t = i / fps;
-        // Severe limp: odd harmonic (1 * f0) magnitude exceeds even harmonic (2 * f0) magnitude
-        const y = 0.5 + 0.01 * Math.cos(2 * Math.PI * 2 * strideFreq * t) + 0.05 * Math.cos(2 * Math.PI * 1 * strideFreq * t);
-        const x = 0.5 + 0.04 * Math.sin(2 * Math.PI * 1 * strideFreq * t);
-        hipYLimp.push(y);
-        hipXLimp.push(x);
-      }
-
-      const hrLimp = computeHarmonicRatio(hipYLimp, hipXLimp, fps, meanStrideSec);
-      expect(hrLimp.hrVertical).toBeLessThan(1.8);
     });
   });
 

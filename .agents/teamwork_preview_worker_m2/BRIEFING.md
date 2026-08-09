@@ -1,44 +1,44 @@
-# BRIEFING — 2026-08-09T15:00:00Z
+# BRIEFING — 2026-08-09T16:04:00Z
 
 ## Mission
-Create `src/components/gait/JointAnglesChart.tsx` and unit/component tests in `src/components/gait/__tests__/JointAnglesChart.test.tsx` for Recharts Joint Kinematic Angle Trajectories (R1).
+Implement Milestone M2 for `gait-lab` UI Optimization: CognitiveClusters component, Stage 3 Dual-Pane Workstation Layout in GaitApp, Stage 4 Export Report integration, and unit tests.
 
 ## 🔒 My Identity
 - Archetype: implementer/qa/specialist
 - Roles: implementer, qa, specialist
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_worker_m2
-- Original parent: fe97c738-1bd6-48f4-84f8-367347a2f79f
-- Milestone: R1 Joint Kinematic Angle Trajectories component
+- Original parent: 760fe4f4-6775-4874-a1d4-40b1facb911b
+- Milestone: M2 Cognitive Clusters & Dual-Pane Workstation Layout
 
 ## 🔒 Key Constraints
-- Accept props `{ angleAnalysis: GaitAngleAnalysis; className?: string }` from `src/lib/gait/angles.ts`.
-- Joint tab selector state (`knee`, `hip`, `ankle`).
-- Recharts chart with ResponsiveContainer, ComposedChart, XAxis, YAxis, Tooltip, Legend, Area (normative band), Line (left leg blue #3b82f6, right leg red #ef4444).
-- ROM Metric Stat Badges (Left Peak ROM, Right Peak ROM, Peak Flexion/Dorsiflexion, Peak Extension/Plantarflexion, ROM Asymmetry %).
-- View suppression warning notice banner when `isSuppressed` is true.
-- Tests passing with 0 errors via `npm test` and `npm run typecheck`.
+- Group metrics into 4 intuitive cognitive clusters: Spatiotemporal Pace, Inter-limb Symmetry & ROM, Trunk Stability & Smoothness, Dual-Task Cognitive Cost.
+- Progressive disclosure accordion with clinical status badges (Normal, Borderline, Pathological) and 2 headline numbers per cluster.
+- Stage 3 Dual-Pane Workstation Layout (~50% Left / ~50% Right on desktop): Left pane with 16:9 Video Canvas, frame scrubber (-1f/+1f step, timeline, timecode), person track selector chips, overlay checkboxes (Skeleton, Joint Arcs, Sway Vector); Right pane with Sticky Status Bar + CognitiveClusters accordion.
+- Stage 4 Export / Share Report Integration with ClinicalReportView (patient metadata inputs, 5-domain radar chart, 1-click PDF export).
+- Unit tests in `src/components/gait/__tests__/CognitiveClusters.test.tsx`.
+- Pass all checks: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` with 0 errors.
 
 ## Current Parent
-- Conversation ID: fe97c738-1bd6-48f4-84f8-367347a2f79f
-- Updated: 2026-08-09T15:00:00Z
+- Conversation ID: 760fe4f4-6775-4874-a1d4-40b1facb911b
+- Updated: 2026-08-09T16:04:00Z
 
 ## Task Summary
-- **What to build**: JointAnglesChart component and unit tests.
-- **Success criteria**: Genuine Recharts implementation, clean tabs, normative bands, ROM stat badges, suppression notice, all tests passing.
+- **What to build**: `CognitiveClusters.tsx`, updated `SkeletonCanvas.tsx`, updated `GaitApp.tsx` for Stage 3 dual-pane workstation & Stage 4 export integration, and `CognitiveClusters.test.tsx`.
+- **Success criteria**: Genuine implementation, clean progressive disclosure, responsive dual-pane layout, scrubber & overlay controls, printable report, all tests passing with 0 errors.
 
 ## Change Tracker
 - **Files modified**:
-  - `src/components/gait/JointAnglesChart.tsx`: Created interactive Recharts joint angle chart component with tabs, normative bands, ROM badges, and view suppression.
-  - `src/components/gait/__tests__/JointAnglesChart.test.tsx`: Created 4 unit tests verifying tabs, ROM badges, view suppression banner, and chart markup.
-  - `vitest.config.ts`: Updated include pattern to match `.test.tsx` files.
-  - `src/lib/gait/angles.ts`: Fixed unused parameter warning in `calculateAnkleAngle`.
-- **Build status**: PASS (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build` all passing with 0 errors).
+  - `src/components/gait/CognitiveClusters.tsx`: Created 4-cluster progressive disclosure accordion with clinical status badges, headline numbers, 95% CIs, Zeni Gait Phase progress bars, and embedded JointAnglesChart.
+  - `src/components/gait/SkeletonCanvas.tsx`: Added optional overlay props (`showSkeleton`, `showJointArcs`, `showSwayVector`) and rendering logic.
+  - `src/components/gait/GaitApp.tsx`: Implemented Stage 3 Dual-Pane Workstation Layout (~50%/~50%), interactive frame scrubber (-1f/+1f step, timeline, timecode), person track chips, canvas overlay controls, sticky status bar, and Stage 4 export integration.
+  - `src/components/gait/__tests__/CognitiveClusters.test.tsx`: Added 4 component unit tests verifying rendering, status badge mapping, and accordion breakdown.
+- **Build status**: PASS (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build` all pass with 0 errors).
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: 32 test files passed (305 total tests passed)
+- **Build/test result**: 34 test files passed (277 vitest tests + 25 node tests passed)
 - **Lint status**: 0 errors, 0 warnings
-- **Tests added/modified**: 4 new tests in `JointAnglesChart.test.tsx`
+- **Tests added/modified**: 4 new tests in `CognitiveClusters.test.tsx`
 
 ## Loaded Skills
 - None

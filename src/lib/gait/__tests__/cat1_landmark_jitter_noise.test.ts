@@ -28,7 +28,6 @@ describe('Category 1: Severe Landmark Jitter & Salt-and-Pepper Noise Stress Test
     expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
     expect(Number.isFinite(metrics.stepTimeCV)).toBe(true);
     expect(Number.isFinite(metrics.symmetryAngle)).toBe(true);
-    expect(Number.isFinite(metrics.harmonicRatio)).toBe(true);
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
     expect(metrics.overallScore).toBeGreaterThanOrEqual(0);
     expect(metrics.overallScore).toBeLessThanOrEqual(100);
@@ -94,7 +93,6 @@ describe('Category 1: Severe Landmark Jitter & Salt-and-Pepper Noise Stress Test
     expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
     expect(Number.isFinite(metrics.stepTimeCV)).toBe(true);
     expect(Number.isFinite(metrics.symmetryAngle)).toBe(true);
-    expect(Number.isFinite(metrics.harmonicRatio)).toBe(true);
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
 
     // Verify all numeric properties in GaitMetrics are finite and not NaN

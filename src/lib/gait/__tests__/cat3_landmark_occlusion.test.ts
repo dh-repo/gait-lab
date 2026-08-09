@@ -23,7 +23,6 @@ describe('Category 3: Severe Landmark Occlusion Stress Tests', () => {
     expect(metrics).toBeDefined();
     expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
     expect(Number.isFinite(metrics.symmetryAngle)).toBe(true);
-    expect(Number.isFinite(metrics.harmonicRatio)).toBe(true);
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
     expect(metrics.overallScore).toBeGreaterThanOrEqual(0);
     expect(metrics.overallScore).toBeLessThanOrEqual(100);

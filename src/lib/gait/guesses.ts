@@ -159,31 +159,6 @@ export function buildEducatedGuesses(
     });
   }
 
-  // --- SOTA Rule 2: Trunk Harmonic Ratio (HR) / Dysrhythmia ---
-  if ((m.harmonicRatio ?? 2.0) < 1.8) {
-    guesses.push({
-      id: "fft-hr-dysrhythmia",
-      title: "Reduced trunk harmonic smoothness (dysrhythmia)",
-      summary:
-        "FFT spectral analysis reveals reduced Harmonic Ratio (HR < 1.8). Even-to-odd harmonic power ratio indicates reduced trunk rhythmicity and loss of smooth center-of-mass trajectory control.",
-      evidence: [
-        `Overall Harmonic Ratio: ${(m.harmonicRatio ?? 0).toFixed(2)}`,
-        `Vertical HR: ${(m.harmonicRatioVertical ?? 0).toFixed(2)}`,
-        `Lateral HR: ${(m.harmonicRatioLateral ?? 0).toFixed(2)}`,
-      ],
-      confidence: clamp(0.85 - (m.harmonicRatio ?? 2.0) * 0.25, 0.45, 0.88),
-      severity: (m.harmonicRatio ?? 2.0) < 1.3 ? "elevated" : "moderate",
-      category: "neuromotor",
-      patternTag: "trunk dysrhythmia (FFT HR)",
-      alternatives: [
-        "Balance instability / trunk wobbling",
-        "Cognitive dual-task distraction",
-        "Surface irregularity",
-        "Pose tracking noise",
-      ],
-    });
-  }
-
   // --- SOTA Rule 3: Zeni Kinematic Stance/Swing Asymmetry & Prolonged Double Support ---
   if (m.leftStancePct != null && m.rightStancePct != null && m.doubleSupportPct != null) {
     const stanceDiff = Math.abs(m.leftStancePct - m.rightStancePct);

@@ -97,7 +97,9 @@ export function ClinicalReportView({
   const romMetrics = derivedAngleAnalysis.metrics;
 
   return (
-    <div
+    <section
+      role="region"
+      aria-label="Clinical Gait Assessment Report"
       data-testid="clinical-report-view"
       className={cn("flex flex-col gap-6 print:gap-4 print:text-black", className)}
     >
@@ -123,7 +125,8 @@ export function ClinicalReportView({
               <button
                 type="button"
                 onClick={onPrint}
-                className="no-print print:hidden inline-flex items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow hover:opacity-90 transition-opacity"
+                aria-label="Print or Export PDF Report"
+                className="no-print print:hidden inline-flex items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
               >
                 <Printer className="size-4" />
                 Print / Export PDF
@@ -135,54 +138,62 @@ export function ClinicalReportView({
           {/* Patient Metadata Grid */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-[var(--color-subtle)] print:text-gray-700">
+              <label htmlFor="patient-id-input" className="text-xs font-semibold uppercase tracking-wider text-[var(--color-subtle)] print:text-gray-700">
                 Patient ID
               </label>
               <input
+                id="patient-id-input"
                 type="text"
                 value={patientMeta.patientId}
                 onChange={(e) => onUpdateMeta?.({ patientId: e.target.value })}
                 placeholder="e.g. PT-84920"
                 data-testid="patient-id-input"
-                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] print:border-gray-300 print:bg-white print:text-black"
+                aria-label="Patient ID"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] print:border-gray-300 print:bg-white print:text-black"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-[var(--color-subtle)] print:text-gray-700">
+              <label htmlFor="assessment-date-input" className="text-xs font-semibold uppercase tracking-wider text-[var(--color-subtle)] print:text-gray-700">
                 Assessment Date
               </label>
               <input
+                id="assessment-date-input"
                 type="date"
                 value={patientMeta.assessmentDate}
                 onChange={(e) => onUpdateMeta?.({ assessmentDate: e.target.value })}
                 data-testid="assessment-date-input"
-                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] print:border-gray-300 print:bg-white print:text-black"
+                aria-label="Assessment Date"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] print:border-gray-300 print:bg-white print:text-black"
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-              <label className="text-xs font-semibold uppercase tracking-wider text-[var(--color-subtle)] print:text-gray-700">
+              <label htmlFor="assessment-condition-input" className="text-xs font-semibold uppercase tracking-wider text-[var(--color-subtle)] print:text-gray-700">
                 Assessment Condition
               </label>
               <input
+                id="assessment-condition-input"
                 type="text"
                 value={patientMeta.assessmentCondition}
                 onChange={(e) => onUpdateMeta?.({ assessmentCondition: e.target.value })}
                 placeholder="e.g. Single-Task Walk"
                 data-testid="assessment-condition-input"
-                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] print:border-gray-300 print:bg-white print:text-black"
+                aria-label="Assessment Condition"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] print:border-gray-300 print:bg-white print:text-black"
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-              <label className="text-xs font-semibold uppercase tracking-wider text-[var(--color-subtle)] print:text-gray-700">
+              <label htmlFor="clinician-notes-input" className="text-xs font-semibold uppercase tracking-wider text-[var(--color-subtle)] print:text-gray-700">
                 Clinician Notes
               </label>
               <textarea
+                id="clinician-notes-input"
                 value={patientMeta.clinicianNotes}
                 onChange={(e) => onUpdateMeta?.({ clinicianNotes: e.target.value })}
                 placeholder="Enter clinician observations, medical history, or referral notes..."
                 rows={2}
                 data-testid="clinician-notes-input"
-                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-sm text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] print:border-gray-300 print:bg-white print:text-black"
+                aria-label="Clinician Notes"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-sm text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] print:border-gray-300 print:bg-white print:text-black"
               />
             </div>
           </div>
@@ -207,7 +218,7 @@ export function ClinicalReportView({
                 />
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-lg font-semibold leading-tight">{report.headline}</h3>
+                <h2 className="text-lg font-semibold leading-tight">{report.headline}</h2>
                 <p className="text-xs leading-relaxed text-[var(--color-muted)] print:text-gray-700">
                   {report.oneLiner}
                 </p>
@@ -283,7 +294,15 @@ export function ClinicalReportView({
               </span>
             </div>
             {result.metrics.leftStancePct != null ? (
-              <Progress value={result.metrics.leftStancePct} className="h-2" />
+              <Progress
+                value={result.metrics.leftStancePct}
+                className="h-2"
+                role="progressbar"
+                aria-valuenow={result.metrics.leftStancePct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Left stance percentage"
+              />
             ) : (
               <div className="h-2 rounded bg-[var(--color-border)] text-[10px] text-center leading-none text-[var(--color-subtle)]">View Suppressed</div>
             )}
@@ -298,7 +317,15 @@ export function ClinicalReportView({
               </span>
             </div>
             {result.metrics.rightStancePct != null ? (
-              <Progress value={result.metrics.rightStancePct} className="h-2" />
+              <Progress
+                value={result.metrics.rightStancePct}
+                className="h-2"
+                role="progressbar"
+                aria-valuenow={result.metrics.rightStancePct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Right stance percentage"
+              />
             ) : (
               <div className="h-2 rounded bg-[var(--color-border)] text-[10px] text-center leading-none text-[var(--color-subtle)]">View Suppressed</div>
             )}
@@ -313,7 +340,15 @@ export function ClinicalReportView({
               </span>
             </div>
             {result.metrics.doubleSupportPct != null ? (
-              <Progress value={result.metrics.doubleSupportPct} className="h-2" />
+              <Progress
+                value={result.metrics.doubleSupportPct}
+                className="h-2"
+                role="progressbar"
+                aria-valuenow={result.metrics.doubleSupportPct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Double support percentage"
+              />
             ) : (
               <div className="h-2 rounded bg-[var(--color-border)] text-[10px] text-center leading-none text-[var(--color-subtle)]">View Suppressed</div>
             )}
@@ -331,20 +366,20 @@ export function ClinicalReportView({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="overflow-x-auto">
-            <table data-testid="rom-summary-table" className="w-full text-left text-xs border-collapse">
+            <table data-testid="rom-summary-table" className="w-full text-left text-xs border-collapse" aria-label="Joint Trajectory ROM Summary">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-2)] print:bg-gray-100 print:text-black">
-                  <th className="p-2.5 font-semibold">Joint</th>
-                  <th className="p-2.5 font-semibold">Left Peak ROM</th>
-                  <th className="p-2.5 font-semibold">Right Peak ROM</th>
-                  <th className="p-2.5 font-semibold">Peak Flexion / Dorsiflexion (L / R)</th>
-                  <th className="p-2.5 font-semibold">Peak Extension / Plantarflexion (L / R)</th>
-                  <th className="p-2.5 font-semibold">ROM Asymmetry %</th>
+                  <th scope="col" className="p-2.5 font-semibold">Joint</th>
+                  <th scope="col" className="p-2.5 font-semibold">Left Peak ROM</th>
+                  <th scope="col" className="p-2.5 font-semibold">Right Peak ROM</th>
+                  <th scope="col" className="p-2.5 font-semibold">Peak Flexion / Dorsiflexion (L / R)</th>
+                  <th scope="col" className="p-2.5 font-semibold">Peak Extension / Plantarflexion (L / R)</th>
+                  <th scope="col" className="p-2.5 font-semibold">ROM Asymmetry %</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)] print:divide-gray-300">
                 <tr>
-                  <td className="p-2.5 font-medium">Knee</td>
+                  <th scope="row" className="p-2.5 font-medium">Knee</th>
                   <td className="p-2.5 tabular">{romMetrics.kneeRomLeft != null ? `${romMetrics.kneeRomLeft.toFixed(1)}°` : "—"}</td>
                   <td className="p-2.5 tabular">{romMetrics.kneeRomRight != null ? `${romMetrics.kneeRomRight.toFixed(1)}°` : "—"}</td>
                   <td className="p-2.5 tabular">
@@ -358,7 +393,7 @@ export function ClinicalReportView({
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-2.5 font-medium">Hip</td>
+                  <th scope="row" className="p-2.5 font-medium">Hip</th>
                   <td className="p-2.5 tabular">{romMetrics.hipRomLeft != null ? `${romMetrics.hipRomLeft.toFixed(1)}°` : "—"}</td>
                   <td className="p-2.5 tabular">{romMetrics.hipRomRight != null ? `${romMetrics.hipRomRight.toFixed(1)}°` : "—"}</td>
                   <td className="p-2.5 tabular">
@@ -372,7 +407,7 @@ export function ClinicalReportView({
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-2.5 font-medium">Ankle</td>
+                  <th scope="row" className="p-2.5 font-medium">Ankle</th>
                   <td className="p-2.5 tabular">{romMetrics.ankleRomLeft != null ? `${romMetrics.ankleRomLeft.toFixed(1)}°` : "—"}</td>
                   <td className="p-2.5 tabular">{romMetrics.ankleRomRight != null ? `${romMetrics.ankleRomRight.toFixed(1)}°` : "—"}</td>
                   <td className="p-2.5 tabular">
@@ -539,6 +574,6 @@ export function ClinicalReportView({
           </div>
         </CardContent>
       </Card>
-    </div>
+    </section>
   );
 }

@@ -29,7 +29,7 @@ describe("Clinical Rating Engine (ratings.ts)", () => {
   ];
 
   describe("buildStructuredReport", () => {
-    it("generates a complete structured report with 7 domain ratings and 18 metric ratings", () => {
+    it("generates a complete structured report with 7 domain ratings and 17 metric ratings", () => {
       const metrics = createMockMetrics({
         overallScore: 84,
         stabilityScore: 85,
@@ -72,8 +72,8 @@ describe("Clinical Rating Engine (ratings.ts)", () => {
         expect(d.drivers.length).toBeGreaterThan(0);
       }
 
-      // 18 metric ratings
-      expect(report.metrics.length).toBe(18);
+      // 17 metric ratings
+      expect(report.metrics.length).toBe(17);
       for (const m of report.metrics) {
         expect(m.favorability).toBeGreaterThanOrEqual(0);
         expect(m.favorability).toBeLessThanOrEqual(100);

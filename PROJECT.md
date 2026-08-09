@@ -42,6 +42,11 @@
 | 22 | Time-Normalized Kinematic Trajectory Chart (`JointAnglesChart.tsx`) | Recharts composed time-series chart displaying patient joint angle trajectories against Perry & Burnfield (2010) 0–100% normative envelopes with view suppression handling | M10 | audit |
 | 23 | 5-Domain Radar Chart & Patient Metadata (`ClinicalReportView.tsx`) | 5-domain radar chart (Pace, Symmetry, Smoothness, Rhythmicity, Stability) and editable patient metadata fields (ID, date, condition, clinician notes) | M10 | audit |
 | 24 | Clinical Report View & PDF Print Export | Full clinical report view with Zeni phase breakdown, ROM summary table, metric ratings, 95% CIs, hypothesis board, clinician sign-off block, `@media print` styles, and 1-click PDF export button | M10 | audit |
+| 25 | Multi-Agent Design Debate & `ux_design_rationale.md` | Execute multi-agent design debate (Challenger vs Advocate) establishing clinical UI principles and document rationale in `ux_design_rationale.md` | M11 | audit |
+| 26 | 4-Stage Linear Workflow Progression & `WorkflowHeader.tsx` | 4-stage linear workflow header (Setup, Capture, Analysis, Clinical Report) with progress indicator and step navigation | M11 | audit |
+| 27 | Cognitive Clustering (4 Clusters) & `CognitiveClusters.tsx` | Group 20+ clinical metrics into 4 cognitive clusters (Primary Spatio-Temporal, Symmetry & Smoothness, Joint Kinematics, Clinical Assessment) with progressive disclosure | M11 | audit |
+| 28 | Responsive Dual-Pane Workstation Layout | ~50%/~50% responsive desktop dual-pane workstation layout in `GaitApp.tsx` pairing video canvas overlay with workflow-aware metrics workspace | M11 | audit |
+| 29 | Accessibility, Hotkeys & Canvas Optimization | WCAG 2.1 AA contrast ratios (`#94a3b8`), semantic HTML, ARIA landmarks, keyboard hotkeys (`Space`/`Left`/`Right`), and 60 FPS canvas overlay optimization | M11 | audit |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
@@ -56,6 +61,7 @@
 | 8 | M8: R4 — Split-Half Reliability, Camera View Suppression & Score Transparency | Feature 19: Implement 95% CIs, view-geometry metric suppression (`null`), demote composite scores in `types.ts`, `analysis.ts`, `ratings.ts`, UI | M6, M7 | DONE |
 | 9 | M9: Comprehensive Synthetic Ground-Truth Test Suite & Verification | Feature 20: Comprehensive synthetic tests in `src/lib/gait/__tests__/`, update `scientific_justifications.md`, full verification pass & audit | M5–M8 | DONE |
 | 10 | M10: Joint Kinematics & Clinical Report View | Features 21–24: `angles.ts`, `JointAnglesChart.tsx`, `ClinicalReportView.tsx`, `@media print` PDF export, comprehensive unit tests | M5–M9 | DONE |
+| 11 | M11: Clinical UI Layout Optimization & Cognitive Load Reduction | Features 25–29: `ux_design_rationale.md`, `WorkflowHeader.tsx`, `CognitiveClusters.tsx`, dual-pane layout in `GaitApp.tsx`, WCAG/ARIA/hotkeys/60FPS optimization, test suites | M10 | DONE |
 
 ## Interface Contracts
 
@@ -235,8 +241,10 @@ src/
 │   │       └── analysis.test.ts
 ├── components/
 │   ├── gait/
-│   │   ├── GaitApp.tsx      # Continuous 10-12s 30 Hz sampling window
+│   │   ├── GaitApp.tsx      # Continuous 10-12s 30 Hz sampling window & ~50%/~50% responsive dual-pane layout
 │   │   ├── SkeletonCanvas.tsx
+│   │   ├── WorkflowHeader.tsx # 4-Stage Linear Workflow Progression header
+│   │   ├── CognitiveClusters.tsx # 4 Cognitive Clusters with Progressive Disclosure
 │   │   ├── ReportPanel.tsx   # Displays 95% CIs and view-suppressed metric notices
 │   │   ├── MetricsPanel.tsx  # Renders 95% CIs and defensible measured quantities
 │   │   ├── GuessesPanel.tsx
@@ -245,10 +253,16 @@ src/
 │   │   ├── JointAnglesChart.tsx  # Recharts 0-100% gait cycle trajectory visualization vs normative envelope
 │   │   ├── ClinicalReportView.tsx # 5-Domain Radar Chart, Patient Metadata, PDF Print export, Clinician sign-off
 │   │   └── __tests__/
+│   │       ├── ClinicalReportView.test.tsx
+│   │       ├── CognitiveClusters.test.tsx
+│   │       ├── GaitAppAccessibility.test.tsx
 │   │       ├── JointAnglesChart.test.tsx
-│   │       └── ClinicalReportView.test.tsx
+│   │       ├── SkeletonCanvas.test.tsx
+│   │       ├── WorkflowHeader.test.tsx
+│   │       └── m4_1_ui_keyboard_cls_challenger.test.tsx
 migrations/
 ├── 0001_auth.sql
 └── 0002_gait_sessions.sql
 scientific_justifications.md # Updated with literature citations for R1-R5 & R1-R2 Kinematics
+ux_design_rationale.md       # Multi-agent debate rationale for clinical UI layout optimization
 ```

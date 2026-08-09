@@ -31,9 +31,6 @@ function createDummyMetrics(overrides: Partial<GaitMetrics> = {}): GaitMetrics {
     rightSwingPct: 40.0,
     doubleSupportPct: 20.0,
     symmetryAngle: 1.5,
-    harmonicRatioVertical: 2.5,
-    harmonicRatioLateral: 2.2,
-    harmonicRatio: 2.4,
     stepTimeCV: 0.04,
     strideTimeCV: 0.04,
     pelvicObliquity: 0.02,
@@ -108,7 +105,6 @@ describe("Milestone 2 Challenge Suite - Challenger 2 (m2_r1_2)", () => {
       const metrics = createDummyMetrics({
         cadenceSpm: 500, // extreme cadence
         symmetryAngle: 80.0, // extreme asymmetry
-        harmonicRatio: 0.1, // extreme low HR
         stepTimeCV: 1.5, // extreme CV
         lateralSway: 0.8, // extreme sway
       });
@@ -128,12 +124,9 @@ describe("Milestone 2 Challenge Suite - Challenger 2 (m2_r1_2)", () => {
     test("Gracefully handles missing / undefined optional SOTA metrics", () => {
       const metrics = createDummyMetrics({
         symmetryAngle: undefined,
-        harmonicRatio: undefined,
         leftStancePct: undefined,
         rightStancePct: undefined,
         doubleSupportPct: undefined,
-        harmonicRatioLateral: undefined,
-        harmonicRatioVertical: undefined,
       });
 
       const report = buildStructuredReport(metrics, [], {
@@ -153,7 +146,6 @@ describe("Milestone 2 Challenge Suite - Challenger 2 (m2_r1_2)", () => {
     test("Evaluates all SOTA rule paths with extreme metric inputs without throwing or producing NaN/undefined strings", () => {
       const extremeMetrics = createDummyMetrics({
         symmetryAngle: 12.5, // triggers zifchock-sa-deviation
-        harmonicRatio: 1.1, // triggers fft-hr-dysrhythmia
         leftStancePct: 72.0,
         rightStancePct: 58.0, // stanceDiff = 14 > 6 -> triggers zeni-stance-breakdown
         doubleSupportPct: 29.0,
@@ -215,12 +207,9 @@ describe("Milestone 2 Challenge Suite - Challenger 2 (m2_r1_2)", () => {
     test("Handles missing/undefined optional fields in guesses.ts gracefully", () => {
       const sparseMetrics = createDummyMetrics({
         symmetryAngle: undefined,
-        harmonicRatio: undefined,
         leftStancePct: undefined,
         rightStancePct: undefined,
         doubleSupportPct: undefined,
-        harmonicRatioVertical: undefined,
-        harmonicRatioLateral: undefined,
       });
 
       const guesses = buildEducatedGuesses(sparseMetrics);

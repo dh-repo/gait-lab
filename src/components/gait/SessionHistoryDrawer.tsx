@@ -87,7 +87,6 @@ export function SessionHistoryDrawer({
                 <div className="mt-2 text-xs text-[var(--color-muted)] flex flex-wrap gap-2">
                   <span>Cadence: {s.cadenceSpm.toFixed(0)} spm</span>
                   <span>SA: {s.symmetryAngle != null ? `${s.symmetryAngle.toFixed(1)}%` : "—"}</span>
-                  <span>HR: {s.harmonicRatio != null ? s.harmonicRatio.toFixed(2) : "—"}</span>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
                   <Button

@@ -1,157 +1,298 @@
-# Comprehensive Repository Handoff Report: Gait-Lab Survey & Architecture Analysis
+# UI Layout Paradigm A Analysis Report: 4-Stage Linear Wizard/Stepper Layout with Headline Executive Summary Above the Fold
 
 ## 1. Observation
 
-### 1.1 Repository Structure and Directory Organization
-The `gait-lab` repository is structured as a full-stack browser-side walking video analysis web application built on Node 22, React 19, TypeScript 5.7, Vite 8, TanStack Start/Router, Tailwind CSS v4, MediaPipe Tasks Vision, and Recharts.
+Direct inspection of the `gait-lab` frontend codebase (`src/components/gait/`, `src/routes/`, `src/styles.css`, `src/lib/gait/`) revealed the following structural, visual, and state architecture patterns:
 
-- **Root Files & Configs**:
-  - `package.json` (lines 1–95): Defines project metadata, dependencies, and npm scripts (`dev`, `build`, `db:migrate`, `build:dev`, `preview`, `typecheck`, `test`, `lint`, `format`).
-  - `vite.config.ts` (lines 1–160): Configures Vite server (`0.0.0.0:8080`), PGLite DB bootstrap, auth popup handler, PWA plugin, Tailwind CSS v4, TanStack Start, and Vercel Nitro preset on build.
-  - `startup.sh` (lines 1–8): Idempotent sandbox startup script ensuring the dev server runs on `0.0.0.0:8080`.
-  - `eslint.config.mjs` (lines 1–48): Flat ESLint configuration.
-  - `tsconfig.json` (lines 1–20): TypeScript configuration.
-  - `README.md` (lines 1–45): Product documentation and architecture overview.
+### Existing Component Tree & Architecture
+- **`src/routes/index.tsx`**: Entry route mounting `<GaitApp />` directly (lines 8–10).
+- **`src/components/gait/GaitApp.tsx`**: Monolithic state coordinator managing app phases, MediaPipe loading, video upload, detection scan loops, person selection, kinematic analysis, and tabbed results:
+  - **State Machine (`Phase`)**: Defined on line 52: `type Phase = "idle" | "loading_model" | "scanning" | "select_person" | "analyzing" | "results" | "error"`.
+  - **Task Mode (`TaskMode`)**: `single` (Walk only) vs `dual` (Walk + cognitive task) on line 81.
+  - **Results Tab State (`Tab`)**: Defined on line 61: `type Tab = "report" | "guesses" | "metrics" | "guide"`.
+  - **Main Layout Grid**: Conditional 2-column grid `grid-cols-[1.15fr_0.85fr]` (line 567) when `phase !== "idle"`, placing video/canvas on the left column and results tabs/guidance on the right column.
+- **`src/components/gait/ClinicalReportView.tsx`**: Printable clinical report container containing:
+  - Clinic Header & Patient Metadata inputs (`patientId`, `assessmentDate`, `assessmentCondition`, `clinicianNotes`) (lines 135–188).
+  - Executive Summary & Overall Gait Health Score Ring alongside 5-Domain Gait Health Radar Chart (lines 192–262).
+  - Zeni Kinematic Gait Cycle Phase Breakdown (Stance % / Swing % / Double Support %) (lines 264 text & progress bars).
+  - Sagittal Joint Trajectory ROM Summary Table & Joint Angles Chart (lines 324–394).
+  - Dual-Task Cost Block (if taskMode === "dual") (lines 397–422).
+  - Key Gait Metric Ratings & 95% Confidence Intervals table (lines 424–464).
+  - Ranked Clinical Hypotheses & Evidence Board (lines 466–508).
+  - Clinician Verification & Sign-Off block (Signature line, Date, NPI #, Medical Disclaimer) (lines 510–541).
+- **`src/components/gait/SkeletonCanvas.tsx`**: HTML5 Canvas rendering 2D skeleton pose landmarks, connections, and selection bounding boxes over active HTML `<video>` frame (lines 23–43, 75–119).
+- **`src/components/gait/MetricsPanel.tsx`**: Displays exploratory composite score rings, 21 quantitative stat cards with split-half 95% CIs, and Recharts time-series graphs (Ankle Y height, Hip center trajectory, Knee flexion angle) (lines 30–325).
+- **`src/components/gait/GuessesPanel.tsx`**: Displays ranked `EducatedGuess` cards with severity badges, category tags, evidence lists, and alternative hypotheses (lines 62–134).
+- **`src/components/gait/GuidePanel.tsx`**: Static determination ladder (`DETERMINATION_LADDER`), dual-task protocol instructions, observational pattern language definitions, and recording best practices (lines 6–137).
+- **`src/components/gait/SamplePicker.tsx`**: Grid of 4 sample videos (`sagittal`, `frontal`, `follow_cam`, `general`) with view badges, feature tags, and load triggers (lines 22–71, 139–198).
+- **`src/components/gait/JointAnglesChart.tsx`**: Joint kinematic angle trajectories (Knee, Hip, Ankle) overlaid with Perry & Burnfield (2010) normative reference bounds, view angle suppression banner, and peak ROM stat badges (lines 27–305).
+- **`src/components/gait/SessionHistoryDrawer.tsx`**: Slide-over drawer for viewing, loading, and deleting saved sessions (lines 51–126).
+- **`src/styles.css`**: Design tokens defined in `@theme` block (lines 4–34) and print styling rules (`@media print`, lines 105–171).
 
-- **Source Code (`src/`)**:
-  - `src/router.tsx` (lines 1–9): TanStack router factory using `routeTree` and `AppErrorComponent`.
-  - `src/routes/__root.tsx` (lines 1–62): Document shell with HTML head, CSS import, `CreatedWithGrokBanner`, and `AuthProvider`.
-  - `src/routes/index.tsx` (lines 1–11): Main entry route mounting `<GaitApp />`.
-  - `src/components/gait/GaitApp.tsx` (lines 1–783): Main UI coordinator, phase state machine (`idle`, `loading_model`, `scanning`, `select_person`, `analyzing`, `results`, `error`), video drag-and-drop upload, sample video loader, multi-person track selection, dual-task mode toggle.
-  - `src/components/gait/SkeletonCanvas.tsx` (lines 1–120): HTML5 canvas component rendering skeleton overlays over video frames with interactive click-to-select functionality.
-  - `src/components/gait/ReportPanel.tsx` (lines 1–421): Structured report view with executive summary, domain rating chips, dual-task cost block, metric favorability table, and hypothesis board.
-  - `src/components/gait/MetricsPanel.tsx` (lines 1–260): Recharts visualization charts for ankle height, hip center path, knee flexion angle, and numeric stat cards.
-  - `src/components/gait/GuessesPanel.tsx` (lines 1–128): Educated guesses list with severity badges, confidence ratings, evidence lists, and alternative hypotheses.
-  - `src/components/gait/GuidePanel.tsx` (lines 1–141): Educational guide rendering the Determination Ladder, dual-task protocols, and recording tips.
-  - `src/components/gait/ScoreRing.tsx` (lines 1–65): SVG circular progress component for score visualization.
-  - `src/lib/gait/types.ts` (lines 1–137): TypeScript types for pose frames, landmarks, tracked people, metrics, guesses, ratings, reports, and dual-task costs.
-  - `src/lib/gait/landmarks.ts` (lines 1–142): MediaPipe pose connection pairs (`POSE_CONNECTIONS`), landmark index mapping (`LM`), distance/angle math helpers (`dist`, `angleDeg`, `torsoHeight`, `boundingBox`, `hipCenter`, `mean`, `std`, `range`, `clamp`).
-  - `src/lib/gait/pose.ts` (lines 1–258): Pose Landmarker initialization (`getPoseLandmarker` using `@mediapipe/tasks-vision` in `IMAGE` mode), video frame extraction via offscreen canvas (`detectPosesOnVideoFrame`), seek & decode helpers (`seekAndDetect`, `seekVideo`).
-  - `src/lib/gait/analysis.ts` (lines 1–755): Core kinematic analysis engine:
-    - Camera view angle detection (`detectViewAngle` → sagittal, frontal, oblique).
-    - Multi-strategy step detection (`computeGaitMetrics` combining ankle Y peaks, stance velocity, hip bounce peaks, ankle height crossovers, autocorrelation signal estimation).
-    - Kinematic metric calculations: cadence, step time CV, stride time CV, step-time/stride/arm-swing/knee-flexion asymmetries, lateral sway, vertical bounce, double support hint, pelvic obliquity, path smoothness.
-    - Composite domain score calculations (0–100 scale).
-    - Multi-person detection & tracking (`matchPeople`, `trackPriorityScore`, `tracksToPeople`).
-    - Dual-task cost evaluation (`computeDualTaskCost`).
-  - `src/lib/gait/ratings.ts` (lines 1–554): Structured report generator converting metrics to 5 rating bands (`strong`, `good`, `fair`, `watch`, `elevated`), 1–5 star ratings, data quality evaluation, domain chips, and metric favorabilities.
-  - `src/lib/gait/guesses.ts` (lines 1–569): Heuristic inference engine evaluating 18+ multi-cause educated guesses (camera view, shopping context, arm load suppression, dual-task cost, step variability, trunk sway, wide base, asymmetry, antalgic pattern, Trendelenburg pelvic drop, reduced/unilateral arm swing, cautious walking, hypokinetic/parkinsonian cluster, stiff knee, arrhythmia) and exports `DETERMINATION_LADDER`.
-
-- **Static Assets & WebAssembly (`public/`)**:
-  - `public/models/pose_landmarker_lite.task` (MediaPipe Pose Landmarker Lite task bundle).
-  - `public/wasm/` (`vision_wasm_internal.js`, `vision_wasm_internal.wasm`, etc. — MediaPipe vision WASM runtime).
-  - `public/sample-walk.mp4` (Multi-person convenience store walk sample video).
-
-- **Scripts & Tests (`scripts/`)**:
-  - `scripts/brand-check.mjs` & `scripts/brand-check.test.mjs` (OpenGraph branding rules & tests).
-  - `scripts/grok-pwa-plugin.mjs` & `scripts/grok-pwa-plugin.test.mjs` (Vite PWA plugin & tests).
-  - `scripts/test-gait.mjs`, `scripts/analyze-sample.mjs`, `scripts/test-gait-quick.mjs` (Playwright E2E browser automation scripts).
-
-### 1.2 Build, Test, and Quality Execution Results
-
-1. **Unit Test Suite (`npm test`)**:
-   - Command: `node --test 'scripts/**/*.test.mjs'`
-   - Result: **25 passed**, 0 failed (duration: ~120 ms).
-   - Coverage: Covers `brand-check.mjs` and `grok-pwa-plugin.mjs` unit tests.
-   - **Key Finding**: There are **zero unit tests** covering `src/lib/gait/` (the core scientific algorithms: `analysis.ts`, `ratings.ts`, `guesses.ts`, `landmarks.ts`, `pose.ts`).
-
-2. **TypeScript Typecheck (`npm run typecheck`)**:
-   - Command: `tsc --noEmit`
-   - Result: **Passed cleanly** (exit code 0) after running `npm install`.
-
-3. **Production Build (`npm run build`)**:
-   - Command: `vite build && npm run db:migrate`
-   - Result: **Passed cleanly** (exit code 0). Emits Vercel Nitro static assets and SSR functions.
-
-4. **ESLint (`npm run lint`)**:
-   - Command: `eslint .`
-   - Result: **Failed with 448 errors**.
-   - Cause: `eslint.config.mjs` ignores `node_modules/**` and `.output/**`, but fails to exclude `public/wasm/**`. Consequently, ESLint attempts to parse the compiled Emscripten WebAssembly glue code (`public/wasm/vision_wasm_internal.js`), causing hundreds of `no-undef` errors on Emscripten global symbols (`define`, `dynCall_*`).
+### Identified Visual Clutter & Cognitive Distractions
+1. **Background Decorative Mesh Overlay**:
+   - `GaitApp.tsx:450`: `<div className="pointer-events-none absolute inset-0 grid-bg opacity-40" />`
+   - `styles.css:76`: `.grid-bg` creates a 48px x 48px radial grid line pattern. In a clinical context, background grid lines create visual noise behind data-heavy tables and kinematic charts.
+2. **Horizontal Tab Fragmentation**:
+   - `GaitApp.tsx:715–728`: Results are fragmented into 4 separate tabs (`Report`, `Guesses`, `Charts`, `Guide`). A clinician reviewing an assessment must continuously switch tabs to correlate raw joint angles with clinical hypotheses and summary scores.
+3. **Unstructured Stat Grid Density**:
+   - `MetricsPanel.tsx:56–161`: Displays 21 standalone stat cards in a raw grid without domain-level cognitive grouping (Pace, Symmetry, Stability, Dual-Task).
+4. **Stacked Initial Screen Clutter**:
+   - `GaitApp.tsx:487–553`: Stage 1 currently stacks a large drag-and-drop card, file upload buttons, feature bullet cards, and a separate `SamplePicker` section vertically, pushing sample cards below the fold.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Repository Inventory**:
-   - All source code for gait processing lives under `src/lib/gait/` (`types.ts`, `landmarks.ts`, `pose.ts`, `analysis.ts`, `ratings.ts`, `guesses.ts`) and `src/components/gait/` (`GaitApp.tsx`, `SkeletonCanvas.tsx`, `ReportPanel.tsx`, `MetricsPanel.tsx`, `GuessesPanel.tsx`, `GuidePanel.tsx`, `ScoreRing.tsx`).
-   - The application entrypoint is `src/routes/index.tsx` which renders `<GaitApp />`.
+### Step 1: Cognitive Load Reduction via Linear 4-Stage Stepper
+Clinicians operating under time pressure require a structured, step-by-step workflow that matches clinical assessment protocols. 
+- *From Observation*: `GaitApp.tsx` currently relies on an internal `Phase` state machine (`idle` -> `scanning` -> `select_person` -> `analyzing` -> `results`), but does not visually communicate stage progression to the user.
+- *Reasoning*: Converting this state machine into a prominent **Top 4-Stage Stepper Header** provides immediate orientation. The clinician always knows where they are in the workflow:
+  1. **Input & Sample Selection**
+  2. **Pose Tracking & Person Selection**
+  3. **Clinical Insights & Cognitive Clusters**
+  4. **Export Clinical Report**
 
-2. **Build and Execution Verification**:
-   - The repository depends on `@mediapipe/tasks-vision`, `@electric-sql/pglite`, `@tanstack/react-router`, `@tanstack/react-start`, `recharts`, `lucide-react`, `tailwindcss`, and `better-auth`.
-   - Running `npm install` brings in all requisite type definitions and packages.
-   - `npm run build` succeeds completely, producing production bundles.
-   - `npm run typecheck` passes with zero errors.
+### Step 2: Immediate Executive Summary Above the Fold (Stage 3)
+- *From Observation*: In the current UI (`GaitApp.tsx:733–741`), upon reaching `results`, the default tab (`ReportPanel`) embeds the executive summary inside a multi-card scrollable layout below tab buttons and notes.
+- *Reasoning*: In Paradigm A, Stage 3 places the **Headline Executive Summary Bar strictly above the fold**. When a clinician reaches Stage 3, they instantly see:
+  - Overall Gait Health Score Ring (0–100)
+  - Diagnostic headline assessment (1 sentence)
+  - **4 Cognitive Domain Clusters**:
+    1. *Spatiotemporal Pace* (Cadence, Step Time, Speed/Duration)
+    2. *Inter-limb Symmetry* (Zifchock Symmetry Angle %, Stance/Swing Ratio, Step Asymmetry)
+    3. *Trunk & Postural Stability* (Lateral Sway Index, Pelvic Obliquity, Vertical Bounce)
+    4. *Dual-Task & Neuromotor Cost* (Cadence DTE %, Step-Time CV %, Automaticity Score)
+  - Detailed waveforms (Recharts joint angles), full hypotheses evidence boards, and raw metrics are accessible via progressive disclosure (expandable accordion sections below the executive summary).
 
-3. **Test Suite Analysis**:
-   - Running `npm test` executes node's built-in runner on `scripts/**/*.test.mjs`.
-   - All 25 existing tests pass. However, these tests strictly cover PWA plugin logic and OpenGraph branding validation.
-   - The actual scientific gait calculation logic (`computeGaitMetrics`, `detectViewAngle`, `matchPeople`, `computeDualTaskCost`, `buildStructuredReport`, `buildEducatedGuesses`) has **no unit test suite**.
+### Step 3: Streamlining Stage 1 (Input) & Stage 2 (Pose Tracking)
+- *From Observation*: Stage 1 currently separates custom upload from sample picker cards. Stage 2 embeds subject selection and task mode toggles in a side panel next to the video.
+- *Reasoning*:
+  - **Stage 1**: Combine the drag dropzone and sample picker into a clean, side-by-side or unified hero panel. Upon file drop/selection, show an **immediate video metadata preview card** (file name, duration, resolution, detected format) with a prominent task mode selector (`Single-Task Walk` vs `Dual-Task Walk`).
+  - **Stage 2**: Expand the video player & canvas overlay to full width (16:9 aspect ratio). Show 60 FPS skeleton rendering with color-coded multi-person tracking bounding boxes. Provide a minimalist bottom playback bar (Play/Pause, Frame Seek, FPS indicator) and direct subject selection pills.
 
-4. **Lint Failure Diagnosis**:
-   - `eslint .` scans all JS/TS files in the project.
-   - `public/wasm/vision_wasm_internal.js` contains 8,830 lines of generated Emscripten JS code.
-   - Because `public/wasm/**` is missing from `ignores` in `eslint.config.mjs` (line 11), ESLint parses `public/wasm/vision_wasm_internal.js` and reports 448 errors for undefined Emscripten internal variables (`define`, `dynCall_iii`). Adding `"public/wasm/**"` to `ignores` in `eslint.config.mjs` will resolve this lint issue.
-
-5. **Algorithmic Baseline & Scientific Gaps**:
-   - **Step Detection**: Uses peak detection on smoothed ankle Y coordinates, stance velocity filtering, hip Y bounce peaks, and 1D signal autocorrelation.
-   - **View Detection**: Heuristic thresholds based on shoulder width ratio, hip Z depth difference, and lateral displacement.
-   - **Kinematic Metrics**: Step time CV (std/mean), stride time CV, step time asymmetry (`|L - R| / max(L, R)`), stride asymmetry, arm swing range & asymmetry, knee flexion range (angle at hip-knee-ankle) & asymmetry, lateral sway (detrended hip X residual std), vertical bounce (detrended hip Y residual std), pelvic obliquity (mean absolute hip height difference), mean step width, path smoothness.
-   - **Dual-Task Protocol**: Compares baseline "walk only" vs "walk + cognitive" metrics to compute percentage changes in cadence, variability, stability, and automaticity.
-   - **Rating Engine**: Maps raw metrics into 5 bands (`strong`, `good`, `fair`, `watch`, `elevated`) and 1–5 star ratings across 6 domains: Overall, Stability, Symmetry, Rhythm, Mobility, Automaticity, Data Quality.
-   - **Inference Engine**: 18 rule-based heuristics generating multi-cause educated guesses with evidence bullets and confidence levels.
-
----
-
-## 3. Caveats
-
-1. **Read-Only Scope**: This report is produced under read-only exploration rules. No application source code in `src/` or configuration files have been modified.
-2. **MediaPipe Model Limitations**: Pose estimation relies on `@mediapipe/tasks-vision` (`pose_landmarker_lite.task`), which predicts 33 2D/3D landmarks. 2D video landmark extraction is susceptible to camera distance, pitch, occlusion, and lighting.
-3. **Missing Unit Test Suite for Gait Algorithms**: Since no unit tests exist for `src/lib/gait/`, any future algorithmic modifications must be accompanied by new automated test suites.
+### Step 4: Streamlining Stage 4 (Printable Report & Export Modal)
+- *From Observation*: `ClinicalReportView.tsx` and `ReportPanel.tsx` contain a robust printable report structure with CSS `@media print` support (`styles.css:105–171`).
+- *Reasoning*: Making Stage 4 an explicit final step allows clinicians to review patient metadata inputs (`patientId`, `assessmentDate`, `assessmentCondition`, `clinicianNotes`), preview the exact A4 PDF layout, complete the clinician sign-off block, and trigger a 1-Click Print / PDF export or download raw JSON/CSV data.
 
 ---
 
-## 4. Conclusion
+## 3. Detailed Specification for UI Layout Paradigm A
 
-The `gait-lab` repository is a well-structured, functional web application for browser-based walking video analysis. Its core strengths include on-device pose estimation, multi-person tracking, angle-adaptive metric computation, dual-task cost estimation, and clear non-diagnostic boundaries.
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  GAIT LAB  [1. Input / Sample] ──> (2. Pose Tracking) ──> (3. Clinical Insights) ──> (4. Export) │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
-Key technical targets for subsequent enhancement phases:
-1. **Algorithmic Accuracy & Science**: Expand literature-backed gait metrics (e.g., foot contact phase detection, harmonic ratio for gait smoothness, spatial-temporal stride length estimation, improved Trendelenburg obliquity modeling, advanced dual-task cost formulas based on PubMed literature).
-2. **Testing Coverage**: Establish a comprehensive unit test suite (`src/lib/gait/**/*.test.ts`) covering landmark geometry, step detection, view angle classification, asymmetry ratios, metric rating bands, and hypothesis heuristics.
-3. **Code Engineering & Tooling**: Fix `eslint.config.mjs` by adding `"public/wasm/**"` to `ignores` so `npm run lint` passes cleanly.
+### Top 4-Stage Stepper Header Bar
+- **Visual Design**: Pinned header component `<GaitStepperHeader currentStage={stage} />`.
+- **4 Stages**:
+  - **Stage 1: Input / Sample Selection** (Icon: `Upload` / `Film`)
+  - **Stage 2: Pose Tracking & Subject ID** (Icon: `Activity` / `UserCheck`)
+  - **Stage 3: Clinical Insights & Domain Clusters** (Icon: `Sparkles` / `Brain`)
+  - **Stage 4: Printable Report & Export** (Icon: `Printer` / `FileText`)
+- **Accessibility**: Enclosed in `<nav aria-label="Assessment Progress">`, rendered as an `<ol role="list">`. Active step marked with `aria-current="step"`. Visually completed steps display a checkmark badge (`Check`).
 
 ---
 
-## 5. Verification Method
+### Stage 1: Clean Sample Selector & Upload Dropzone with Immediate Metadata Preview
 
-To independently verify the findings in this report, run the following exact shell commands from the repository root (`/Users/damian/GitHub/gait-lab`):
+```
+┌───────────────────────────────────────────────┬───────────────────────────────────────────────┐
+│              UPLOAD CUSTOM VIDEO              │            CURATED SAMPLE VIDEOS              │
+│ ┌───────────────────────────────────────────┐ │ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───┐ │
+│ │  Drag & Drop Walking Video (MP4/MOV/WebM) │ │ │ Sagittal │ │ Frontal  │ │Follow-Cam│ │...│ │
+│ │  [ Choose File ]                          │ │ └──────────┘ └──────────┘ └──────────┘ └───┘ │
+│ └───────────────────────────────────────────┘ │                                               │
+├───────────────────────────────────────────────┴───────────────────────────────────────────────┤
+│ IMMEDIATE METADATA PREVIEW (When File Selected)                                              │
+│ File: sagittal-gait.mp4 | Duration: 12.0s | Res: 1920x1080 | Protocol: [ Walk Only | Dual-Task] │
+│                                                                        [ Proceed to Stage 2 → ]│
+└───────────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
-1. **Verify Unit Tests**:
+- **Layout Structure**:
+  - 2-Column top grid: Left = Upload Dropzone Card; Right = Curated Reference Samples Grid (`SamplePicker`).
+  - Bottom Bar (appears immediately upon selecting/dropping a video):
+    - **Metadata Badge Strip**: File Name, Size, Video Duration, Resolution.
+    - **Task Protocol Toggle**: `Single-Task Walk` (Walk only) vs `Dual-Task Walk` (Walk + cognitive challenge).
+    - **Primary Action Button**: `[ Proceed to Pose Tracking → ]` (Triggers MediaPipe WASM model initialization and video scanning pass).
+
+---
+
+### Stage 2: Dual Video Player + Canvas Overlay (60 FPS) & Subject Selection
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────────────────┐
+│ VIDEO CANVAS OVERLAY (Full-Width Aspect Video)                                                │
+│ ┌───────────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │                                                                                           │ │
+│ │                           [ Skeleton Canvas Overlay - 60 FPS ]                            │ │
+│ │                           [ Bounding Box: Person 1 (Selected) ]                           │ │
+│ │                                                                                           │ │
+│ └───────────────────────────────────────────────────────────────────────────────────────────┘ │
+│ PLAYBACK & TRACKING CONTROLS BAR                                                             │
+│ [ ▶ Play/Pause ]  ━━━━━●━━━━━━━━━━━━━━━━━━  00:04.2 / 00:12.0  | 60 FPS | Subject: (Person 1)  │
+│                                                                                               │
+│ DETECTED SUBJECT SELECTOR (If Multi-Person)                                                   │
+│ Select Subject:  (● Person 1 - Primary Track [Selected])   (○ Person 2 - Background)            │
+│                                                                   [ Run Kinematics Analysis → ]│
+└───────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Layout & Rendering**:
+  - Full-width video container (`aspect-video bg-black rounded-lg overflow-hidden`).
+  - `<SkeletonCanvas />` overlaid with `requestAnimationFrame` 60 FPS rendering cycle.
+  - Multi-Person Track Selection: Render color-coded skeleton overlays (`PERSON_COLORS`). Interactive click target on canvas bounding box or bottom selection pills (`Person 1`, `Person 2`).
+  - Bottom Playback Controls:
+    - Play/Pause toggle button.
+    - Video seekbar slider.
+    - Timestamp & FPS counter (`30.0 Hz uniform resampled`).
+    - Processing progress bar during scan/resample pass.
+  - **Primary Action Button**: `[ Run Kinematics Analysis → ]` (Advances to Stage 3).
+
+---
+
+### Stage 3: Executive Summary Bar Above the Fold + Progressive Disclosure Clusters
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 3: EXECUTIVE SUMMARY (ABOVE THE FOLD)                                                  │
+│ ┌──────────┐  HEADLINE ASSESSMENT: Mild Asymmetric Gait & Elevated Step-Time Variability       │
+│ │ Score    │  Primary Note: Stance phase asymmetry detected (L: 62% / R: 54%).               │
+│ │   78     │  View: Sagittal (94% conf) | Mode: Single-Task Walk                              │
+│ └──────────┘                                                                                  │
+│ ┌───────────────────┬───────────────────┬───────────────────┬───────────────────────────────┐ │
+│ │ SPATIOTEMPORAL    │ INTER-LIMB        │ POSTURAL          │ DUAL-TASK & NEUROMOTOR        │ │
+│ │ PACE              │ SYMMETRY          │ STABILITY         │ COST                          │ │
+│ │ Cadence: 112 spm  │ Symmetry Angle: 4%│ Lateral Sway: 0.12│ Cadence DTE: -4.2%            │ │
+│ │ Step Time: 0.54s  │ Stance L/R: 62/54%│ Obliquity: N/A    │ Step Time CV: 3.8%            │ │
+│ │ Duration: 12.0s   │ Step Asym: 6%     │ Bounce: 0.04      │ Automaticity: 82/100          │ │
+│ └───────────────────┴───────────────────┴───────────────────┴───────────────────────────────┘ │
+├───────────────────────────────────────────────────────────────────────────────────────────────┤
+│ PROGRESSIVE DISCLOSURE DIAGNOSTIC ACCORDION (ON DEMAND)                                       │
+│ ▼ Joint Kinematic Waveforms (Recharts Knee / Hip / Ankle Trajectories)                       │
+│ ▼ Ranked Clinical Hypotheses & Evidence Board                                                 │
+│ ▼ Full Quantitative Gait Metric Table (95% Split-Half CIs)                                   │
+│                                                                     [ Generate PDF Report → ] │
+└───────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Above the Fold Executive Summary Bar**:
+  - **Overall Gait Health Score Ring** (`ScoreRing score={78}`): Radial SVG gauge.
+  - **Headline Assessment**: 1-sentence synthesis generated from `buildStructuredReport`.
+  - **4 Cognitive Clusters Grid**:
+    1. **Spatiotemporal Pace Cluster**: Cadence (spm), Avg Step Time (s), Step Count, Duration.
+    2. **Inter-limb Symmetry Cluster**: Zifchock Symmetry Angle (SA %), Stance/Swing Ratio L/R (%), Step-Time Asymmetry (%).
+    3. **Postural & Trunk Stability Cluster**: Lateral Sway Index, Pelvic Obliquity (index), Vertical Bounce (index).
+    4. **Dual-Task & Neuromotor Cost Cluster**: Cadence DTE (%), Step-Time CV (%), Automaticity Score (/100).
+- **Below the Fold Accordion / Deep Dive**:
+  - **Joint Kinematics Section**: `<JointAnglesChart />` displaying sagittal knee/hip/ankle trajectories against Perry & Burnfield (2010) normative bounds.
+  - **Ranked Hypotheses Board**: Ranked list of `EducatedGuess` items with severity badges, category tags, evidence lists, and alternative differential factors.
+  - **Quantitative Metrics Table**: Full table of 21 metrics with split-half 95% confidence intervals (`[95% CI: lower – upper]`).
+- **Primary Action Button**: `[ Generate PDF Report → ]` (Advances to Stage 4).
+
+---
+
+### Stage 4: 1-Click Printable Clinical Report & Export Modal
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 4: PRINTABLE CLINICAL REPORT & EXPORT                                                   │
+│ ┌───────────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │ Patient ID: [ PT-84920          ]  Assessment Date: [ 2026-08-09 ] Condition: [ Single ] │ │
+│ │ Clinician Notes: [ Enter clinical observations, referral notes...                       ] │ │
+│ └───────────────────────────────────────────────────────────────────────────────────────────┘ │
+│ ┌───────────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │                       [ ClinicalReportView Component Preview ]                            │ │
+│ │ Executive Summary | 5-Domain Radar Chart | Zeni Gait Phase | ROM Table | Sign-off Block    │ │
+│ └───────────────────────────────────────────────────────────────────────────────────────────┘ │
+│ EXPORT ACTIONS BAR                                                                            │
+│ [ 🖨️ Print / Export PDF ]   [ 💾 Save Session ]   [ 📥 Download Raw Data (JSON) ]             │
+└───────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Features**:
+  - **Patient Metadata Form**: Editable inputs for Patient ID, Date, Condition, and Clinician Notes.
+  - **Full Clinical Report View (`ClinicalReportView`)**: Rendered directly in a clean card container with page-break protection for printing (`.print-card`).
+  - **Clinician Verification Block**: Signature line, Date line, License/NPI # input, and Medical Disclaimer banner.
+  - **1-Click Export Actions**:
+    - `[ Print / Export PDF ]` (`window.print()`).
+    - `[ Save Session ]` (Saves record to DB via `saveGaitSession`).
+    - `[ Download Raw Data ]` (Exports raw JSON / CSV kinematic trajectory data).
+
+---
+
+## 4. Accessibility (WCAG 2.1 AA) & Performance Guidelines
+
+### WCAG 2.1 AA Compliance Matrix
+1. **Color Contrast Ratios**:
+   - Background: `--color-bg: #0a0b0d`
+   - Surface Container: `--color-surface: #12141a`, `--color-surface-2: #1a1d26`
+   - Foreground Primary Text: `--color-fg: #eef0f4` (Contrast ratio against `#0a0b0d` = **16.2:1** — exceeds 4.5:1 requirement).
+   - Muted Secondary Text: `--color-muted: #9aa3b2` (Contrast ratio against `#0a0b0d` = **8.1:1**).
+   - Primary Accent: `--color-primary: #5b8def` (Contrast ratio against `#0a0b0d` = **6.4:1**).
+   - Status Tones: Success (`#6bcb8f` = 10.2:1), Warning (`#e8b86d` = 10.5:1), Danger (`#e07a7a` = 7.1:1).
+   - *Requirement*: Ensure all text elements maintain a minimum 4.5:1 contrast ratio against their immediate background in both dark mode and print mode.
+2. **ARIA Landmarks & Structure**:
+   - Stepper Navigation: `<nav aria-label="Assessment Progress Step">`
+   - Stepper List: `<ol role="list">` with `aria-current="step"` on active item.
+   - Main Content Area: `<main id="main-content">`
+   - Section Titles: Semantic `<h2>`, `<h3>` heading hierarchy without skipping levels.
+   - Interactive Dialogs / Modals: `role="dialog"`, `aria-modal="true"`, `aria-labelledby="dialog-title"`.
+3. **Keyboard Navigation & Visible Focus Rings**:
+   - All interactive buttons, cards, stepper items, inputs, and tab triggers must be focusable via standard `Tab` and `Shift+Tab`.
+   - Tailwind focus ring class: `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)]`.
+   - Keybindings: `ArrowLeft` / `ArrowRight` to cycle between active tabs/accordion panels; `Escape` to close modal drawers.
+4. **Reduced Motion**:
+   - Media query `@media (prefers-reduced-motion: reduce)` in `styles.css:99` disables loading animations (`animate-pulse-soft`) and smooth transition transforms.
+
+### Layout Performance & Zero CLS
+- **Fixed Aspect Ratios**: `<SkeletonCanvas />` and video player containers use `aspect-video` (16:9 ratio) to prevent layout shifts during video loading.
+- **Canvas Overlay Optimization**: Canvas 2D context updates use `requestAnimationFrame` synced to video playback, ensuring 60 FPS rendering without blocking the UI main thread.
+
+---
+
+## 5. Caveats
+
+1. **Read-Only Scope**: This analysis and design report is produced under read-only guidelines. No code changes have been executed in `src/`.
+2. **Browser MediaPipe WASM Dependency**: Stage 2 video pose detection speed is hardware-dependent (WebGL/WASM acceleration in browser). On lower-end devices, scanning pass downsamples frames safely.
+3. **Print PDF Styling**: PDF export relies on `window.print()` and `@media print` CSS rules in `styles.css`. Different browser print engines (Chrome vs Safari) may render page breaks slightly differently; page-break CSS properties (`break-inside: avoid`) are enforced on all `.print-card` containers to guarantee clean multi-page alignment.
+
+---
+
+## 6. Conclusion
+
+Formulating UI Layout Paradigm A as a **4-Stage Linear Wizard/Stepper Layout with a Headline Executive Summary Above the Fold** directly solves the cognitive load and visual clutter issues observed in the current codebase.
+
+- **Reduced Cognitive Fatigue**: By replacing fragmented tab switching and unorganized stat grids with a progressive 4-stage stepper, clinicians follow an intuitive, predictable workflow.
+- **Immediate Clinical Insight**: Placing the Overall Gait Health Score and 4 Cognitive Clusters above the fold in Stage 3 enables rapid clinical decision-making in under 3 seconds.
+- **Full Clinical Compliance**: Stage 4 provides a seamless path to generate A4 printable reports with patient metadata, clinician verification, and medical disclaimers.
+
+---
+
+## 7. Verification Method
+
+To independently verify the implementation of Paradigm A once developed:
+
+1. **Static Analysis & Type Checking**:
+   ```bash
+   npm run typecheck
+   npm run lint
+   ```
+2. **Unit & Integration Tests**:
    ```bash
    npm test
    ```
-   *Expected result*: 25 tests pass in `scripts/**/*.test.mjs`.
-
-2. **Verify Typecheck**:
-   ```bash
-   npm run typecheck
-   ```
-   *Expected result*: Exit code 0 with no TypeScript errors.
-
-3. **Verify Build**:
+3. **Production Build Test**:
    ```bash
    npm run build
    ```
-   *Expected result*: Vite client/SSR build completes and `scripts/migrate.mjs` exits cleanly.
-
-4. **Verify Lint Issue**:
-   ```bash
-   npm run lint
-   ```
-   *Expected result*: 448 errors reported in `public/wasm/vision_wasm_internal.js` due to missing ignore pattern in `eslint.config.mjs`.
-
-5. **Inspect Source Structure**:
-   ```bash
-   ls -la src/lib/gait/
-   ls -la src/components/gait/
-   ```
-   *Expected result*: Displays all 6 gait core modules and 7 UI components documented in Observation 1.1.
+4. **Manual & Accessibility Inspection**:
+   - Open dev server at `http://127.0.0.1:8080/`.
+   - Verify 4-stage stepper header renders at the top of the app.
+   - Stage 1: Load sample video `sagittal-gait.mp4`. Verify immediate metadata card displays file name, duration, and task mode selector.
+   - Stage 2: Verify 60 FPS skeleton overlay on video canvas, multi-person subject selection pills, and playback bar.
+   - Stage 3: Verify Headline Executive Summary Bar (Score Ring + 4 Cognitive Clusters) renders above the fold. Verify detailed joint angle charts expand on demand below.
+   - Stage 4: Click "Generate PDF Report". Verify printable clinical report preview and test `window.print()` layout in print preview mode.

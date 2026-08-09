@@ -7,8 +7,8 @@
   --color-surface-2: #1a1d26;
   --color-surface-3: #232733;
   --color-fg: #eef0f4;
-  --color-muted: #9aa3b2;
-  --color-subtle: #6b7382;
+  --color-muted: #a3adc2;
+  --color-subtle: #94a3b8;
   --color-border: #2a2f3a;
   --color-border-strong: #3a4150;
   --color-primary: #5b8def;
@@ -56,6 +56,18 @@
     cursor: pointer;
   }
 
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="slider"]:focus-visible,
+  [tabindex="0"]:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
   ::selection {
     background: color-mix(in oklab, var(--color-primary) 35%, transparent);
   }
@@ -64,6 +76,14 @@
 @layer utilities {
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  .focus-ring {
+    outline: none;
+  }
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   .panel {

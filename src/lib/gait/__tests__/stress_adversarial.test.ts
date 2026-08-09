@@ -2,12 +2,9 @@ import { describe, test, expect } from "vitest";
 import {
   butterworthLowPass,
   zeroPhaseButterworth,
-  linearDetrend,
-  computeFFTHarmonics,
 } from "../signal";
 import { detectGaitEventsZeni } from "../events";
 import { symmetryAngle, gaitSymmetryIndex } from "../symmetry";
-import { computeHarmonicRatio } from "../smoothness";
 import { calculateDTE } from "../dte";
 import type { PoseFrame, GaitMetrics } from "../types";
 
@@ -43,26 +40,6 @@ describe("Milestone 1 Stress & Adversarial Boundary Tests", () => {
       expect(elapsed).toBeLessThan(2000); // Should execute within 2 seconds
     });
 
-    test("linearDetrend precision test on large signals", () => {
-      const n = 100000;
-      const data = new Array(n).fill(0).map((_, i) => 2 * i + 5);
-      const { detrended, trend } = linearDetrend(data);
-
-      expect(trend(0)).toBeCloseTo(5, 1);
-      expect(trend(10)).toBeCloseTo(25, 1);
-      expect(detrended[0]).toBeCloseTo(0, 1);
-      expect(detrended[50000]).toBeCloseTo(0, 1);
-    });
-
-    test("computeFFTHarmonics with edge case inputs", () => {
-      const shortData = [1, 2, 3];
-      expect(computeFFTHarmonics(shortData)).toEqual({ evenSum: 0, oddSum: 0, harmonicRatio: 1.0 });
-
-      const constantData = new Array(32).fill(10);
-      const constHarmonics = computeFFTHarmonics(constantData);
-      expect(constHarmonics.harmonicRatio).toBeDefined();
-      expect(isNaN(constHarmonics.harmonicRatio)).toBe(false);
-    });
   });
 
   describe("symmetry.ts Mathematical & Boundary Stress Tests", () => {
@@ -139,32 +116,6 @@ describe("Milestone 1 Stress & Adversarial Boundary Tests", () => {
     });
   });
 
-  describe("smoothness.ts Stress Tests", () => {
-    test("computeHarmonicRatio handles empty arrays and constant signals", () => {
-      const defaultRes = computeHarmonicRatio([], [], 30);
-      expect(defaultRes).toEqual({ hrVertical: 1.0, hrLateral: 1.0, overallHR: 1.0 });
-
-      const constantY = new Array(30).fill(0.5);
-      const constantX = new Array(30).fill(0.5);
-      const constRes = computeHarmonicRatio(constantY, constantX, 30);
-      expect(constRes.hrVertical).toBeGreaterThanOrEqual(0.1);
-      expect(constRes.hrLateral).toBeGreaterThanOrEqual(0.1);
-      expect(constRes.overallHR).toBeGreaterThanOrEqual(0.1);
-    });
-
-    test("computeHarmonicRatio performance on 10,000 frame signal", () => {
-      const hipY = new Array(10000).fill(0).map((_, i) => 0.5 + 0.05 * Math.sin(i * 0.2));
-      const hipX = new Array(10000).fill(0).map((_, i) => 0.5 + 0.03 * Math.cos(i * 0.1));
-
-      const start = performance.now();
-      const res = computeHarmonicRatio(hipY, hipX, 30);
-      const elapsed = performance.now() - start;
-
-      expect(res.overallHR).toBeGreaterThan(0);
-      expect(elapsed).toBeLessThan(1000);
-    });
-  });
-
   describe("dte.ts Stress Tests", () => {
     const mockBaseline: GaitMetrics = {
       viewAngle: "sagittal",
@@ -192,9 +143,6 @@ describe("Milestone 1 Stress & Adversarial Boundary Tests", () => {
       rightSwingPct: 40.0,
       doubleSupportPct: 20.0,
       symmetryAngle: 0.0,
-      harmonicRatioVertical: 1.0,
-      harmonicRatioLateral: 1.0,
-      harmonicRatio: 1.0,
       stepTimeCV: 0.04,
       strideTimeCV: 0.04,
       pelvicObliquity: 0.02,

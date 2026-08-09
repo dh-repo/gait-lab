@@ -3,7 +3,6 @@ import { resamplePoseFrames } from "../pose";
 import { zeroPhaseButterworth } from "../signal";
 import { detectGaitEventsZeni } from "../events";
 import { symmetryAngle } from "../symmetry";
-import { computeHarmonicRatio } from "../smoothness";
 import { calculateDTE } from "../dte";
 import type { PoseFrame, GaitMetrics } from "../types";
 
@@ -194,39 +193,7 @@ describe("Milestone 2 Empirical Challenger Stress Harness", () => {
     });
   });
 
-  describe("5. computeHarmonicRatio Trunk Smoothness Boundary Cases", () => {
-    test("handles all zero trajectory data (clamped lower bound 0.1)", () => {
-      const zeros = new Array(32).fill(0);
-      const res = computeHarmonicRatio(zeros, zeros, 30);
-      expect(res.hrVertical).toBe(0.1);
-      expect(res.hrLateral).toBe(0.1);
-      expect(res.overallHR).toBe(0.1);
-    });
-
-    test("correctly differentiates 2-cycle/stride vertical vs 1-cycle/stride lateral sine waves", () => {
-      const n = 64;
-      // Vertical hip displacement: 2 full cycles in 64 samples
-      const hipY = new Array(n).fill(0).map((_, i) => Math.sin((2 * Math.PI * 2 * i) / n));
-      // Lateral hip displacement: 1 full cycle in 64 samples
-      const hipX = new Array(n).fill(0).map((_, i) => Math.cos((2 * Math.PI * 1 * i) / n));
-
-      const res = computeHarmonicRatio(hipY, hipX, 30);
-      expect(res.hrVertical).toBeDefined();
-      expect(res.hrLateral).toBeDefined();
-      expect(res.overallHR).toBeGreaterThan(0);
-    });
-
-    test("handles random white noise data", () => {
-      const noiseY = new Array(64).fill(0).map(() => Math.random() - 0.5);
-      const noiseX = new Array(64).fill(0).map(() => Math.random() - 0.5);
-      const res = computeHarmonicRatio(noiseY, noiseX, 30);
-      expect(isNaN(res.hrVertical)).toBe(false);
-      expect(isNaN(res.hrLateral)).toBe(false);
-      expect(isNaN(res.overallHR)).toBe(false);
-    });
-  });
-
-  describe("6. calculateDTE Standardized Dual-Task Effect Mechanics", () => {
+    describe("6. calculateDTE Standardized Dual-Task Effect Mechanics", () => {
     const baseMetrics: GaitMetrics = {
       viewAngle: "sagittal",
       viewConfidence: 0.9,
@@ -253,9 +220,6 @@ describe("Milestone 2 Empirical Challenger Stress Harness", () => {
       rightSwingPct: 40.0,
       doubleSupportPct: 20.0,
       symmetryAngle: 0.0,
-      harmonicRatioVertical: 1.0,
-      harmonicRatioLateral: 1.0,
-      harmonicRatio: 1.0,
       stepTimeCV: 0.04,
       strideTimeCV: 0.04,
       pelvicObliquity: 0.02,

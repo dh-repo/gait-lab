@@ -60,3 +60,30 @@ Integrity mode: development
 - `ClinicalReportView.tsx` provides a print-optimized layout with the 5-domain radar chart and patient metadata.
 - Unit test suite expanded with tests for joint angle calculations and ROM metrics.
 - `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass with 0 errors.
+
+## 2026-08-09T15:59:14Z
+
+You are the Project Orchestrator for gait-lab UI optimization.
+
+Mission:
+Debate, design, and implement an optimized UI layout for `gait-lab` focused on minimizing cognitive load, enhancing scannability, and adhering to clinical UX best practices.
+
+Requirements:
+1. Multi-Agent Design Debate & Cognitive Load Optimization:
+   - Deploy UX/UI specialist subagents to debate layout paradigms and design an optimal clinical interface.
+   - Eliminate visual clutter, decorative effects, and unnecessary noise.
+   - Implement progressive disclosure: headline clinical indicators above the fold, detailed diagnostic waveforms and symmetry angles available on demand.
+2. Clinical UX Best Practices & Information Architecture:
+   - Structure workflow into a clear 4-stage linear progression:
+     1. Input/Sample Selection -> 2. Video Processing & Pose Tracking -> 3. Clinical Insights & Domain Scores -> 4. Export / Share Report.
+   - Group complex metrics into intuitive cognitive clusters (Spatiotemporal Pace, Inter-limb Symmetry, Trunk Stability, Dual-Task Cost).
+   - Use clear typography hierarchy, status badges, and scannable data displays for rapid clinical decision making.
+3. Accessibility & Layout Performance:
+   - Enforce WCAG 2.1 AA contrast ratios, semantic HTML layout, full keyboard navigation, and ARIA landmarks.
+   - Ensure smooth 60 FPS video overlay rendering and zero layout shift across screen sizes.
+
+Acceptance Criteria & Verification:
+- Document design debate and design rationale in `ux_design_rationale.md`.
+- Update UI layout to the debated low-cognitive-load structure across all components.
+- Ensure `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass with 0 errors.
+

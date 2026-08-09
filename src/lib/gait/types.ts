@@ -65,10 +65,6 @@ export type GaitMetrics = {
   doubleSupportPct?: number | null;
   /** Zifchock Symmetry Angle (SA) in % [0, 50]% (0% = perfect symmetry) */
   symmetryAngle?: number | null;
-  /** Trunk Harmonic Ratios via FFT */
-  harmonicRatioVertical?: number | null;
-  harmonicRatioLateral?: number | null;
-  harmonicRatio?: number | null;
   /** Coefficient of variation of step intervals (std/mean) — key research marker. */
   stepTimeCV: number;
   /** Same-side stride interval CV when available. */
