@@ -19,3 +19,4 @@ tmp/
 # local agent / platform only
 .grok/
 vendor/
+.vercel
