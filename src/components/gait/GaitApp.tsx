@@ -31,8 +31,6 @@ import { GuidePanel } from "./GuidePanel";
 import { ReportPanel } from "./ReportPanel";
 import { CognitiveClusters } from "./CognitiveClusters";
 import { SamplePicker } from "./SamplePicker";
-import { SessionHistoryDrawer } from "./SessionHistoryDrawer";
-import { SessionComparisonView } from "./SessionComparisonView";
 import { WorkflowHeader, type WorkflowStage } from "./WorkflowHeader";
 import { SideNavRail } from "./SideNavRail";
 import { computeDualTaskCost, computeGaitMetrics, matchPeople, tracksToPeople } from "@/lib/gait/analysis";
@@ -43,7 +41,6 @@ import { PERSON_COLORS, boundingBox } from "@/lib/gait/landmarks";
 import {
   getPersistenceMode,
   saveGaitSession,
-  type GaitSessionRecord,
 } from "@/lib/gait/persistence";
 import { PoseTracker, parseWebcamError } from "@/lib/gait/PoseTracker";
 import {
@@ -176,7 +173,6 @@ export function GaitApp() {
   const [dragOver, setDragOver] = useState(false);
   const [taskMode, setTaskMode] = useState<TaskMode>("single");
   const [baselineSingle, setBaselineSingle] = useState<GaitMetrics | null>(null);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   /** null until the server answers; see getPersistenceMode in persistence.ts. */
@@ -188,12 +184,8 @@ export function GaitApp() {
    */
   const [saveError, setSaveError] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<WorkflowStage | null>(null);
-  const [viewMode, setViewMode] = useState<"workflow" | "comparison">("workflow");
-  const [compareSessionA, setCompareSessionA] = useState<GaitSessionRecord | null>(null);
-  const [compareSessionB, setCompareSessionB] = useState<GaitSessionRecord | null>(null);
   // Collapsed by default — stage rail is the primary nav; rail is a secondary deep-link only.
   const [isSideNavCollapsed, setIsSideNavCollapsed] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Live WebCam State
   const [inputMode, setInputMode] = useState<"file" | "webcam">("file");
@@ -445,7 +437,6 @@ export function GaitApp() {
     setWebcamFallbackNotice(null);
     setTab("report");
     setTaskMode("single");
-    setViewMode("workflow");
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setVideoUrl(null);
     setFileName(null);
@@ -1033,7 +1024,6 @@ export function GaitApp() {
 
   const handleSelectStage = useCallback(
     (stage: WorkflowStage) => {
-      setViewMode("workflow");
       setActiveStage(stage);
       if (stage === 3 && result) {
         if (tab === "report") setTab("clusters");
@@ -1062,11 +1052,7 @@ export function GaitApp() {
         onSelectStage={handleSelectStage}
         hasResults={Boolean(result)}
         onReset={resetAll}
-        onOpenHistory={() => setIsHistoryOpen(true)}
-        onOpenCompare={() => setViewMode("comparison")}
         fileName={fileName}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
         isSideNavCollapsed={isSideNavCollapsed}
         onToggleSideNav={() => setIsSideNavCollapsed((prev) => !prev)}
       />
@@ -1107,19 +1093,6 @@ export function GaitApp() {
           preload="auto"
         />
 
-        {viewMode === "comparison" ? (
-          <SessionComparisonView
-            initialSessionA={compareSessionA}
-            initialSessionB={compareSessionB}
-            onBack={() => setViewMode("workflow")}
-            onClose={() => setViewMode("workflow")}
-            onOpenHistory={() => setIsHistoryOpen(true)}
-            onNewSession={() => {
-              setViewMode("workflow");
-              resetAll();
-            }}
-          />
-        ) : (
           <>
             {/* STAGE 1 — single focus: start a session */}
         {computedStage === 1 && (
@@ -2053,68 +2026,12 @@ export function GaitApp() {
           </section>
         )}
           </>
-        )}
       </main>
       </div>
 
       <footer className="no-print print:hidden px-5 pb-10 pt-4 text-center text-[11px] text-[var(--color-subtle)] sm:px-8">
         Gait Lab · Research / educational spatio-temporal analysis · Not a medical device
       </footer>
-
-      <SessionHistoryDrawer
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-        onLoadSession={(loadedResult, name, sessionId?: string) => {
-          setResult(loadedResult);
-          // A loaded session carries numbers only — no video and no pose frames. Anything
-          // still on screen belongs to the previously analysed clip, so it must go, or the
-          // stage-2 canvas paints clip A's skeleton beside session B's metrics.
-          //
-          // Clearing videoUrl state is NOT enough: the <video> element is permanently
-          // mounted and its source is assigned imperatively (video.src = url), so state
-          // alone leaves clip A decoded in the element. Stage 3 draws that element
-          // directly via SkeletonCanvas, and the transport controls drive it. Tear the
-          // element down explicitly, and do it BEFORE revoking the blob URL so the
-          // element is not still holding a revoked source.
-          const vid = videoRef.current;
-          if (vid) {
-            vid.pause();
-            vid.removeAttribute("src");
-            vid.srcObject = null;
-            vid.load();
-          }
-          if (videoUrl) URL.revokeObjectURL(videoUrl);
-          setVideoUrl(null);
-          setCurrentTime(0);
-          setDuration(0);
-          setIsPlaying(false);
-          // Invalidate any in-flight file analysis: without this its completion handler
-          // lands after the load and overwrites the session the user just opened.
-          abortRef.current++;
-          stopWebcam();
-          setScanPoses([]);
-          setPeople([]);
-          setSelectedPersonId(null);
-          setSaveError(null);
-          // Re-saving a loaded session must update its row, not clone it. The drawer
-          // does not pass the row id yet; until it does this falls back to null and a
-          // re-save creates a new row (the pre-existing behaviour).
-          setCurrentSessionId(sessionId ?? null);
-          if (loadedResult.patientMeta) {
-            setPatientMeta(loadedResult.patientMeta);
-          }
-          setPhase("results");
-          setTab("report");
-          setActiveStage(4);
-          if (name) setFileName(name);
-          setViewMode("workflow");
-        }}
-        onCompareSessions={(sessionA, sessionB) => {
-          setCompareSessionA(sessionA);
-          setCompareSessionB(sessionB);
-          setViewMode("comparison");
-        }}
-      />
     </div>
   );
 }

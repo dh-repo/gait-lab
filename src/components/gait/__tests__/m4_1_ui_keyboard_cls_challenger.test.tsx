@@ -53,17 +53,18 @@ describe("M4_1 Challenger: UI Components, Keyboard Navigation & CLS Stress Harne
       expect(htmlStage3).toContain("New session");
     });
 
-    it("renders History button when onOpenHistory callback is provided", () => {
-      const htmlWithHistory = renderToStaticMarkup(
-        <WorkflowHeader currentStage={1} onOpenHistory={vi.fn()} />,
+    it("does not render History or Compare chrome (removed from product)", () => {
+      const html = renderToStaticMarkup(
+        <WorkflowHeader
+          currentStage={1}
+          onOpenHistory={vi.fn()}
+          onOpenCompare={vi.fn()}
+        />,
       );
-      expect(htmlWithHistory).toContain("History");
-      expect(htmlWithHistory).toContain('aria-label="Open session history"');
-
-      const htmlNoHistory = renderToStaticMarkup(
-        <WorkflowHeader currentStage={1} />,
-      );
-      expect(htmlNoHistory).not.toContain("History");
+      expect(html).not.toContain("History");
+      expect(html).not.toContain("Compare");
+      expect(html).not.toContain("Open session history");
+      expect(html).not.toContain("header-compare-button");
     });
 
     it("displays uploaded file name when provided", () => {

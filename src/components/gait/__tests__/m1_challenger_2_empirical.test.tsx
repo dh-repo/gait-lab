@@ -85,22 +85,17 @@ describe("Milestone 1 Empirical Layout, Tokens & Landmark Verification", () => {
     expect(html).toContain('aria-valuemax="100"');
   });
 
-  it("verifies GoogleTopAppBar landmarks, stage rail, search, and compare button", () => {
+  it("verifies GoogleTopAppBar landmarks and stage rail without filter/compare/history", () => {
     const html = renderToStaticMarkup(
-      <GoogleTopAppBar
-        currentStage={3}
-        searchQuery="PT-12345"
-        onSearchChange={() => {}}
-        onOpenCompare={() => {}}
-        hasResults={true}
-      />,
+      <GoogleTopAppBar currentStage={3} hasResults={true} onReset={() => {}} />,
     );
 
     expect(html).toContain("<header");
     expect(html).toContain('<nav aria-label="Workflow progression"');
-    expect(html).toContain('data-testid="top-app-bar-search"');
-    expect(html).toContain('data-testid="header-compare-button"');
-    expect(html).toContain('value="PT-12345"');
+    expect(html).not.toContain("Filter sessions");
+    expect(html).not.toContain("top-app-bar-search");
+    expect(html).not.toContain("header-compare-button");
+    expect(html).not.toContain("Open session history");
 
     expect(WORKFLOW_STAGES).toHaveLength(4);
     expect(WORKFLOW_STAGES.map((s) => s.title)).toEqual(["Capture", "Process", "Analyze", "Report"]);

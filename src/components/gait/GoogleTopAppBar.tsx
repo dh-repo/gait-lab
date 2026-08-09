@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Check, Clock, Columns2, RotateCcw } from "lucide-react";
+import { Activity, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +51,9 @@ export interface GoogleTopAppBarProps {
   onSelectStage?: (stage: WorkflowStage) => void;
   hasResults?: boolean;
   onReset?: () => void;
+  /** @deprecated History UI removed — prop kept for call-site compatibility */
   onOpenHistory?: () => void;
+  /** @deprecated Compare UI removed — prop kept for call-site compatibility */
   onOpenCompare?: () => void;
   onWebcamClick?: () => void;
   onUploadClick?: () => void;
@@ -59,7 +61,9 @@ export interface GoogleTopAppBarProps {
   isSaving?: boolean;
   saveSuccess?: boolean;
   saveError?: string | null;
+  /** @deprecated Session filter UI removed — prop kept for call-site compatibility */
   searchQuery?: string;
+  /** @deprecated Session filter UI removed — prop kept for call-site compatibility */
   onSearchChange?: (query: string) => void;
   activeView?: "workstation" | "comparison" | "report";
   onViewChange?: (view: "workstation" | "comparison" | "report") => void;
@@ -71,17 +75,13 @@ export interface GoogleTopAppBarProps {
 
 /**
  * App chrome: one quiet bar + a linear step rail.
- * Intentionally not a Cloud Console shell — no side-rail toggle, no fake account, no tool clutter.
+ * No session filter, compare, or history — capture → process → analyze → report only.
  */
 export function GoogleTopAppBar({
   currentStage,
   onSelectStage,
   hasResults = false,
   onReset,
-  onOpenHistory,
-  onOpenCompare,
-  searchQuery = "",
-  onSearchChange,
   fileName,
   className,
   saveError,
@@ -115,47 +115,7 @@ export function GoogleTopAppBar({
           </div>
         </div>
 
-        {/* Optional session filter — kept for API/tests; visually quiet */}
-        {onSearchChange ? (
-          <label className="relative hidden min-w-0 flex-1 max-w-xs md:block">
-            <span className="sr-only">Search sessions</span>
-            <input
-              type="search"
-              data-testid="top-app-bar-search"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Filter sessions…"
-              className="w-full rounded-full border border-transparent bg-[var(--color-surface-2)] px-3 py-1.5 text-[12px] text-[var(--color-fg)] outline-none placeholder:text-[var(--color-subtle)] focus:border-[var(--color-border)] focus:bg-[var(--color-surface)]"
-            />
-          </label>
-        ) : null}
-
         <div className="flex shrink-0 items-center gap-0.5">
-          {onOpenCompare && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onOpenCompare}
-              aria-label="Open session comparison view"
-              data-testid="header-compare-button"
-              className="min-h-11 min-w-11 text-[var(--color-muted)] sm:min-h-0 sm:min-w-0"
-            >
-              <Columns2 className="size-3.5" />
-              <span className="hidden sm:inline">Compare</span>
-            </Button>
-          )}
-          {onOpenHistory && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onOpenHistory}
-              aria-label="Open session history"
-              className="min-h-11 min-w-11 text-[var(--color-muted)] sm:min-h-0 sm:min-w-0"
-            >
-              <Clock className="size-3.5" />
-              <span className="hidden sm:inline">History</span>
-            </Button>
-          )}
           {onReset && currentStage > 1 && (
             <Button
               variant="ghost"

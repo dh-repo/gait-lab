@@ -1,93 +1,208 @@
 // @vitest-environment jsdom
 /**
- * GaitApp session persistence & dual-task disclosure (R3).
+ * GaitApp session persistence & dual-task disclosure.
  *
- * Covers two behaviours that the live-capture integration tests do not touch:
- *
- *  1. Saving is an upsert. The first save of a fresh result mints a row; every save
- *     after that must carry the id the server handed back, or the server's
- *     ON CONFLICT (id) DO UPDATE branch is unreachable and editing patient metadata
- *     duplicates the session.
- *  2. A dual-task run with no single-task baseline in the page session yields no
- *     dual-task cost. The UI has to say so, not leave a bare "Baseline" badge.
- *
- * The server function is mocked; no network or database is involved.
+ * History UI is gone — sessions are reached via live capture freeze, not a drawer.
+ * Covers:
+ *  1. Saving is an upsert (second save carries the server-minted id).
+ *  2. Dual-task without a baseline discloses unavailability; single-task shows Baseline.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { render, screen, cleanup, fireEvent, act, waitFor } from "@testing-library/react";
-import { computeGaitMetrics } from "@/lib/gait/analysis";
-import { buildEducatedGuesses } from "@/lib/gait/guesses";
+import type { PoseFrame } from "@/lib/gait/types";
 import { generateSyntheticWalkingFrames } from "@/lib/gait/__tests__/testHelpers";
-import type { GaitMetrics, TaskMode } from "@/lib/gait/types";
+
+interface MockTracker {
+  buffer: PoseFrame[];
+  startCalls: { deviceId?: string }[];
+  stopCalls: number;
+  clearBufferCalls: number;
+  startMode: "resolve" | "manual" | "reject";
+  startError: unknown;
+  settleStart: (() => void) | null;
+  emit: (frames: PoseFrame[], fps?: number) => void;
+  setCallback: (cb: unknown) => void;
+}
+
+const harness = vi.hoisted(() => ({
+  instances: [] as MockTracker[],
+  next: { startMode: "resolve" as "resolve" | "manual" | "reject", startError: null as unknown },
+}));
 
 const saveSpy = vi.hoisted(() =>
   vi.fn(async (args: { data: { id?: string } }) => ({
     id: args.data.id ?? "gs_server_assigned_1",
   })),
 );
-const listSpy = vi.hoisted(() => vi.fn(async () => [] as unknown[]));
 
 vi.mock("@/lib/gait/persistence", () => ({
   saveGaitSession: saveSpy,
-  listGaitSessions: listSpy,
+  listGaitSessions: vi.fn(async () => []),
   deleteGaitSession: vi.fn(async () => ({})),
   getGaitSession: vi.fn(async () => null),
-  // Durable by default so the ephemeral-storage note stays hidden here.
   getPersistenceMode: vi.fn(async () => ({ source: "neon", durable: true })),
 }));
 
+vi.mock("@/lib/gait/PoseTracker", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/gait/PoseTracker")>("@/lib/gait/PoseTracker");
+
+  class FakePoseTracker {
+    buffer: PoseFrame[] = [];
+    startCalls: { deviceId?: string }[] = [];
+    stopCalls = 0;
+    clearBufferCalls = 0;
+    startMode: "resolve" | "manual" | "reject";
+    startError: unknown;
+    settleStart: (() => void) | null = null;
+    private callback:
+      | ((frame: PoseFrame | null, raw: unknown, fps: number) => void)
+      | null = null;
+    private active = false;
+
+    constructor() {
+      this.startMode = harness.next.startMode;
+      this.startError = harness.next.startError;
+      harness.instances.push(this as unknown as MockTracker);
+    }
+
+    setLandmarker(): void {}
+
+    setCallback(cb: ((frame: PoseFrame | null, raw: unknown, fps: number) => void) | null): void {
+      this.callback = cb;
+    }
+
+    async startWebcam(
+      _video: HTMLVideoElement,
+      options: { deviceId?: string } = {},
+    ): Promise<MediaStream> {
+      this.startCalls.push({ deviceId: options.deviceId });
+      if (this.startMode === "reject") throw this.startError;
+      if (this.startMode === "manual") {
+        await new Promise<void>((resolve) => {
+          this.settleStart = resolve;
+        });
+      }
+      this.active = true;
+      this.clearBuffer();
+      const track = {
+        kind: "video",
+        label: "Front Camera",
+        stop: () => {},
+        getSettings: () => ({
+          deviceId: options.deviceId ?? "cam-1",
+          width: 1280,
+          height: 720,
+          frameRate: 30,
+        }),
+      };
+      return {
+        getTracks: () => [track],
+        getVideoTracks: () => [track],
+        getAudioTracks: () => [],
+      } as unknown as MediaStream;
+    }
+
+    stopWebcam(): void {
+      this.stopCalls += 1;
+      this.active = false;
+    }
+
+    clearBuffer(): void {
+      this.clearBufferCalls += 1;
+      this.buffer = [];
+    }
+
+    getRollingFrames(): PoseFrame[] {
+      return this.buffer.slice();
+    }
+
+    getBufferedSpanSec(): number {
+      if (this.buffer.length < 2) return 0;
+      const a = this.buffer[0] as PoseFrame & { t?: number; timestamp?: number };
+      const b = this.buffer[this.buffer.length - 1] as PoseFrame & {
+        t?: number;
+        timestamp?: number;
+      };
+      const t0 = a.t ?? a.timestamp ?? 0;
+      const t1 = b.t ?? b.timestamp ?? 0;
+      return t1 - t0;
+    }
+
+    getEffectiveFps(): number {
+      return 30;
+    }
+
+    emit(frames: PoseFrame[], fps = 30): void {
+      for (const f of frames) {
+        this.buffer.push(f);
+        if (this.active && this.callback) this.callback(f, null, fps);
+      }
+    }
+  }
+
+  return {
+    ...actual,
+    PoseTracker: FakePoseTracker,
+  };
+});
+
+vi.mock("@/lib/gait/pose", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/gait/pose")>("@/lib/gait/pose");
+  return {
+    ...actual,
+    getPoseLandmarker: vi.fn(async () => ({ detectForVideo: vi.fn(() => ({ landmarks: [] })) })),
+  };
+});
+
 const { GaitApp } = await import("../GaitApp");
 
-function syntheticMetrics(): GaitMetrics {
-  return computeGaitMetrics(
-    generateSyntheticWalkingFrames({ fps: 30, durationSec: 24, viewAngle: "sagittal" }),
-  );
+const RECORDING_SEC = 22;
+
+function tracker(index = 0): MockTracker {
+  const t = harness.instances[index];
+  if (!t) throw new Error(`No mock PoseTracker at ${index}`);
+  return t;
 }
 
-function sessionRecord(taskMode: TaskMode) {
-  const metrics = syntheticMetrics();
-  return {
-    id: "gs_existing_row",
-    sessionName: "Prior Walk",
-    taskMode,
-    overallScore: metrics.overallScore,
-    stabilityScore: metrics.stabilityScore,
-    rhythmScore: metrics.rhythmScore,
-    symmetryScore: metrics.symmetryScore,
-    mobilityScore: metrics.mobilityScore,
-    automaticityScore: metrics.automaticityScore,
-    cadenceSpm: metrics.cadenceSpm,
-    stepCount: metrics.stepCount,
-    durationSec: metrics.durationSec,
-    viewAngle: metrics.viewAngle,
-    metricsJson: metrics,
-    guessesJson: buildEducatedGuesses(metrics, { taskMode }),
-    dualTaskJson: null,
-    angleAnalysisJson: null,
-    patientMetaJson: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+function switchToWebcamMode(): void {
+  const toggle = screen.getAllByRole("button").find((el) => el.textContent?.trim() === "Webcam");
+  if (!toggle) throw new Error("Webcam source toggle not found");
+  fireEvent.click(toggle);
 }
 
-/** Load the single stored session through the history drawer, then open Stage 3. */
-async function loadStoredSessionAndOpenInsights(): Promise<void> {
+async function captureAndAnalyze(taskMode: "single" | "dual"): Promise<void> {
+  if (taskMode === "dual") {
+    const protocol = screen
+      .getAllByRole("button")
+      .find((el) => el.textContent?.includes("Dual-Task (Walk + Cognitive)"));
+    if (!protocol) throw new Error("Dual-task protocol control not found");
+    fireEvent.click(protocol);
+  }
+  switchToWebcamMode();
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: /Open session history/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Start camera/i }));
   });
-  const loadButton = await screen.findByRole("button", { name: /^Load$/i });
+  await screen.findByText("Camera on");
+  const frames = generateSyntheticWalkingFrames({
+    fps: 30,
+    durationSec: RECORDING_SEC,
+    viewAngle: "sagittal",
+  });
+  act(() => {
+    tracker().emit(frames);
+  });
   await act(async () => {
-    fireEvent.click(loadButton);
+    fireEvent.click(screen.getByRole("button", { name: /Stop & analyze|Freeze/i }));
   });
-  await act(async () => {
-    fireEvent.click(screen.getByText(/Analyze/i));
-  });
+  await screen.findByTestId("cognitive-clusters");
 }
 
 beforeEach(() => {
+  harness.instances.length = 0;
+  harness.next = { startMode: "resolve", startError: null };
   saveSpy.mockClear();
-  listSpy.mockClear();
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -96,6 +211,24 @@ beforeEach(() => {
       disconnect(): void {}
     },
   );
+  Object.defineProperty(HTMLMediaElement.prototype, "play", {
+    configurable: true,
+    value: vi.fn(async () => undefined),
+  });
+  Object.defineProperty(HTMLMediaElement.prototype, "pause", {
+    configurable: true,
+    value: vi.fn(),
+  });
+  vi.stubGlobal("MediaStream", class {});
+  Object.defineProperty(navigator, "mediaDevices", {
+    configurable: true,
+    value: {
+      enumerateDevices: vi.fn(async () => [
+        { kind: "videoinput", deviceId: "cam-1", label: "Front Camera", groupId: "g1" },
+      ]),
+      getUserMedia: vi.fn(),
+    },
+  });
 });
 
 afterEach(() => {
@@ -105,20 +238,16 @@ afterEach(() => {
 
 describe("GaitApp session save is an upsert, not an insert", () => {
   it("re-saving the same result passes the id the server returned", async () => {
-    listSpy.mockResolvedValue([sessionRecord("single")]);
     render(<GaitApp />);
-    await loadStoredSessionAndOpenInsights();
+    await captureAndAnalyze("single");
 
-    const saveButton = await screen.findByRole("button", { name: /Save Session/i });
-
+    const saveButton = await screen.findByRole("button", { name: /Save session/i });
     await act(async () => {
       fireEvent.click(saveButton);
     });
     await waitFor(() => expect(saveSpy).toHaveBeenCalledTimes(1));
-    // First save of a result the app has no row id for: the server mints one.
     expect(saveSpy.mock.calls[0][0].data.id).toBeUndefined();
 
-    // A metadata edit followed by another save must update that same row.
     await act(async () => {
       fireEvent.click(await screen.findByRole("button", { name: /Save/i }));
     });
@@ -129,22 +258,17 @@ describe("GaitApp session save is an upsert, not an insert", () => {
 
 describe("GaitApp dual-task run without a baseline", () => {
   it("states plainly that dual-task cost is unavailable instead of showing a bare badge", async () => {
-    listSpy.mockResolvedValue([sessionRecord("dual")]);
     render(<GaitApp />);
-    await loadStoredSessionAndOpenInsights();
+    await captureAndAnalyze("dual");
 
-    expect(
-      await screen.findByText(/No single-task baseline recorded/i),
-    ).toBeTruthy();
+    expect(await screen.findByText(/No single-task baseline recorded/i)).toBeTruthy();
     expect(screen.getByText(/Dual-Task: unavailable/i)).toBeTruthy();
-    // No substitute baseline and no default effect size is invented.
     expect(screen.queryByText(/Dual-Task: 0\.0%/)).toBeNull();
   });
 
   it("shows the plain Baseline badge for a single-task run", async () => {
-    listSpy.mockResolvedValue([sessionRecord("single")]);
     render(<GaitApp />);
-    await loadStoredSessionAndOpenInsights();
+    await captureAndAnalyze("single");
 
     expect(screen.getByText(/Dual-Task: Baseline/i)).toBeTruthy();
     expect(screen.queryByText(/No single-task baseline recorded/i)).toBeNull();
