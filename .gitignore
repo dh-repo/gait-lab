@@ -1,0 +1,21 @@
+node_modules/
+.vercel/
+dist/
+.output/
+.nitro/
+.tanstack/
+.wrangler/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+screenshots/
+artifacts/
+attachments/
+tmp/
+.project_id
+.node_modules.lock
+# local agent / platform only
+.grok/
+vendor/
