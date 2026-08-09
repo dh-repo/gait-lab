@@ -64,7 +64,7 @@ describe("CognitiveClusters Accessibility & Semantic Markup", () => {
     );
 
     expect(html).toContain('role="region"');
-    expect(html).toContain('aria-label="Cognitive Gait Metric Clusters"');
+    expect(html).toContain('aria-label="Gait metric findings by cluster"');
   });
 
   it("renders accordion header buttons with aria-expanded, aria-controls, and tabIndex={0}", () => {
@@ -101,6 +101,6 @@ describe("CognitiveClusters Accessibility & Semantic Markup", () => {
     expect(html).toContain('data-testid="status-badge-symmetry"');
     expect(html).toContain('data-testid="status-badge-stability"');
     expect(html).toContain('data-testid="status-badge-dualtask"');
-    expect(html).toContain("Normal");
+    expect(html).toContain("Within expected range");
   });
 });

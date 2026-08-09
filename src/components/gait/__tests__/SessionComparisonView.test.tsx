@@ -710,11 +710,12 @@ describe("SessionComparisonView Component & Delta Engine", () => {
         expect(el, `missing curve with stroke ${stroke}`).toBeTruthy();
         return pathXCoords(el!.getAttribute("d") ?? "");
       };
+      // Clinical series palette (Session A L/R, Session B L/R)
 
-      const aLeft = byStroke("#3b82f6");
-      const aRight = byStroke("#06b6d4");
-      const bLeft = byStroke("#10b981");
-      const bRight = byStroke("#f59e0b");
+      const aLeft = byStroke("#2563eb");
+      const aRight = byStroke("#0369a1");
+      const bLeft = byStroke("#0f766e");
+      const bRight = byStroke("#64748b");
 
       // One sample per whole gait-cycle percent, 0..100 inclusive.
       expect(aLeft.length).toBe(101);

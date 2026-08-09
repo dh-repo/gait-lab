@@ -21,7 +21,7 @@ export const Route = createRootRoute({
           "Upload a walking video to analyze gait, stability, and symmetry — with multi-person selection and angle-aware educated guesses.",
       },
       { name: "apple-mobile-web-app-title", content: APP_NAME },
-      { name: "theme-color", content: "#0a0b0d" },
+      { name: "theme-color", content: "#f4f6f8" },
       ...(ogImage
         ? [
             { property: "og:image", content: ogImage },

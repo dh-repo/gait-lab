@@ -584,7 +584,7 @@ export function buildStructuredReport(
 
 export function bandTone(
   band: RatingBand,
-): "success" | "primary" | "neutral" | "warn" | "danger" {
+): "success" | "primary" | "neutral" | "warn" | "info" {
   switch (band) {
     case "strong":
       return "success";
@@ -595,6 +595,7 @@ export function bandTone(
     case "watch":
       return "warn";
     case "elevated":
-      return "danger";
+      // Outside-range is attention, not a system error — reserve danger for faults
+      return "info";
   }
 }

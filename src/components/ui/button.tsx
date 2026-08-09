@@ -14,7 +14,7 @@ const buttonVariants = cva(
         ghost: "hover:bg-[var(--color-surface-2)] text-[var(--color-fg)]",
         outline:
           "border border-[var(--color-border-strong)] bg-transparent hover:bg-[var(--color-surface-2)]",
-        danger: "bg-[var(--color-danger)] text-[var(--color-bg)] hover:brightness-110",
+        danger: "bg-[var(--color-danger)] text-white hover:brightness-110",
       },
       size: {
         default: "h-10 px-4 py-2",

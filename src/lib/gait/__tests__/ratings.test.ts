@@ -162,7 +162,7 @@ describe("Clinical Rating Engine (ratings.ts)", () => {
       expect(bandTone("good")).toBe("primary");
       expect(bandTone("fair")).toBe("neutral");
       expect(bandTone("watch")).toBe("warn");
-      expect(bandTone("elevated")).toBe("danger");
+      expect(bandTone("elevated")).toBe("info");
     });
   });
 });

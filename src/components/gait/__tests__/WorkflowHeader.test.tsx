@@ -12,6 +12,7 @@ describe("WorkflowHeader Accessibility & Semantic Markup", () => {
     expect(html).toContain("<header");
     expect(html).toContain('<nav aria-label="Workflow progression"');
     expect(html).toContain("Gait Lab");
+    expect(html).toContain("Not a medical device");
   });
 
   it("sets aria-current='step' on the active workflow stage button", () => {
@@ -20,7 +21,7 @@ describe("WorkflowHeader Accessibility & Semantic Markup", () => {
     );
 
     expect(html).toContain('aria-current="step"');
-    expect(html).toContain('aria-label="Stage 3: Clinical Insights - Domain scores &amp; kinematics"');
+    expect(html).toContain('aria-label="Stage 3: Analyze - Metrics, findings &amp; kinematics"');
   });
 
   it("renders all 4 linear workflow stages with descriptive aria-labels", () => {
@@ -28,9 +29,9 @@ describe("WorkflowHeader Accessibility & Semantic Markup", () => {
       <WorkflowHeader currentStage={1} hasResults={false} />,
     );
 
-    expect(html).toContain("Stage 1: Input / Sample");
-    expect(html).toContain("Stage 2: Video Processing");
-    expect(html).toContain("Stage 3: Clinical Insights");
-    expect(html).toContain("Stage 4: Export Report");
+    expect(html).toContain("Stage 1: Capture");
+    expect(html).toContain("Stage 2: Process");
+    expect(html).toContain("Stage 3: Analyze");
+    expect(html).toContain("Stage 4: Report");
   });
 });

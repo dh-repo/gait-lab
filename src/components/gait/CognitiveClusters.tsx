@@ -16,7 +16,14 @@ export interface CognitiveClustersProps {
   className?: string;
 }
 
+/** Internal band keys (thresholds unchanged). Display labels are clinical plain language. */
 export type ClinicalStatus = "Normal" | "Borderline" | "Pathological";
+
+const STATUS_LABEL: Record<ClinicalStatus, string> = {
+  Normal: "Within expected range",
+  Borderline: "Borderline",
+  Pathological: "Outside typical range",
+};
 
 export function CognitiveClusters({
   metrics,
@@ -24,7 +31,7 @@ export function CognitiveClusters({
   angleAnalysis,
   className,
 }: CognitiveClustersProps) {
-  // Accordion open/close state per cluster (default: all open)
+  // All clusters open by default so key metrics remain scannable without extra clicks
   const [openClusters, setOpenClusters] = useState<Record<string, boolean>>({
     spatiotemporal: true,
     symmetry: true,
@@ -85,21 +92,22 @@ export function CognitiveClusters({
   const dualTaskStatus: ClinicalStatus =
     !dualTaskCost || absDte < 5.0 ? "Normal" : absDte <= 12.0 ? "Borderline" : "Pathological";
 
-  const statusTone = (status: ClinicalStatus): "success" | "warn" | "danger" => {
+  const statusTone = (status: ClinicalStatus): "success" | "warn" | "info" => {
     switch (status) {
       case "Normal":
         return "success";
       case "Borderline":
         return "warn";
       case "Pathological":
-        return "danger";
+        // Outside-range is attention, not a system error — avoid danger red
+        return "info";
     }
   };
 
   return (
     <section
       role="region"
-      aria-label="Cognitive Gait Metric Clusters"
+      aria-label="Gait metric findings by cluster"
       data-testid="cognitive-clusters"
       className={cn("flex flex-col gap-4 w-full", className)}
     >
@@ -133,7 +141,7 @@ export function CognitiveClusters({
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Badge tone={statusTone(paceStatus)} data-testid="status-badge-pace">
-                  {paceStatus}
+                  {STATUS_LABEL[paceStatus]}
                 </Badge>
                 <div className="hidden sm:flex items-center gap-2 text-xs font-semibold tabular">
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
@@ -235,7 +243,7 @@ export function CognitiveClusters({
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Badge tone={statusTone(symmetryStatus)} data-testid="status-badge-symmetry">
-                  {symmetryStatus}
+                  {STATUS_LABEL[symmetryStatus]}
                 </Badge>
                 <div className="hidden sm:flex items-center gap-2 text-xs font-semibold tabular">
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
@@ -398,7 +406,7 @@ export function CognitiveClusters({
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Badge tone={statusTone(stabilityStatus)} data-testid="status-badge-stability">
-                  {stabilityStatus}
+                  {STATUS_LABEL[stabilityStatus]}
                 </Badge>
                 <div className="hidden sm:flex items-center gap-2 text-xs font-semibold tabular">
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
@@ -483,7 +491,7 @@ export function CognitiveClusters({
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <Brain className="size-5 text-[var(--color-secondary, #a855f7)]" />
+              <Brain className="size-5 text-[var(--color-info)]" />
               <div>
                 <CardTitle className="text-base font-semibold">4. Dual-Task Cognitive Cost</CardTitle>
                 <p className="text-xs text-[var(--color-muted)]">
@@ -494,7 +502,7 @@ export function CognitiveClusters({
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Badge tone={statusTone(dualTaskStatus)} data-testid="status-badge-dualtask">
-                  {dualTaskStatus}
+                  {STATUS_LABEL[dualTaskStatus]}
                 </Badge>
                 <div className="hidden sm:flex items-center gap-2 text-xs font-semibold tabular">
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">

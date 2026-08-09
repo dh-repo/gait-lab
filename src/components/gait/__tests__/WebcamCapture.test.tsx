@@ -190,11 +190,14 @@ function tracker(index = 0): MockTracker {
 }
 
 function switchToWebcamMode(): void {
-  fireEvent.click(screen.getByRole("button", { name: /Live WebCam Mode/i }));
+  // Prefer the source toggle label; avoid matching workflow stage copy that also mentions camera.
+  const toggle = screen.getAllByRole("button").find((el) => el.textContent?.trim() === "Webcam");
+  if (!toggle) throw new Error("Webcam source toggle not found");
+  fireEvent.click(toggle);
 }
 
 function startButton(): HTMLElement {
-  return screen.getByRole("button", { name: /Start WebCam/i });
+  return screen.getByRole("button", { name: /Start camera/i });
 }
 
 async function startLive(): Promise<void> {
@@ -211,7 +214,7 @@ function emitFrames(frames: PoseFrame[], index = 0): void {
 
 async function freeze(): Promise<void> {
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: /Freeze & Analyze Session/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Stop & analyze/i }));
   });
 }
 
@@ -260,16 +263,16 @@ afterEach(() => {
 describe("WebcamCapture UI Mode & Controls", () => {
   it("renders GaitApp Stage 1 with input mode switcher tabs", () => {
     const html = renderToStaticMarkup(<GaitApp />);
-    expect(html).toContain("Video File Upload");
-    expect(html).toContain("Live WebCam Mode");
-    expect(html).toContain("Assessment Protocol Mode");
+    expect(html).toContain("Video file");
+    expect(html).toContain("Webcam");
+    expect(html).toContain("Assessment protocol");
   });
 
-  it("renders Stage 1 Video File Upload dropzone by default", () => {
+  it("renders Stage 1 Video file dropzone by default", () => {
     const html = renderToStaticMarkup(<GaitApp />);
-    expect(html).toContain("Drop walking video file here");
-    expect(html).toContain("Browse Video File");
-    expect(html).toContain("Multi-person tracking &amp; candidate selection");
+    expect(html).toContain("Drop walking video here");
+    expect(html).toContain("Choose video file");
+    expect(html).toContain("Multi-person tracking and subject selection");
   });
 });
 
@@ -282,7 +285,7 @@ describe("GaitApp live webcam capture path", () => {
     render(<GaitApp />);
     switchToWebcamMode();
 
-    expect(screen.getByText("Live WebCam Capture Station")).toBeTruthy();
+    expect(screen.getByText("Webcam capture")).toBeTruthy();
     expect(startButton()).toBeTruthy();
 
     const select = screen.getByLabelText("Select camera input device") as HTMLSelectElement;
@@ -300,7 +303,7 @@ describe("GaitApp live webcam capture path", () => {
     switchToWebcamMode();
     await startLive();
 
-    expect(await screen.findByText("STREAMING LIVE")).toBeTruthy();
+    expect(await screen.findByText("Camera on")).toBeTruthy();
 
     emitFrames(walkFrames(RECORDING_SEC));
     await freeze();
@@ -312,16 +315,16 @@ describe("GaitApp live webcam capture path", () => {
     expect(screen.getByText(/Symmetry: \d+\/100/)).toBeTruthy();
     expect(screen.getByText(/Stability: \d+\/100/)).toBeTruthy();
 
-    // guesses: rendered by the "Guesses & Hypotheses" tab
-    fireEvent.click(screen.getByRole("tab", { name: /Guesses & Hypotheses/i }));
+    // guesses: rendered by the "Hypotheses" tab
+    fireEvent.click(screen.getByRole("tab", { name: /Hypotheses/i }));
     expect(screen.getAllByText(/Educated Guesses|Hypotheses|hypothes/i).length).toBeGreaterThan(0);
 
     // angleAnalysis: joint kinematics chart tabs
-    fireEvent.click(screen.getByRole("tab", { name: /Cognitive Clusters/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /Findings/i }));
     expect(screen.getByTestId("tab-knee")).toBeTruthy();
 
     // The capture station is gone: the session was frozen.
-    expect(screen.queryByText("STREAMING LIVE")).toBeNull();
+    expect(screen.queryByText("Camera on")).toBeNull();
     expect(tracker().stopCalls).toBeGreaterThanOrEqual(1);
   });
 
@@ -329,7 +332,7 @@ describe("GaitApp live webcam capture path", () => {
     render(<GaitApp />);
     switchToWebcamMode();
     await startLive();
-    await screen.findByText("STREAMING LIVE");
+    await screen.findByText("Camera on");
 
     // 12 frames spanning 0.4 s — enough frames to pass a naive count check,
     // nowhere near a usable gait analysis window.
@@ -356,7 +359,7 @@ describe("GaitApp live webcam capture path", () => {
 
     // The user gives up and aborts before the camera comes up. While the app is
     // "requesting" there must be a control to back out of the attempt.
-    const stopControl = screen.getByRole("button", { name: /Stop WebCam|Cancel/i });
+    const stopControl = screen.getByRole("button", { name: /Stop camera|Cancel/i });
     await act(async () => {
       fireEvent.click(stopControl);
     });
@@ -368,10 +371,10 @@ describe("GaitApp live webcam capture path", () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByText("STREAMING LIVE")).toBeNull();
+      expect(screen.queryByText("Camera on")).toBeNull();
     });
-    expect(screen.queryByRole("button", { name: /Freeze & Analyze Session/i })).toBeNull();
-    expect(screen.getByRole("button", { name: /Start WebCam/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Stop & analyze/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /Start camera/i })).toBeTruthy();
   });
 
   it("an ABORTED tracker error does not surface the camera error banner", async () => {
@@ -386,12 +389,12 @@ describe("GaitApp live webcam capture path", () => {
     await startLive();
 
     await waitFor(() => {
-      expect(screen.queryByText("STREAMING LIVE")).toBeNull();
+      expect(screen.queryByText("Camera on")).toBeNull();
     });
-    expect(screen.queryByRole("button", { name: /Switch to Video File Upload/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Switch to Video file/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /Retry Camera Access/i })).toBeNull();
     // The user is still left with an actionable control, not a dead station.
-    expect(screen.getByRole("button", { name: /Start WebCam|Stop WebCam/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Start camera|Stop camera/i })).toBeTruthy();
   });
 
   it("a permission denial does surface the camera error banner with recovery actions", async () => {
@@ -403,33 +406,33 @@ describe("GaitApp live webcam capture path", () => {
     await startLive();
 
     expect(await screen.findByText(/Camera access was denied/i)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Switch to Video File Upload/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Retry Camera Access/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Switch to video file/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Retry camera/i })).toBeTruthy();
   });
 
   it("stopping clears the live skeleton and telemetry rather than leaving stale values", async () => {
     render(<GaitApp />);
     switchToWebcamMode();
     await startLive();
-    await screen.findByText("STREAMING LIVE");
+    await screen.findByText("Camera on");
 
     emitFrames(walkFrames(4));
-    expect(screen.getByText("LIVE TELEMETRY")).toBeTruthy();
-    const stepsBefore = screen.getByText("Steps:").parentElement?.textContent ?? "";
+    expect(screen.getByText("Recording")).toBeTruthy();
+    const stepsBefore = screen.getByText("Steps").parentElement?.textContent ?? "";
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Stop WebCam/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Stop camera/i }));
     });
 
-    expect(screen.queryByText("LIVE TELEMETRY")).toBeNull();
+    expect(screen.queryByText("Recording")).toBeNull();
     expect(tracker().stopCalls).toBeGreaterThanOrEqual(1);
 
     // Restart: the HUD must come back zeroed, not carrying the old session.
     await startLive();
-    await screen.findByText("STREAMING LIVE");
-    const stepsAfter = screen.getByText("Steps:").parentElement?.textContent ?? "";
-    expect(stepsAfter).toMatch(/Steps:\s*(0|—)$/);
-    expect(screen.getByText("FPS:").parentElement?.textContent).toMatch(/0\.0$/);
+    await screen.findByText("Camera on");
+    const stepsAfter = screen.getByText("Steps").parentElement?.textContent ?? "";
+    expect(stepsAfter).toMatch(/Steps\s*(0|—)$/);
+    expect(screen.getByText("FPS").parentElement?.textContent).toMatch(/0\.0$/);
     expect(stepsBefore).not.toBe(stepsAfter);
   });
 
@@ -439,15 +442,15 @@ describe("GaitApp live webcam capture path", () => {
 
     // Session 1: 6 s of walking, then stopped and discarded.
     await startLive();
-    await screen.findByText("STREAMING LIVE");
+    await screen.findByText("Camera on");
     emitFrames(walkFrames(RECORDING_SEC, 0));
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Stop WebCam/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Stop camera/i }));
     });
 
     // Session 2: another 6 s, timestamps continuing after session 1.
     await startLive();
-    await screen.findByText("STREAMING LIVE");
+    await screen.findByText("Camera on");
     emitFrames(walkFrames(RECORDING_SEC, (RECORDING_SEC + 5) * 1000));
 
     // Only the second session is buffered: the first was dropped on restart.
@@ -455,7 +458,7 @@ describe("GaitApp live webcam capture path", () => {
     await freeze();
 
     await screen.findByTestId("cognitive-clusters");
-    fireEvent.click(screen.getByRole("tab", { name: /Kinematic Charts & CIs/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /Charts/i }));
 
     const durationCard = screen.getByText("Clip duration").parentElement;
     const durationSec = parseFloat(
@@ -470,7 +473,7 @@ describe("GaitApp live webcam capture path", () => {
     render(<GaitApp />);
     switchToWebcamMode();
     await startLive();
-    await screen.findByText("STREAMING LIVE");
+    await screen.findByText("Camera on");
     emitFrames(walkFrames(RECORDING_SEC));
     await freeze();
     await screen.findByTestId("cognitive-clusters");

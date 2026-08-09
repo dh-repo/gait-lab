@@ -134,7 +134,7 @@ describe("Milestone 1 Empirical Stress Test Suite (Challenger M1-2)", () => {
       const htmlReport = renderToStaticMarkup(
         <ReportPanel result={hydratedResult} />
       );
-      expect(htmlReport).toContain("Clinical PDF &amp; Summary Report");
+      expect(htmlReport).toContain("Clinical summary report");
       expect(htmlReport).toContain("Overall Gait Score");
     });
 
@@ -190,7 +190,7 @@ describe("Milestone 1 Empirical Stress Test Suite (Challenger M1-2)", () => {
           patientMeta={samplePatientMeta}
         />
       );
-      expect(htmlView).toContain("Clinical Gait &amp; Biomechanical Analysis Report");
+      expect(htmlView).toContain("Gait analysis summary");
     });
 
     it("handles JSON stringification boundary conditions where JSON fields are raw strings", () => {
@@ -368,7 +368,7 @@ describe("Milestone 1 Empirical Stress Test Suite (Challenger M1-2)", () => {
       });
 
       const html = renderToStaticMarkup(<CognitiveClusters metrics={pathologicalMetrics} />);
-      expect(html).toContain("Pathological");
+      expect(html).toContain("Outside typical range");
     });
   });
 

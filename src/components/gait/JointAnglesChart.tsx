@@ -264,10 +264,11 @@ export function JointAnglesChart({ angleAnalysis, className }: JointAnglesChartP
                 ]}
                 labelFormatter={(label: any) => `${label}% Gait Cycle`}
                 contentStyle={{
-                  backgroundColor: "var(--color-surface-1, #1e293b)",
-                  borderColor: "var(--color-border, #334155)",
-                  color: "var(--color-fg, #f8fafc)",
-                  borderRadius: "0.5rem",
+                  backgroundColor: "var(--color-surface, #ffffff)",
+                  borderColor: "var(--color-border, #e2e8f0)",
+                  color: "var(--color-fg, #0f172a)",
+                  borderRadius: "8px",
+                  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)",
                 }}
               />
               <Legend verticalAlign="top" height={36} />
@@ -282,16 +283,16 @@ export function JointAnglesChart({ angleAnalysis, className }: JointAnglesChartP
               <Line
                 type="monotone"
                 dataKey="leftAngle"
-                stroke="#3b82f6"
-                strokeWidth={2.5}
+                stroke="#0369a1"
+                strokeWidth={2}
                 dot={false}
                 name={jointMeta.leftName}
               />
               <Line
                 type="monotone"
                 dataKey="rightAngle"
-                stroke="#ef4444"
-                strokeWidth={2.5}
+                stroke="#0f766e"
+                strokeWidth={2}
                 strokeDasharray="5 5"
                 dot={false}
                 name={jointMeta.rightName}

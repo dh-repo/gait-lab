@@ -71,7 +71,7 @@ export function SessionHistoryDrawer({
   const canCompare = selectedIds.length === 2 && Boolean(onCompareSessions);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-[2px]">
       <div className="flex h-full w-full max-w-md flex-col bg-[var(--color-bg)] shadow-xl border-l border-[var(--color-border)]">
         {/* Drawer Header */}
         <div className="flex items-center justify-between p-6 border-b border-[var(--color-border)] shrink-0">

@@ -169,15 +169,13 @@ function drawPoseOptimized(
       const vis = p.visibility ?? 1;
       if (vis < 0.25) continue;
 
-      let dotColor = color;
-      if (vis >= 0.7) dotColor = "#22c55e"; // High confidence green
-      else if (vis >= 0.4) dotColor = "#eab308"; // Moderate confidence yellow
-      else dotColor = "#ef4444"; // Low confidence red
-
-      ctx.fillStyle = dotColor;
+      // Confidence via opacity of person track color (not traffic-light RGB)
+      ctx.globalAlpha = alpha * Math.max(0.35, Math.min(1, vis));
+      ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(p.x * w, p.y * h, radius, 0, Math.PI * 2);
       ctx.fill();
+      ctx.globalAlpha = alpha;
     }
     ctx.fillStyle = color;
   }
@@ -186,8 +184,8 @@ function drawPoseOptimized(
   if (showSwayVector && lm[23] && lm[24]) {
     const hipX = ((lm[23].x + lm[24].x) / 2) * w;
     const hipY = ((lm[23].y + lm[24].y) / 2) * h;
-    ctx.strokeStyle = "#38bdf8"; // cyan sway line
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+    ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
     ctx.moveTo(hipX, hipY - 40);
@@ -196,20 +194,20 @@ function drawPoseOptimized(
     ctx.setLineDash([]);
   }
 
-  // Draw Joint Arcs and degree labels (Knee flex arcs)
+  // Draw Joint Arcs and degree labels (Knee flex arcs) — L/R calm blue/teal
   if (showJointArcs && lm[23] && lm[25] && lm[27]) {
     const kx = lm[25].x * w;
     const ky = lm[25].y * h;
-    ctx.strokeStyle = "#3b82f6";
+    ctx.strokeStyle = "#93c5fd";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(kx, ky, 14, 0, Math.PI * 1.2);
     ctx.stroke();
 
     const leftKneeDeg = Math.round(calculateKneeFlexion(lm[23], lm[25], lm[27]));
-    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
     ctx.fillRect(kx - 24, ky - 24, 48, 16);
-    ctx.fillStyle = "#60a5fa";
+    ctx.fillStyle = "#e2e8f0";
     ctx.font = "10px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(`L: ${leftKneeDeg}°`, kx, ky - 12);
@@ -217,16 +215,16 @@ function drawPoseOptimized(
   if (showJointArcs && lm[24] && lm[26] && lm[28]) {
     const kx = lm[26].x * w;
     const ky = lm[26].y * h;
-    ctx.strokeStyle = "#ef4444";
+    ctx.strokeStyle = "#5eead4";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(kx, ky, 14, 0, Math.PI * 1.2);
     ctx.stroke();
 
     const rightKneeDeg = Math.round(calculateKneeFlexion(lm[24], lm[26], lm[28]));
-    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
     ctx.fillRect(kx - 24, ky - 24, 48, 16);
-    ctx.fillStyle = "#f87171";
+    ctx.fillStyle = "#e2e8f0";
     ctx.font = "10px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(`R: ${rightKneeDeg}°`, kx, ky - 12);

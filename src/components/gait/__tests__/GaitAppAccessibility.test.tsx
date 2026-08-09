@@ -8,7 +8,7 @@ describe("GaitApp Accessibility & Layout Landmarks", () => {
     const html = renderToStaticMarkup(<GaitApp />);
 
     expect(html).toContain("<main");
-    expect(html).toContain('<section role="region" aria-label="Stage 1: Input and Sample Selection"');
+    expect(html).toContain('<section role="region" aria-label="Stage 1: Capture"');
     expect(html).toContain("<footer");
   });
 

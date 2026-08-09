@@ -79,7 +79,7 @@ async function loadStoredSessionAndOpenInsights(): Promise<void> {
     fireEvent.click(loadButton);
   });
   await act(async () => {
-    fireEvent.click(screen.getByText(/Clinical Insights/i));
+    fireEvent.click(screen.getByText(/Analyze/i));
   });
 }
 

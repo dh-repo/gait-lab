@@ -13,17 +13,17 @@ export function GuessesPanel({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <Card className="border-[color-mix(in_oklab,var(--color-warn)_40%,var(--color-border))]">
+      <Card className="border-[var(--color-border)] bg-[var(--color-surface-2)]">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-[var(--color-warn)]">
-            <ShieldAlert className="size-4" />
-            Determine ≠ diagnose
+          <CardTitle className="flex items-center gap-2 text-[var(--color-fg)]">
+            <ShieldAlert className="size-4 text-[var(--color-warn)]" />
+            Pattern hypotheses — not a diagnosis
           </CardTitle>
           <CardDescription className="text-[var(--color-muted)]">
-            Below are <strong className="text-[var(--color-fg)]">educated guesses</strong> from
-            pose kinematics — measures and pattern hypotheses only. Not a medical diagnosis,
-            cognitive test, fall-risk certificate, or clinical gait lab. See the{" "}
-            <strong className="text-[var(--color-fg)]">Guide</strong> tab for the full ladder.
+            Ranked <strong className="text-[var(--color-fg)]">pattern hypotheses</strong> from
+            pose kinematics only. Not a medical diagnosis, cognitive test, fall-risk certificate,
+            or clinical gait lab. See the <strong className="text-[var(--color-fg)]">Guide</strong>{" "}
+            tab for the determination ladder.
           </CardDescription>
         </CardHeader>
       </Card>

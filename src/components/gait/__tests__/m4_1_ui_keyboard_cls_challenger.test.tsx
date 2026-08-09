@@ -20,10 +20,10 @@ describe("M4_1 Challenger: UI Components, Keyboard Navigation & CLS Stress Harne
 
       // Stage 1 button is active; Stage 2, 3, 4 should be disabled / not selectable
       expect(html).toContain('aria-current="step"');
-      expect(html).toContain("Stage 1: Input / Sample");
+      expect(html).toContain("Stage 1: Capture");
       // Stage 3 & 4 buttons should have disabled attribute
-      expect(html).toMatch(/disabled=""[^>]*>[\s\S]*?Stage 3: Clinical Insights/);
-      expect(html).toMatch(/disabled=""[^>]*>[\s\S]*?Stage 4: Export Report/);
+      expect(html).toMatch(/disabled=""[^>]*>[\s\S]*?Stage 3: Analyze/);
+      expect(html).toMatch(/disabled=""[^>]*>[\s\S]*?Stage 4: Report/);
     });
 
     it("unlocks Stages 3 and 4 when hasResults is true", () => {
@@ -36,21 +36,21 @@ describe("M4_1 Challenger: UI Components, Keyboard Navigation & CLS Stress Harne
       expect(disabledMatches).toBeNull();
     });
 
-    it("renders Reset (New Video) button only when currentStage > 1", () => {
+    it("renders Reset (New session) button only when currentStage > 1", () => {
       const htmlStage1 = renderToStaticMarkup(
         <WorkflowHeader currentStage={1} onReset={vi.fn()} />,
       );
-      expect(htmlStage1).not.toContain("New Video");
+      expect(htmlStage1).not.toContain("New session");
 
       const htmlStage2 = renderToStaticMarkup(
         <WorkflowHeader currentStage={2} onReset={vi.fn()} />,
       );
-      expect(htmlStage2).toContain("New Video");
+      expect(htmlStage2).toContain("New session");
 
       const htmlStage3 = renderToStaticMarkup(
         <WorkflowHeader currentStage={3} onReset={vi.fn()} />,
       );
-      expect(htmlStage3).toContain("New Video");
+      expect(htmlStage3).toContain("New session");
     });
 
     it("renders History button when onOpenHistory callback is provided", () => {
@@ -70,7 +70,7 @@ describe("M4_1 Challenger: UI Components, Keyboard Navigation & CLS Stress Harne
       const html = renderToStaticMarkup(
         <WorkflowHeader currentStage={2} fileName="patient_gait_clip_01.mp4" />,
       );
-      expect(html).toContain("File: patient_gait_clip_01.mp4");
+      expect(html).toContain("Session: patient_gait_clip_01.mp4");
     });
   });
 
@@ -156,9 +156,9 @@ describe("M4_1 Challenger: UI Components, Keyboard Navigation & CLS Stress Harne
       expect(htmlNormal).toContain('data-testid="status-badge-symmetry"');
       expect(htmlNormal).toContain('data-testid="status-badge-stability"');
       expect(htmlNormal).toContain('data-testid="status-badge-dualtask"');
-      expect(htmlNormal).toContain("Normal");
+      expect(htmlNormal).toContain("Within expected range");
 
-      // Test Pathological statuses
+      // Test outside-range statuses
       const pathologicalMetrics: GaitMetrics = {
         ...fullMockMetrics,
         stepTimeCV: 0.12, // > 0.08 => Pathological Pace
@@ -174,7 +174,7 @@ describe("M4_1 Challenger: UI Components, Keyboard Navigation & CLS Stress Harne
       const htmlPathological = renderToStaticMarkup(
         <CognitiveClusters metrics={pathologicalMetrics} dualTaskCost={pathologicalDualTask} />,
       );
-      expect(htmlPathological).toContain("Pathological");
+      expect(htmlPathological).toContain("Outside typical range");
     });
 
     it("handles missing/null optional metric values without crashing or displaying NaN", () => {

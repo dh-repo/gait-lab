@@ -42,14 +42,14 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>Exploratory composite scores</CardTitle>
-            <Badge tone="primary">{metrics.viewAngle} view</Badge>
+            <CardTitle>Exploratory domain indices</CardTitle>
+            <Badge tone="info" className="capitalize">{metrics.viewAngle} view</Badge>
             <Badge tone="neutral">
               {(metrics.viewConfidence * 100).toFixed(0)}% view confidence
             </Badge>
           </div>
           <CardDescription>
-            Secondary exploratory indices (0–100) — non-diagnostic research scores.
+            Secondary 0–100 research indices — not clinical scores or a diagnosis.
           </CardDescription>
         </CardHeader>
         <CardContent>

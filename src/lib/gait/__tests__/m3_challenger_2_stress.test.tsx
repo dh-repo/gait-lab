@@ -415,8 +415,8 @@ describe("Milestone 3 Challenger 2: Empirical Stress Tests", () => {
   describe("UI Verification: GaitApp Permission Error Card & Fallback Options", () => {
     it("renders GaitApp Stage 1 with input mode switcher and webcam station options", () => {
       const html = renderToStaticMarkup(<GaitApp />);
-      expect(html).toContain("Live WebCam Mode");
-      expect(html).toContain("Video File Upload");
+      expect(html).toContain("Webcam");
+      expect(html).toContain("Video file");
     });
   });
 });

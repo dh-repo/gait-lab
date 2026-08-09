@@ -1018,10 +1018,10 @@ export function SessionComparisonView({
                       ]}
                       labelFormatter={(label: any) => `${label}% Gait Cycle`}
                       contentStyle={{
-                        backgroundColor: "var(--color-surface-1, #1e293b)",
-                        borderColor: "var(--color-border, #334155)",
-                        color: "var(--color-fg, #f8fafc)",
-                        borderRadius: "0.5rem",
+                        backgroundColor: "var(--color-surface, #ffffff)",
+                        borderColor: "var(--color-border, #e2e8f0)",
+                        color: "var(--color-fg, #0f172a)",
+                        borderRadius: "8px",
                       }}
                     />
                     <Legend verticalAlign="top" height={40} />
@@ -1031,7 +1031,7 @@ export function SessionComparisonView({
                         dataKey="normativeRange"
                         stroke="none"
                         fill="#94a3b8"
-                        fillOpacity={0.2}
+                        fillOpacity={0.18}
                         name="Normative Range (Perry & Burnfield)"
                         connectNulls={false}
                       />
@@ -1039,15 +1039,15 @@ export function SessionComparisonView({
                     <Line
                       type="monotone"
                       dataKey="sessionALeft"
-                      stroke="#3b82f6"
-                      strokeWidth={2.5}
+                      stroke="#2563eb"
+                      strokeWidth={2}
                       dot={false}
                       name={`Session A (${sessionA.sessionName.slice(0, 12)}) Left`}
                     />
                     <Line
                       type="monotone"
                       dataKey="sessionARight"
-                      stroke="#06b6d4"
+                      stroke="#0369a1"
                       strokeWidth={2}
                       strokeDasharray="4 4"
                       dot={false}
@@ -1056,15 +1056,15 @@ export function SessionComparisonView({
                     <Line
                       type="monotone"
                       dataKey="sessionBLeft"
-                      stroke="#10b981"
-                      strokeWidth={2.5}
+                      stroke="#0f766e"
+                      strokeWidth={2}
                       dot={false}
                       name={`Session B (${sessionB.sessionName.slice(0, 12)}) Left`}
                     />
                     <Line
                       type="monotone"
                       dataKey="sessionBRight"
-                      stroke="#f59e0b"
+                      stroke="#64748b"
                       strokeWidth={2}
                       strokeDasharray="4 4"
                       dot={false}

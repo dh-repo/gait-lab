@@ -114,10 +114,10 @@ export function ClinicalReportView({
               </div>
               <div>
                 <h1 className="text-xl font-bold tracking-tight print:text-black">
-                  Clinical Gait & Biomechanical Analysis Report
+                  Gait analysis summary
                 </h1>
                 <p className="text-xs text-[var(--color-muted)] print:text-gray-600">
-                  Gait Lab Biomechanical Assessment System · Generated{" "}
+                  Gait Lab · Research / educational analysis · Not a medical device ·{" "}
                   {new Date().toLocaleDateString()}
                 </p>
               </div>
@@ -262,9 +262,9 @@ export function ClinicalReportView({
                   <Radar
                     name="Gait Health"
                     dataKey="score"
-                    stroke="#3b82f6"
-                    fill="#3b82f6"
-                    fillOpacity={0.5}
+                    stroke="#2563eb"
+                    fill="#2563eb"
+                    fillOpacity={0.2}
                   />
                 </RadarChart>
               </ResponsiveContainer>

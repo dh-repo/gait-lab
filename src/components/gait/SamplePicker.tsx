@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Film, Loader2, Play, Sparkles, Video } from "lucide-react";
+import { Film, Loader2, Play, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -106,11 +106,11 @@ export function SamplePicker({ onSelectSample, onCustomUploadClick, isLoading }:
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="flex items-center gap-2 text-base font-semibold">
-            <Sparkles className="size-4 text-[var(--color-primary)]" />
-            Curated Reference Gait Samples
+            <Video className="size-4 text-[var(--color-primary)]" />
+            Reference clips
           </h3>
           <p className="text-xs text-[var(--color-muted)]">
-            Select a standardized gait video sample for instant clinical evaluation or multi-view testing.
+            Standardized sample videos for multi-view testing and demo analysis.
           </p>
         </div>
         {onCustomUploadClick && (

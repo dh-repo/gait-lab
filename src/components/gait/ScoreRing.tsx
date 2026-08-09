@@ -1,5 +1,10 @@
 import { cn } from "@/lib/utils";
 
+/**
+ * Circular score display. Color is intentionally calm: clinical blue for mid/high
+ * scores and slate for low scores. Red is reserved for system errors elsewhere —
+ * composite research scores must not alarm as "danger".
+ */
 export function ScoreRing({
   score,
   label,
@@ -17,10 +22,10 @@ export function ScoreRing({
   const offset = c - (pct / 100) * c;
   const color =
     pct >= 70
-      ? "var(--color-success)"
+      ? "var(--color-primary)"
       : pct >= 45
-        ? "var(--color-warn)"
-        : "var(--color-danger)";
+        ? "var(--color-subtle)"
+        : "var(--color-border-strong)";
 
   return (
     <div className={cn("flex flex-col items-center gap-2", className)}>
@@ -30,7 +35,7 @@ export function ScoreRing({
           cy="44"
           r={r}
           fill="none"
-          stroke="var(--color-surface-3)"
+          stroke="var(--color-border)"
           strokeWidth="7"
         />
         <circle

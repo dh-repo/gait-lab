@@ -14,7 +14,7 @@ import {
   SkipBack,
   SkipForward,
   Sliders,
-  Sparkles,
+  ClipboardCheck,
   Users,
   BarChart3,
   Lightbulb,
@@ -1023,8 +1023,6 @@ export function GaitApp() {
 
   return (
     <div className="relative min-h-dvh bg-[var(--color-bg)] text-[var(--color-fg)]">
-      <div className="pointer-events-none absolute inset-0 grid-bg opacity-40" />
-
       {/* Sticky Semantic Workflow Header */}
       <WorkflowHeader
         currentStage={computedStage}
@@ -1062,19 +1060,20 @@ export function GaitApp() {
           <>
             {/* STAGE 1 VIEW: Input & Sample Selection */}
         {computedStage === 1 && (
-          <section role="region" aria-label="Stage 1: Input and Sample Selection" className="space-y-6">
+          <section role="region" aria-label="Stage 1: Capture" className="space-y-6">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Badge tone="primary">Stage 1 of 4</Badge>
                 <span className="text-xs text-[var(--color-muted)] font-medium">
-                  Input & Sample Selection
+                  Capture
                 </span>
               </div>
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                Walking Video Ingestion & Clinical Benchmark Selection
+                New gait session
               </h1>
               <p className="max-w-2xl text-sm leading-relaxed text-[var(--color-muted)]">
-                Upload a video clip of a patient walking or choose a standard clinical sample. The system detects people, isolates the subject, and derives spatio-temporal gait metrics.
+                Upload a walking video, capture with the camera, or load a reference clip. Pose detection
+                runs in the browser to derive spatio-temporal gait metrics for research and education.
               </p>
             </div>
 
@@ -1082,9 +1081,9 @@ export function GaitApp() {
             <Card className="border-[var(--color-border)] bg-[var(--color-surface)]">
               <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5">
                 <div>
-                  <h3 className="text-sm font-semibold">Assessment Protocol Mode</h3>
+                  <h3 className="text-sm font-semibold">Assessment protocol</h3>
                   <p className="text-xs text-[var(--color-muted)]">
-                    Choose between standard single-task walk or dual-task cognitive interference protocol
+                    Single-task walk, or dual-task walk with a concurrent cognitive task
                   </p>
                 </div>
                 <div className="flex rounded-[var(--radius-md)] border border-[var(--color-border)] p-1 bg-[var(--color-surface-2)]">
@@ -1132,7 +1131,7 @@ export function GaitApp() {
                 )}
               >
                 <Film className="size-4 mr-2 inline" />
-                Video File Upload
+                Video file
               </button>
               <button
                 type="button"
@@ -1145,7 +1144,7 @@ export function GaitApp() {
                 )}
               >
                 <Camera className="size-4 mr-2 inline" />
-                Live WebCam Mode
+                Webcam
               </button>
             </div>
 
@@ -1170,29 +1169,30 @@ export function GaitApp() {
                       <Upload className="size-6 text-[var(--color-primary)]" />
                     </div>
                     <div className="space-y-2">
-                      <h2 className="text-lg font-semibold">Drop walking video file here</h2>
+                      <h2 className="text-lg font-semibold">Drop walking video here</h2>
                       <p className="mx-auto max-w-md text-sm text-[var(--color-muted)]">
-                        MP4, WebM, or MOV formats supported. 5–15 seconds of continuous walking produces optimal spatio-temporal reliability.
+                        MP4, WebM, or MOV. About {ANALYSIS_WINDOW_SEC}s of continuous walking improves
+                        reliability of variability measures.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center justify-center gap-3">
                       <Button size="lg" onClick={() => fileRef.current?.click()}>
                         <Film className="size-4" />
-                        Browse Video File
+                        Choose video file
                       </Button>
                     </div>
                     <ul className="mt-2 grid w-full max-w-lg gap-2 text-left text-xs text-[var(--color-subtle)] sm:grid-cols-3">
                       <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                        <Users className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
-                        Multi-person tracking & candidate selection
+                        <Users className="mb-1.5 size-3.5 text-[var(--color-primary)]" />
+                        Multi-person tracking and subject selection
                       </li>
                       <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                        <UserRound className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
-                        Sagittal & Frontal camera angle adaptation
+                        <UserRound className="mb-1.5 size-3.5 text-[var(--color-primary)]" />
+                        Sagittal and frontal view adaptation
                       </li>
                       <li className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-                        <Sparkles className="mb-1.5 size-3.5 text-[var(--color-accent)]" />
-                        Zeni kinematic event detection & ratings
+                        <ClipboardCheck className="mb-1.5 size-3.5 text-[var(--color-primary)]" />
+                        Kinematic event detection and domain ratings
                       </li>
                     </ul>
                     <input
@@ -1217,26 +1217,25 @@ export function GaitApp() {
                 />
               </>
             ) : (
-              /* Live WebCam Mode Station */
+              /* Webcam capture station */
               <Card className="border-[var(--color-border)] bg-[var(--color-surface)]">
                 <CardHeader>
                   <CardTitle className="text-base flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
                       <Camera className="size-4 text-[var(--color-primary)]" />
-                      Live WebCam Capture Station
+                      Webcam capture
                     </span>
-                    <Badge tone={webcamState === "streaming" ? "success" : "neutral"}>
+                    <Badge tone={webcamState === "streaming" ? "success" : webcamState === "requesting" ? "info" : "neutral"}>
                       {webcamState === "streaming"
-                        ? "STREAMING LIVE"
+                        ? "Camera on"
                         : webcamState === "requesting"
-                          ? "INITIALIZING CAMERA..."
-                          : "CAMERA READY"}
+                          ? "Starting camera…"
+                          : "Camera ready"}
                     </Badge>
                   </CardTitle>
                   <CardDescription>
-                    Stream live video from your camera to record real-time gait kinematics and pose
-                    landmarks. Pose runs entirely in this browser — no video or landmark data leaves
-                    your device.
+                    Record walking with the device camera. Pose estimation runs in this browser —
+                    video and landmarks stay on your device.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1322,21 +1321,21 @@ export function GaitApp() {
                             Requesting camera…
                           </span>
                           <Button variant="secondary" onClick={stopWebcam}>
-                            <Square className="size-4 mr-1.5 text-red-400" /> Stop WebCam
+                            <Square className="size-4 mr-1.5 text-[var(--color-danger)]" /> Stop camera
                           </Button>
                         </>
                       ) : webcamState !== "streaming" ? (
                         <Button onClick={() => void startWebcam(selectedDeviceId)}>
                           <Camera className="size-4 mr-1.5" />
-                          Start WebCam
+                          Start camera
                         </Button>
                       ) : (
                         <>
                           <Button variant="secondary" onClick={stopWebcam}>
-                            <Square className="size-4 mr-1.5 text-red-400" /> Stop WebCam
+                            <Square className="size-4 mr-1.5 text-[var(--color-danger)]" /> Stop camera
                           </Button>
                           <Button onClick={() => void freezeAndAnalyzeSession()}>
-                            <Sparkles className="size-4 mr-1.5 text-amber-300" /> Freeze & Analyze Session
+                            <ClipboardCheck className="size-4 mr-1.5" /> Stop & analyze
                           </Button>
                         </>
                       )}
@@ -1372,7 +1371,7 @@ export function GaitApp() {
 
                   {/* Camera fallback notice (non-blocking) */}
                   {webcamFallbackNotice && (
-                    <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex flex-wrap items-center justify-between gap-2">
+                    <div className="rounded-[var(--radius-md)] border border-[#fde68a] bg-[#fffbeb] p-3 text-xs text-[var(--color-warn)] flex flex-wrap items-center justify-between gap-2">
                       <p>{webcamFallbackNotice}</p>
                       <Button
                         size="sm"
@@ -1398,7 +1397,7 @@ export function GaitApp() {
 
                   {/* Camera Error Fallback Banner */}
                   {webcamError && (
-                    <div className="rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-400 space-y-2">
+                    <div className="rounded-[var(--radius-md)] border border-[#fecaca] bg-[#fef2f2] p-4 text-xs text-[var(--color-danger)] space-y-2">
                       <p className="font-semibold">{webcamError}</p>
                       <div className="flex items-center gap-2 pt-1">
                         <Button
@@ -1409,14 +1408,14 @@ export function GaitApp() {
                             setInputMode("file");
                           }}
                         >
-                          Switch to Video File Upload
+                          Switch to video file
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => void startWebcam(selectedDeviceId)}
                         >
-                          Retry Camera Access
+                          Retry camera
                         </Button>
                       </div>
                     </div>
@@ -1434,46 +1433,48 @@ export function GaitApp() {
                       showSwayVector={overlaySwayVector}
                     />
 
-                    {/* Floating Telemetry HUD Overlay */}
+                    {/* Live capture status panel (restrained clinical HUD) */}
                     {webcamState === "streaming" && (
-                      <div className="absolute top-3 right-3 flex flex-col gap-1.5 bg-black/75 backdrop-blur-md p-3 rounded-lg border border-white/10 text-white text-xs font-mono shadow-xl pointer-events-none min-w-[170px]">
-                        <div className="flex items-center justify-between border-b border-white/10 pb-1.5 mb-0.5">
-                          <span className="text-gray-400 text-[10px] uppercase tracking-wider font-sans font-bold">LIVE TELEMETRY</span>
-                          <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <div className="absolute top-3 right-3 flex flex-col gap-1.5 bg-white/95 backdrop-blur-sm p-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-[var(--color-fg)] text-xs font-mono shadow-sm pointer-events-none min-w-[170px]">
+                        <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-1.5 mb-0.5">
+                          <span className="text-[var(--color-muted)] text-[10px] font-sans font-semibold tracking-wide">
+                            Recording
+                          </span>
+                          <span className="size-2 rounded-full bg-[var(--color-success)] animate-pulse" />
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-gray-400">FPS:</span>
-                          <span className={liveMetrics.fps >= 25 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                          <span className="text-[var(--color-muted)]">FPS</span>
+                          <span className={cn("font-semibold tabular", liveMetrics.fps >= 25 ? "text-[var(--color-fg)]" : "text-[var(--color-warn)]")}>
                             {liveMetrics.fps.toFixed(1)}
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-gray-400">Recorded:</span>
-                          <span className="text-cyan-300 font-bold">
+                          <span className="text-[var(--color-muted)]">Recorded</span>
+                          <span className="font-semibold tabular text-[var(--color-fg)]">
                             {liveMetrics.recordedSec.toFixed(1)}s
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-gray-400">Steps:</span>
-                          <span className="text-cyan-300 font-bold">{liveMetrics.stepCount}</span>
+                          <span className="text-[var(--color-muted)]">Steps</span>
+                          <span className="font-semibold tabular text-[var(--color-fg)]">{liveMetrics.stepCount}</span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-gray-400">Cadence:</span>
-                          <span className="text-cyan-300">
+                          <span className="text-[var(--color-muted)]">Cadence</span>
+                          <span className="tabular text-[var(--color-fg)]">
                             {liveMetrics.cadence != null
                               ? `${liveMetrics.cadence.toFixed(0)} spm`
                               : "—"}
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-gray-400">L / R Knee:</span>
-                          <span className="text-indigo-300">
+                          <span className="text-[var(--color-muted)]">L / R knee</span>
+                          <span className="tabular text-[var(--color-fg)]">
                             {liveMetrics.kneeAngleLeft.toFixed(0)}° / {liveMetrics.kneeAngleRight.toFixed(0)}°
                           </span>
                         </div>
-                        <div className="flex justify-between gap-4 border-t border-white/10 pt-1 mt-0.5">
-                          <span className="text-gray-400">Confidence:</span>
-                          <span className={liveMetrics.confidence >= 0.7 ? "text-emerald-400" : "text-amber-400"}>
+                        <div className="flex justify-between gap-4 border-t border-[var(--color-border)] pt-1 mt-0.5">
+                          <span className="text-[var(--color-muted)]">Confidence</span>
+                          <span className={cn("tabular font-semibold", liveMetrics.confidence >= 0.7 ? "text-[var(--color-fg)]" : "text-[var(--color-warn)]")}>
                             {(liveMetrics.confidence * 100).toFixed(0)}%
                           </span>
                         </div>
@@ -1488,22 +1489,22 @@ export function GaitApp() {
 
         {/* STAGE 2 VIEW: Video Processing & Subject Tracking */}
         {computedStage === 2 && (
-          <section role="region" aria-label="Stage 2: Video Processing and Tracking" className="space-y-6">
+          <section role="region" aria-label="Stage 2: Process" className="space-y-6">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
                   <Badge tone="primary">Stage 2 of 4</Badge>
                   <span className="text-xs text-[var(--color-muted)] font-medium">
-                    Video Processing & Tracking
+                    Process
                   </span>
                 </div>
                 <h2 className="text-xl font-semibold tracking-tight mt-1">
-                  Pose Estimation & Subject Identification
+                  Pose tracking and subject selection
                 </h2>
               </div>
               {result && (
-                <Button variant="secondary" size="sm" onClick={() => handleSelectStage(3)}>
-                  View Insights <ArrowRight className="size-3.5 ml-1" />
+                <Button variant="outline" size="sm" onClick={() => handleSelectStage(3)}>
+                  View findings <ArrowRight className="size-3.5 ml-1" />
                 </Button>
               )}
             </div>
@@ -1648,40 +1649,40 @@ export function GaitApp() {
               </div>
 
               {/* Status & Processing Explanation Card */}
-              <aside aria-label="Stage 2 Telemetry & Processing Rules" className="flex flex-col gap-4">
+              <aside aria-label="Processing status and guidelines" className="flex flex-col gap-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Stage 2 Telemetry & Status</CardTitle>
-                    <CardDescription>MediaPipe Pose WASM pipeline execution</CardDescription>
+                    <CardTitle className="text-base">Processing status</CardTitle>
+                    <CardDescription>On-device pose pipeline</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4 text-sm text-[var(--color-muted)]">
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs">
-                        <span>Model Pipeline</span>
-                        <span className="font-semibold text-[var(--color-fg)]">MediaPipe Tasks Vision</span>
+                        <span>Model</span>
+                        <span className="font-semibold text-[var(--color-fg)]">MediaPipe Pose</span>
                       </div>
                       <div className="flex justify-between text-xs">
-                        <span>Sampling Target</span>
-                        <span className="font-semibold text-[var(--color-fg)]">30 Hz Uniform Grid</span>
+                        <span>Sampling</span>
+                        <span className="font-semibold text-[var(--color-fg)]">30 Hz grid</span>
                       </div>
                       <div className="flex justify-between text-xs">
-                        <span>Filter Configuration</span>
-                        <span className="font-semibold text-[var(--color-fg)]">4th-Order Butterworth (6 Hz)</span>
+                        <span>Filter</span>
+                        <span className="font-semibold text-[var(--color-fg)]">Butterworth 6 Hz</span>
                       </div>
                       <div className="flex justify-between text-xs">
-                        <span>Event Engine</span>
-                        <span className="font-semibold text-[var(--color-fg)]">Zeni Kinematic AP Algorithm</span>
+                        <span>Events</span>
+                        <span className="font-semibold text-[var(--color-fg)]">Zeni kinematic</span>
                       </div>
                     </div>
 
                     <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-xs leading-relaxed text-[var(--color-subtle)] space-y-1">
-                      <p className="font-semibold text-[var(--color-fg)]">Processing Rules:</p>
+                      <p className="font-semibold text-[var(--color-fg)]">Capture tips</p>
                       <ul className="list-disc pl-4 space-y-1">
-                        <li>Ensure full-body visibility from ankles to shoulders.</li>
-                        <li>Maintain consistent camera perspective during clip.</li>
+                        <li>Keep ankles to shoulders fully visible.</li>
+                        <li>Hold a consistent camera perspective through the clip.</li>
                         <li>
-                          A continuous {ANALYSIS_WINDOW_SEC}s window is sampled; shorter clips are
-                          analysed whole but yield noisier, low-biased variability estimates.
+                          A continuous {ANALYSIS_WINDOW_SEC}s window is preferred; shorter clips are
+                          analysed whole but variability estimates are noisier.
                         </li>
                       </ul>
                     </div>
@@ -1700,16 +1701,16 @@ export function GaitApp() {
                 <div className="flex items-center gap-2">
                   <Badge tone="primary">Stage 3 of 4</Badge>
                   <span className="text-xs text-[var(--color-muted)] font-medium">
-                    Clinical Insights & Workstation
+                    Analyze
                   </span>
                 </div>
                 <h2 className="text-xl font-semibold tracking-tight mt-1">
-                  Quantitative Gait Telemetry & Workstation
+                  Session findings
                 </h2>
               </div>
               <div className="flex items-center gap-2">
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
                   onClick={() => void handleSaveSession()}
                   disabled={isSaving}
@@ -1721,31 +1722,69 @@ export function GaitApp() {
                   ) : (
                     <Bookmark className="size-4" />
                   )}
-                  {saveSuccess ? "Saved!" : "Save Session"}
+                  {saveSuccess ? "Saved" : "Save session"}
                 </Button>
                 <Button size="sm" onClick={() => handleSelectStage(4)}>
-                  Export / Share Report <ArrowRight className="size-3.5 ml-1.5" />
+                  Open report <ArrowRight className="size-3.5 ml-1.5" />
                 </Button>
               </div>
             </div>
 
+            {/* Findings bar: quality + interpretation first */}
+            <Card className="border-[var(--color-border)] bg-[var(--color-surface)]">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-semibold text-[var(--color-fg)]">
+                    {result.metrics.overallScore >= 65
+                      ? `Overall ${Math.round(result.metrics.overallScore)}/100 · generally favorable mechanics`
+                      : `Overall ${Math.round(result.metrics.overallScore)}/100 · review domains below`}
+                  </p>
+                  <p className="text-xs text-[var(--color-muted)] leading-relaxed">
+                    Cadence {result.metrics.cadenceSpm.toFixed(0)} spm · SA{" "}
+                    {(result.metrics.symmetryAngle ?? 0).toFixed(1)}% · step-time CV{" "}
+                    {(result.metrics.stepTimeCV * 100).toFixed(1)}%
+                  </p>
+                  <p className="text-[11px] text-[var(--color-subtle)]">
+                    Research / educational output · Not a medical device · Not a diagnosis
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  <Badge tone="info" className="tabular capitalize">
+                    {result.metrics.viewAngle || "view unknown"}
+                  </Badge>
+                  <Badge tone="neutral" className="tabular">
+                    {result.metrics.stepCount} steps
+                  </Badge>
+                  <Badge tone="neutral" className="tabular">
+                    ~{Math.floor(result.metrics.stepCount / 2)} strides
+                  </Badge>
+                  <Badge tone="neutral" className="tabular">
+                    View conf. {(result.metrics.viewConfidence * 100).toFixed(0)}%
+                  </Badge>
+                  <Badge tone="neutral" className="capitalize">
+                    {taskMode === "dual" ? "Dual-task" : "Single-task"}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Stage 3 Sub-Navigation Tabs */}
-            <div role="tablist" aria-label="Clinical Workstation Tabs" className="flex flex-wrap gap-1 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+            <div role="tablist" aria-label="Analysis tabs" className="flex flex-wrap gap-1 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
               <TabBtn active={tab === "clusters"} onClick={() => setTab("clusters")}>
                 <Activity className="size-3.5 mr-1.5 inline-block" />
-                Cognitive Clusters
+                Findings
               </TabBtn>
               <TabBtn active={tab === "guesses"} onClick={() => setTab("guesses")}>
                 <Lightbulb className="size-3.5 mr-1.5 inline-block" />
-                Guesses & Hypotheses
+                Hypotheses
               </TabBtn>
               <TabBtn active={tab === "metrics"} onClick={() => setTab("metrics")}>
                 <BarChart3 className="size-3.5 mr-1.5 inline-block" />
-                Kinematic Charts & CIs
+                Charts
               </TabBtn>
               <TabBtn active={tab === "guide"} onClick={() => setTab("guide")}>
                 <BookOpen className="size-3.5 mr-1.5 inline-block" />
-                Clinical Guide
+                Guide
               </TabBtn>
             </div>
 
@@ -1895,28 +1934,28 @@ export function GaitApp() {
                 </Card>
               </section>
 
-              {/* Right Pane (~50% width): Sticky Headline Clinical Status Bar & CognitiveClusters Accordion */}
-              <section aria-label="Clinical Insights and Detailed Domain Metrics" className="flex flex-col gap-4">
-                {/* Sticky Headline Clinical Status Bar */}
-                <Card className="border-[var(--color-border)] sticky top-16 z-10 shadow-xs bg-[var(--color-surface)]">
+              {/* Right pane: domain strip + findings tabs content */}
+              <section aria-label="Findings and domain metrics" className="flex flex-col gap-4">
+                {/* Sticky domain summary */}
+                <Card className="border-[var(--color-border)] sticky top-16 z-10 bg-[var(--color-surface)]">
                   <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <ScoreRing score={Math.round(result.metrics.overallScore)} label="Overall Score" size={64} />
+                      <ScoreRing score={Math.round(result.metrics.overallScore)} label="Overall" size={64} />
                       <div>
-                        <h3 className="text-sm font-bold tracking-tight text-[var(--color-fg)]">Clinical Status Summary</h3>
+                        <h3 className="text-sm font-semibold tracking-tight text-[var(--color-fg)]">Domain summary</h3>
                         <p className="text-xs text-[var(--color-muted)]">
-                          {result.metrics.overallScore >= 65 ? "Favorable overall mechanics" : "Watch areas detected"}
+                          Exploratory 0–100 indices · non-diagnostic
                         </p>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      <Badge tone={result.metrics.mobilityScore >= 70 ? "success" : result.metrics.mobilityScore >= 50 ? "warn" : "danger"}>
+                      <Badge tone={result.metrics.mobilityScore >= 70 ? "success" : result.metrics.mobilityScore >= 50 ? "neutral" : "info"}>
                         Pace: {Math.round(result.metrics.mobilityScore)}/100
                       </Badge>
-                      <Badge tone={result.metrics.symmetryScore >= 70 ? "success" : result.metrics.symmetryScore >= 50 ? "warn" : "danger"}>
+                      <Badge tone={result.metrics.symmetryScore >= 70 ? "success" : result.metrics.symmetryScore >= 50 ? "neutral" : "info"}>
                         Symmetry: {Math.round(result.metrics.symmetryScore)}/100
                       </Badge>
-                      <Badge tone={result.metrics.stabilityScore >= 70 ? "success" : result.metrics.stabilityScore >= 50 ? "warn" : "danger"}>
+                      <Badge tone={result.metrics.stabilityScore >= 70 ? "success" : result.metrics.stabilityScore >= 50 ? "neutral" : "info"}>
                         Stability: {Math.round(result.metrics.stabilityScore)}/100
                       </Badge>
                       <Badge
@@ -1985,15 +2024,15 @@ export function GaitApp() {
                 <div className="flex items-center gap-2">
                   <Badge tone="success">Stage 4 of 4</Badge>
                   <span className="text-xs text-[var(--color-muted)] font-medium">
-                    Export Report & Documentation
+                    Report
                   </span>
                 </div>
                 <h2 className="text-xl font-semibold tracking-tight mt-1">
-                  Clinical Summary & PDF Sign-Off
+                  Clinical summary & export
                 </h2>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => handleSelectStage(3)}>
-                Back to Stage 3 Telemetry
+              <Button variant="outline" size="sm" onClick={() => handleSelectStage(3)}>
+                Back to findings
               </Button>
             </div>
 
@@ -2010,7 +2049,7 @@ export function GaitApp() {
       </main>
 
       <footer className="border-t border-[var(--color-border)] pt-6 text-center text-xs text-[var(--color-subtle)] pb-8 no-print print:hidden">
-        Gait Lab · Quantitative Browser Pose Gait Analysis · Not a medical device
+        Gait Lab · Research / educational spatio-temporal analysis · Not a medical device
       </footer>
 
       <SessionHistoryDrawer

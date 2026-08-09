@@ -42,26 +42,28 @@ export function ReportPanel({
   return (
     <div className="flex flex-col gap-4">
       {/* Top Action Bar */}
-      <div className="no-print print:hidden flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-3">
+      <div className="no-print print:hidden flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
         <div>
-          <h3 className="text-sm font-semibold">Clinical PDF & Summary Report</h3>
+          <h3 className="text-sm font-semibold">Clinical summary report</h3>
           <p className="text-xs text-[var(--color-muted)]">
-            Configure patient metadata and export printable report for medical records
+            Add session metadata and print a document-style report. Not for diagnostic medical records alone.
           </p>
         </div>
         <Button onClick={() => window.print()} size="sm">
-          <Printer className="w-4 h-4 mr-2" /> Print / Export PDF
+          <Printer className="w-4 h-4 mr-2" /> Print / export PDF
         </Button>
       </div>
 
-      {/* Clinical Report Printable View Target */}
-      <ClinicalReportView
-        result={result}
-        patientMeta={patientMeta}
-        angleAnalysis={angleAnalysis}
-        onUpdateMeta={handleUpdateMeta}
-        onPrint={() => window.print()}
-      />
+      {/* Document-style on-screen preview (matches print) */}
+      <div className="clinical-document mx-auto w-full max-w-3xl p-4 sm:p-6 print:max-w-none print:p-0 print:border-0 print:shadow-none">
+        <ClinicalReportView
+          result={result}
+          patientMeta={patientMeta}
+          angleAnalysis={angleAnalysis}
+          onUpdateMeta={handleUpdateMeta}
+          onPrint={() => window.print()}
+        />
+      </div>
     </div>
   );
 }
