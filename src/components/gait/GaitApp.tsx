@@ -1743,7 +1743,7 @@ export function GaitApp() {
                   {(result.metrics.stepTimeCV * 100).toFixed(1)}%
                 </p>
                 <p className="text-[11px] text-[var(--color-subtle)]">
-                  Research / educational output · Not a medical device · Not a diagnosis
+                  Research / educational output · Not a diagnosis
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -2030,7 +2030,7 @@ export function GaitApp() {
       </div>
 
       <footer className="no-print print:hidden px-5 pb-10 pt-4 text-center text-[11px] text-[var(--color-subtle)] sm:px-8">
-        Gait Lab · Research / educational spatio-temporal analysis · Not a medical device
+        Gait Lab · Spatio-temporal gait analysis
       </footer>
     </div>
   );

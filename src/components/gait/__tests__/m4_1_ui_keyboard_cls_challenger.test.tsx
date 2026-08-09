@@ -71,7 +71,7 @@ describe("M4_1 Challenger: UI Components, Keyboard Navigation & CLS Stress Harne
       const html = renderToStaticMarkup(
         <WorkflowHeader currentStage={2} fileName="patient_gait_clip_01.mp4" />,
       );
-      expect(html).toContain("Session: patient_gait_clip_01.mp4");
+      expect(html).toContain("Session · patient_gait_clip_01.mp4");
     });
   });
 

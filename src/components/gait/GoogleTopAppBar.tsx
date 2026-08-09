@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Check, RotateCcw } from "lucide-react";
+import { Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -93,25 +93,30 @@ export function GoogleTopAppBar({
         className,
       )}
     >
-      <div className="mx-auto flex h-12 max-w-[1200px] items-center justify-between gap-4 px-5 sm:px-8">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-fg)] text-white">
-            <Activity className="size-3.5" strokeWidth={2.25} />
+      <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-5 sm:px-8">
+        <div className="flex min-w-0 items-center gap-3.5">
+          {/* Brand mark — gait cadence bars */}
+          <div
+            className="flex size-11 shrink-0 items-end justify-center gap-[3px] rounded-xl bg-[var(--color-fg)] px-2 pb-2 pt-1.5"
+            aria-hidden
+          >
+            <span className="w-[3px] rounded-full bg-white/90" style={{ height: "10px" }} />
+            <span className="w-[3px] rounded-full bg-white" style={{ height: "16px" }} />
+            <span className="w-[3px] rounded-full bg-white/90" style={{ height: "12px" }} />
           </div>
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <span className="text-[15px] font-semibold tracking-tight text-[var(--color-fg)]">
+            <div className="flex items-baseline gap-2.5">
+              <span className="text-[1.375rem] font-semibold tracking-[-0.03em] text-[var(--color-fg)] sm:text-[1.5rem] leading-none">
                 Gait Lab
               </span>
-              <span className="hidden text-[11px] text-[var(--color-subtle)] sm:inline">
-                Not a medical device
-              </span>
             </div>
-            {fileName ? (
-              <p className="truncate text-[11px] text-[var(--color-muted)] max-w-[14rem]">
-                Session: {fileName}
-              </p>
-            ) : null}
+            <p className="mt-1 truncate text-[12px] font-medium tracking-wide text-[var(--color-muted)]">
+              {fileName ? (
+                <span className="text-[var(--color-fg)]/80">Session · {fileName}</span>
+              ) : (
+                <span className="hidden sm:inline">Spatio-temporal gait analysis</span>
+              )}
+            </p>
           </div>
         </div>
 

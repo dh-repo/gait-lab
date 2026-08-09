@@ -12,7 +12,8 @@ describe("WorkflowHeader Accessibility & Semantic Markup", () => {
     expect(html).toContain("<header");
     expect(html).toContain('<nav aria-label="Workflow progression"');
     expect(html).toContain("Gait Lab");
-    expect(html).toContain("Not a medical device");
+    expect(html).not.toContain("Not a medical device");
+    expect(html).toContain("Spatio-temporal gait analysis");
   });
 
   it("sets aria-current='step' on the active workflow stage button", () => {
