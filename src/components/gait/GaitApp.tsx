@@ -38,7 +38,7 @@ import { WorkflowHeader, type WorkflowStage } from "./WorkflowHeader";
 import { computeDualTaskCost, computeGaitMetrics, matchPeople, tracksToPeople } from "@/lib/gait/analysis";
 import { computeGaitAngleAnalysis, calculateKneeFlexion } from "@/lib/gait/angles";
 import { detectGaitEventsZeni } from "@/lib/gait/events";
-import { buildEducatedGuesses } from "@/lib/gait/guesses";
+import { buildEducatedGuesses, resolveDteValues } from "@/lib/gait/guesses";
 import { PERSON_COLORS, boundingBox } from "@/lib/gait/landmarks";
 import { saveGaitSession, type GaitSessionRecord } from "@/lib/gait/persistence";
 import { PoseTracker, parseWebcamError } from "@/lib/gait/PoseTracker";
@@ -955,7 +955,7 @@ export function GaitApp() {
           `View angle estimate: ${metrics.viewAngle}`,
           `Task mode: ${taskMode === "dual" ? "walk + cognitive" : "walk only"}`,
           dualTaskCost
-            ? `Dual-task cadence DTE ${dualTaskCost.cadenceDTE?.toFixed(1)}% (${dualTaskCost.cmiClassification})`
+            ? `Dual-task cadence DTE ${resolveDteValues(dualTaskCost).cadenceDte.toFixed(1)}% (${dualTaskCost.cmiClassification})`
             : taskMode === "single"
               ? "Saved as walk-only baseline for dual-task pairing"
               : "No walk-only baseline in session yet",
@@ -1953,7 +1953,7 @@ export function GaitApp() {
                         // defines cadenceCostPct = -cadenceDTE, so reading the badge tone
                         // from one and the label from the other let them disagree in sign.
                         const cadenceDte = result.dualTaskCost
-                          ? (result.dualTaskCost.cadenceDTE ?? -result.dualTaskCost.cadenceCostPct)
+                          ? resolveDteValues(result.dualTaskCost).cadenceDte
                           : null;
                         return (
                           <Badge

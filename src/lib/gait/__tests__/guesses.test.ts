@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import { buildEducatedGuesses, DETERMINATION_LADDER, resolveDteValues } from "../guesses";
 import { createMockMetrics } from "./testHelpers";
 import type { DualTaskCost } from "../types";
@@ -95,7 +96,7 @@ describe("Rule-Based Guesses Engine (guesses.ts)", () => {
       };
       expect(
         resolveDteValues({ ...base, cadenceCostPct: 15, stepTimeCvCostPct: 50 }),
-      ).toEqual({ cadenceDte: -15, stepTimeCvDte: -50 });
+      ).toMatchObject({ cadenceDte: -15, stepTimeCvDte: -50 });
       expect(
         resolveDteValues({
           ...base,
@@ -104,7 +105,7 @@ describe("Rule-Based Guesses Engine (guesses.ts)", () => {
           cadenceDTE: -15,
           stepTimeCvDTE: -50,
         }),
-      ).toEqual({ cadenceDte: -15, stepTimeCvDte: -50 });
+      ).toMatchObject({ cadenceDte: -15, stepTimeCvDte: -50 });
     });
 
     it("triggers bag-load when armSwingAsymmetry > 0.35", () => {
@@ -205,5 +206,51 @@ describe("Rule-Based Guesses Engine (guesses.ts)", () => {
         expect(layer.cannot.length).toBeGreaterThan(0);
       }
     });
+  });
+});
+
+/**
+ * resolveDteValues documents itself as the mandatory single source of truth for
+ * the dual-task sign convention. That claim was previously false — four of five
+ * consumers re-inlined `?? -cost` by hand, so the next edit to any one of them
+ * could flip a sign on one panel only. That is exactly the bug the helper exists
+ * to prevent, and it had already shipped once (two DTE-signed tiles beside two
+ * cost-signed tiles in the same row). This test makes the docstring enforceable.
+ */
+describe("dual-task sign convention is centralised", () => {
+  const consumers = [
+    "src/components/gait/ClinicalReportView.tsx",
+    "src/components/gait/CognitiveClusters.tsx",
+    "src/components/gait/GuessesPanel.tsx",
+    "src/components/gait/GaitApp.tsx",
+  ];
+
+  it("no UI consumer hand-rolls the cost -> DTE negation", () => {
+    const offenders: string[] = [];
+    for (const rel of consumers) {
+      const src = readFileSync(new URL(`../../../../${rel}`, import.meta.url), "utf8");
+      // `X.cadenceDTE ?? -X.cadenceCostPct` and friends, or a bare negated cost field.
+      if (/\?\?\s*-\w+(\.\w+)*Cost(Pct|Pts)\b/.test(src) || /-\w+(\.\w+)*\.(stability|automaticity)CostPts\b/.test(src)) {
+        offenders.push(rel);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("returns all four values on one convention: negative = worse", () => {
+    const dtc = {
+      cadenceCostPct: 12,
+      stepTimeCvCostPct: 18,
+      stabilityCostPts: 6,
+      automaticityCostPts: 4,
+      summary: "",
+      cmiClassification: "mutual_interference" as const,
+    };
+    const r = resolveDteValues(dtc as never);
+    // A uniformly degraded walk must produce four negative numbers, not a mix.
+    expect(r.cadenceDte).toBeLessThan(0);
+    expect(r.stepTimeCvDte).toBeLessThan(0);
+    expect(r.stabilityDte).toBeLessThan(0);
+    expect(r.automaticityDte).toBeLessThan(0);
   });
 });

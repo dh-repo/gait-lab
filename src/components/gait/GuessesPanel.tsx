@@ -41,7 +41,8 @@ export function GuessesPanel({
 }
 
 function DualTaskCard({ dualTaskCost }: { dualTaskCost: DualTaskCost }) {
-  const { cadenceDte, stepTimeCvDte } = resolveDteValues(dualTaskCost);
+  const { cadenceDte, stepTimeCvDte, stabilityDte, automaticityDte } =
+    resolveDteValues(dualTaskCost);
   return (
         <Card className="border-[color-mix(in_oklab,var(--color-accent)_35%,var(--color-border))]">
           <CardHeader className="pb-2">
@@ -60,11 +61,11 @@ function DualTaskCard({ dualTaskCost }: { dualTaskCost: DualTaskCost }) {
             <DtcStat label="Step Time CV DTE" value={`${stepTimeCvDte.toFixed(1)}%`} />
             <DtcStat
               label="Stability DTE"
-              value={`${(-dualTaskCost.stabilityCostPts).toFixed(0)} pts`}
+              value={`${stabilityDte.toFixed(0)} pts`}
             />
             <DtcStat
               label="Automaticity DTE"
-              value={`${(-dualTaskCost.automaticityCostPts).toFixed(0)} pts`}
+              value={`${automaticityDte.toFixed(0)} pts`}
             />
           </CardContent>
         </Card>

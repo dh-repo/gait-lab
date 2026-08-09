@@ -18,6 +18,7 @@ import {
 } from "@/lib/gait/ratings";
 import { computeGaitAngleAnalysis, type GaitAngleAnalysis } from "@/lib/gait/angles";
 import type { AnalysisResult } from "@/lib/gait/types";
+import { resolveDteValues } from "@/lib/gait/guesses";
 import { cn } from "@/lib/utils";
 import { Activity, ShieldAlert, UserCheck, Printer } from "lucide-react";
 
@@ -450,25 +451,22 @@ export function ClinicalReportView({
             <div className="rounded-md border border-[var(--color-border)] p-2.5 bg-[var(--color-surface-2)] print:bg-gray-50">
               <p className="text-[10px] text-[var(--color-subtle)]">Cadence DTE</p>
               <p className="tabular text-sm font-semibold">
-                {(result.dualTaskCost.cadenceDTE ?? -result.dualTaskCost.cadenceCostPct).toFixed(0)}%
+                {resolveDteValues(result.dualTaskCost).cadenceDte.toFixed(0)}%
               </p>
             </div>
             <div className="rounded-md border border-[var(--color-border)] p-2.5 bg-[var(--color-surface-2)] print:bg-gray-50">
               <p className="text-[10px] text-[var(--color-subtle)]">Step Time CV DTE</p>
               <p className="tabular text-sm font-semibold">
-                {(
-                  result.dualTaskCost.stepTimeCvDTE ?? -result.dualTaskCost.stepTimeCvCostPct
-                ).toFixed(0)}
-                %
+                {resolveDteValues(result.dualTaskCost).stepTimeCvDte.toFixed(0)}%
               </p>
             </div>
             <div className="rounded-md border border-[var(--color-border)] p-2.5 bg-[var(--color-surface-2)] print:bg-gray-50">
               <p className="text-[10px] text-[var(--color-subtle)]">Stability DTE</p>
-              <p className="tabular text-sm font-semibold">{(-result.dualTaskCost.stabilityCostPts).toFixed(0)} pts</p>
+              <p className="tabular text-sm font-semibold">{resolveDteValues(result.dualTaskCost).stabilityDte.toFixed(0)} pts</p>
             </div>
             <div className="rounded-md border border-[var(--color-border)] p-2.5 bg-[var(--color-surface-2)] print:bg-gray-50">
               <p className="text-[10px] text-[var(--color-subtle)]">Automaticity DTE</p>
-              <p className="tabular text-sm font-semibold">{(-result.dualTaskCost.automaticityCostPts).toFixed(0)} pts</p>
+              <p className="tabular text-sm font-semibold">{resolveDteValues(result.dualTaskCost).automaticityDte.toFixed(0)} pts</p>
             </div>
           </CardContent>
         </Card>

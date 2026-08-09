@@ -18,10 +18,17 @@ import { clamp } from "./landmarks";
 export function resolveDteValues(dtc: DualTaskCost): {
   cadenceDte: number;
   stepTimeCvDte: number;
+  stabilityDte: number;
+  automaticityDte: number;
 } {
   return {
     cadenceDte: dtc.cadenceDTE ?? -dtc.cadenceCostPct,
     stepTimeCvDte: dtc.stepTimeCvDTE ?? -dtc.stepTimeCvCostPct,
+    // stabilityCostPts/automaticityCostPts are computed as (single - dual), i.e.
+    // positive = worse. Negated here so all four values share one convention:
+    // NEGATIVE = worse under dual task.
+    stabilityDte: -dtc.stabilityCostPts,
+    automaticityDte: -dtc.automaticityCostPts,
   };
 }
 

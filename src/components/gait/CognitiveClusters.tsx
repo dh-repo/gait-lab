@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { JointAnglesChart } from "./JointAnglesChart";
 import type { GaitMetrics, DualTaskCost } from "@/lib/gait/types";
+import { resolveDteValues } from "@/lib/gait/guesses";
 import type { GaitAngleAnalysis } from "@/lib/gait/angles";
 import { computeGaitAngleAnalysis } from "@/lib/gait/angles";
 import { cn } from "@/lib/utils";
@@ -83,9 +84,15 @@ export function CognitiveClusters({
         : "Pathological";
 
   // 2. Symmetry status
-  const saVal = metrics.symmetryAngle ?? (metrics.stepTimeAsymmetry * 100);
-  const symmetryStatus: ClinicalStatus =
-    saVal < 3.0 ? "Normal" : saVal <= 6.0 ? "Borderline" : "Pathological";
+  //
+  // No substitution. This previously fell back to `stepTimeAsymmetry * 100` and
+  // judged THAT against Zifchock SA thresholds (3.0/6.0) — a different quantity
+  // scored on SA's scale — so the header could read "SA: N/A" beside a definite
+  // "Outside typical range" verdict. A clinical status must be null when its own
+  // input is missing, exactly as dualTaskStatus below already does.
+  const saVal = metrics.symmetryAngle ?? null;
+  const symmetryStatus: ClinicalStatus | null =
+    saVal == null ? null : saVal < 3.0 ? "Normal" : saVal <= 6.0 ? "Borderline" : "Pathological";
 
   // 3. Trunk stability status
   const stabilityStatus: ClinicalStatus =
@@ -97,12 +104,9 @@ export function CognitiveClusters({
 
   // 4. Dual-task cost status
   // `cadenceCostPct` is the negated DTE in analysis.ts, so flip its sign when used as fallback.
-  const dteCadence = dualTaskCost
-    ? (dualTaskCost.cadenceDTE ?? -dualTaskCost.cadenceCostPct)
-    : null;
-  const dteStepTimeCv = dualTaskCost
-    ? (dualTaskCost.stepTimeCvDTE ?? -dualTaskCost.stepTimeCvCostPct)
-    : null;
+  const dte = dualTaskCost ? resolveDteValues(dualTaskCost) : null;
+  const dteCadence = dte ? dte.cadenceDte : null;
+  const dteStepTimeCv = dte ? dte.stepTimeCvDte : null;
   const dualTaskStatus: ClinicalStatus | null =
     dteCadence == null
       ? null
@@ -278,8 +282,11 @@ export function CognitiveClusters({
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Badge tone={statusTone(symmetryStatus)} data-testid="status-badge-symmetry">
-                  {STATUS_LABEL[symmetryStatus]}
+                <Badge
+                  tone={symmetryStatus ? statusTone(symmetryStatus) : "info"}
+                  data-testid="status-badge-symmetry"
+                >
+                  {symmetryStatus ? STATUS_LABEL[symmetryStatus] : "Not assessed"}
                 </Badge>
                 <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular">
                   <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
@@ -599,7 +606,7 @@ export function CognitiveClusters({
                 <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Stability DTE</p>
                 <p className="tabular text-lg font-bold mt-0.5">
                   {/* DTE-signed (negative = worse), matching the sibling DTE tiles. */}
-                  {dualTaskCost ? `${(-(dualTaskCost.stabilityCostPts ?? 0)).toFixed(1)} pts` : "N/A"}
+                  {dte ? `${dte.stabilityDte.toFixed(1)} pts` : "N/A"}
                 </p>
                 <p className="text-[10px] text-[var(--color-subtle)] mt-1">
                   {dualTaskCost ? "Trunk stability point shift" : NOT_ASSESSED_CAPTION}
