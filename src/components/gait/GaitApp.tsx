@@ -412,8 +412,13 @@ export function GaitApp() {
 
       const duration = video.duration || 1;
       const targetFps = 30;
-      const windowDuration = duration > 10 ? Math.min(12, Math.max(10, 10)) : duration;
-      const windowStart = duration > 10 ? (duration - windowDuration) / 2 : 0;
+      // 20s target: a variability estimate's error scales as 1/sqrt(strides), so a 10s
+      // window (~9 strides) carries ~24% relative error on stepTimeCV plus a ~17% low
+      // bias. 20s (~18 strides) roughly halves both. Beyond 20s returns diminish (4x the
+      // strides to halve the error again) while seek cost grows linearly.
+      const WINDOW_TARGET_SEC = 20;
+      const windowDuration = duration > WINDOW_TARGET_SEC ? WINDOW_TARGET_SEC : duration;
+      const windowStart = duration > WINDOW_TARGET_SEC ? (duration - windowDuration) / 2 : 0;
       const sampleCount = Math.max(15, Math.floor(windowDuration * targetFps));
       const dt = windowDuration > 0 && sampleCount > 1 ? windowDuration / sampleCount : 1 / targetFps;
       const rawFrames: PoseFrame[] = [];

@@ -26,6 +26,17 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
     Rknee: Number(s.rightKneeAngle.toFixed(1)),
   }));
 
+  // Variability error scales as 1/sqrt(strides): measured on synthetic walks with a
+  // known true CV, ~9 strides gives ~24% relative error and a ~17% low bias, ~18
+  // strides roughly halves both. Show the count, and flag it when it is too small.
+  const strideCount = Math.floor(metrics.stepCount / 2);
+  const strideBasis =
+    strideCount > 0
+      ? strideCount < 12
+        ? `from ${strideCount} strides — wide margin, treat as indicative`
+        : `from ${strideCount} strides`
+      : undefined;
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -137,12 +148,14 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
           value={(metrics.stepTimeCV * 100).toFixed(0)}
           unit="%"
           ci={metrics.confidenceIntervals?.stepTimeCV}
+          basis={strideBasis}
         />
         <Stat
           label="Stride-time CV"
           value={(metrics.strideTimeCV * 100).toFixed(0)}
           unit="%"
           ci={metrics.confidenceIntervals?.strideTimeCV}
+          basis={strideBasis}
         />
         <Stat
           label="Pelvic obliquity"
@@ -329,11 +342,15 @@ function Stat({
   value,
   unit,
   ci,
+  basis,
 }: {
   label: string;
   value: string;
   unit: string;
   ci?: { ci95Lower: number | null; ci95Upper: number | null };
+  /** Sample size this estimate rests on. Shown for variability metrics, whose
+   *  error scales as 1/sqrt(strides) — the count is as important as the value. */
+  basis?: string;
 }) {
   const hasCI = ci && ci.ci95Lower != null && ci.ci95Upper != null;
   return (
@@ -347,6 +364,11 @@ function Stat({
         {hasCI && (
           <span className="tabular text-[10px] text-[var(--color-subtle)] font-normal">
             [95% CI: {ci.ci95Lower?.toFixed(1)} - {ci.ci95Upper?.toFixed(1)}]
+          </span>
+        )}
+        {basis && (
+          <span className="tabular text-[10px] text-[var(--color-subtle)] font-normal">
+            {basis}
           </span>
         )}
       </CardContent>
