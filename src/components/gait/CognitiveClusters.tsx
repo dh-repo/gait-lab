@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp, Activity, Layers, Zap, Brain } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { JointAnglesChart } from "./JointAnglesChart";
@@ -36,6 +35,25 @@ const STATUS_LABEL: Record<ClinicalStatus, string> = {
 const NOT_ASSESSED_CAPTION =
   "Requires a paired single-task and dual-task recording";
 
+function MaterialStatusBadge({
+  status,
+  label,
+  testId,
+}: {
+  status: ClinicalStatus | null;
+  label: string;
+  testId: string;
+}) {
+  const tone =
+    status === "Normal" ? "success" : status === "Borderline" ? "warn" : status === "Pathological" ? "info" : "neutral";
+
+  return (
+    <Badge tone={tone} data-testid={testId}>
+      {label}
+    </Badge>
+  );
+}
+
 export function CognitiveClusters({
   metrics,
   dualTaskCost,
@@ -43,7 +61,7 @@ export function CognitiveClusters({
   angleAnalysis,
   className,
 }: CognitiveClustersProps) {
-  // All clusters open by default so key metrics remain scannable without extra clicks
+  // All sections open for a scannable clinical table view (tests also assert dual-task copy in-DOM)
   const [openClusters, setOpenClusters] = useState<Record<string, boolean>>({
     spatiotemporal: true,
     symmetry: true,
@@ -72,10 +90,6 @@ export function CognitiveClusters({
 
   // Derived metrics calculations
   const cadence = metrics.cadenceSpm || 0;
-  // No `|| 0.5` fallback: analysis.ts sets avgStepTimeSec to 0 when no step
-  // intervals were recovered, and a 0.5 substitution rendered a hard "1.00 s"
-  // stride time that no measurement produced. Null means unmeasured, and the
-  // tile says so — the same N/A convention MetricsPanel already uses.
   const strideTimeSec =
     metrics.avgStepTimeSec > 0 ? metrics.avgStepTimeSec * 2 : null;
   const stepTimeCvPct = (metrics.stepTimeCV * 100).toFixed(1);
@@ -91,12 +105,6 @@ export function CognitiveClusters({
         : "Pathological";
 
   // 2. Symmetry status
-  //
-  // No substitution. This previously fell back to `stepTimeAsymmetry * 100` and
-  // judged THAT against Zifchock SA thresholds (3.0/6.0) — a different quantity
-  // scored on SA's scale — so the header could read "SA: N/A" beside a definite
-  // "Outside typical range" verdict. A clinical status must be null when its own
-  // input is missing, exactly as dualTaskStatus below already does.
   const saVal = metrics.symmetryAngle ?? null;
   const symmetryStatus: ClinicalStatus | null =
     saVal == null ? null : saVal < 3.0 ? "Normal" : saVal <= 6.0 ? "Borderline" : "Pathological";
@@ -110,7 +118,6 @@ export function CognitiveClusters({
         : "Pathological";
 
   // 4. Dual-task cost status
-  // `cadenceCostPct` is the negated DTE in analysis.ts, so flip its sign when used as fallback.
   const dte = dualTaskCost ? resolveDteValues(dualTaskCost) : null;
   const dteCadence = dte ? dte.cadenceDte : null;
   const dteStepTimeCv = dte ? dte.stepTimeCvDte : null;
@@ -123,31 +130,22 @@ export function CognitiveClusters({
           ? "Borderline"
           : "Pathological";
 
-  const statusTone = (status: ClinicalStatus): "success" | "warn" | "info" => {
-    switch (status) {
-      case "Normal":
-        return "success";
-      case "Borderline":
-        return "warn";
-      case "Pathological":
-        // Outside-range is attention, not a system error — avoid danger red
-        return "info";
-    }
-  };
-
   return (
     <section
       role="region"
       aria-label="Gait metric findings by cluster"
       data-testid="cognitive-clusters"
-      className={cn("flex flex-col gap-4 w-full", className)}
+      className={cn(
+        "flex w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)]",
+        className,
+      )}
     >
       {/* CLUSTER 1: Spatiotemporal Pace */}
-      <Card
+      <div
         data-testid="cluster-spatiotemporal"
-        className="border-[var(--color-border)] overflow-hidden transition-colors"
+        className="border-b border-[var(--color-border)]"
       >
-        <CardHeader
+        <div
           tabIndex={0}
           role="button"
           aria-expanded={openClusters.spatiotemporal}
@@ -157,13 +155,13 @@ export function CognitiveClusters({
           onClick={() => toggleCluster("spatiotemporal")}
           onKeyDown={(e) => handleHeaderKeyDown("spatiotemporal", e)}
           data-testid="cluster-header-0"
-          className="cursor-pointer select-none border-b border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 hover:bg-[var(--color-surface-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+          className="cursor-pointer select-none border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 hover:bg-[var(--color-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <Activity className="size-5 text-[var(--color-primary)]" />
               <div>
-                <CardTitle className="text-base font-semibold">1. Spatiotemporal Pace</CardTitle>
+                <h3 className="text-base font-medium text-[var(--color-fg)]">1. Spatiotemporal Pace</h3>
                 <p className="text-xs text-[var(--color-muted)]">
                   Cadence, stride time, & step interval variability
                 </p>
@@ -171,101 +169,99 @@ export function CognitiveClusters({
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Badge tone={statusTone(paceStatus)} data-testid="status-badge-pace">
-                  {STATUS_LABEL[paceStatus]}
-                </Badge>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular">
-                  <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
+                <MaterialStatusBadge
+                  status={paceStatus}
+                  label={STATUS_LABEL[paceStatus]}
+                  testId="status-badge-pace"
+                />
+                <div className="flex items-center gap-2 text-xs font-semibold tabular-nums">
+                  <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 border border-[var(--color-border)] text-[var(--color-fg)]">
                     {cadence.toFixed(0)} spm
                   </span>
-                  <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
+                  <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 border border-[var(--color-border)] text-[var(--color-fg)]">
                     CV: {stepTimeCvPct}%
                   </span>
                 </div>
               </div>
               {openClusters.spatiotemporal ? (
-                <ChevronUp className="size-4 text-[var(--color-subtle)]" />
+                <ChevronUp className="size-4 text-[var(--color-muted)]" />
               ) : (
-                <ChevronDown className="size-4 text-[var(--color-subtle)]" />
+                <ChevronDown className="size-4 text-[var(--color-muted)]" />
               )}
             </div>
           </div>
-        </CardHeader>
+        </div>
 
         {openClusters.spatiotemporal && (
-          <CardContent
+          <div
             id="cluster-content-spatiotemporal"
             role="region"
             aria-labelledby="cluster-header-spatiotemporal"
             className="p-4 space-y-4"
           >
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Cadence</p>
-                <p className="tabular text-lg font-bold mt-0.5">{cadence.toFixed(0)} <span className="text-xs font-normal text-[var(--color-muted)]">spm</span></p>
-                {metrics.confidenceIntervals?.["cadence"] && (
-                  <p className="tabular text-[10px] text-[var(--color-subtle)] mt-1">
-                    95% CI: [{metrics.confidenceIntervals["cadence"].ci95Lower?.toFixed(0)} – {metrics.confidenceIntervals["cadence"].ci95Upper?.toFixed(0)}]
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Stride Time</p>
-                <p className="tabular text-lg font-bold mt-0.5">
-                  {strideTimeSec != null ? (
-                    <>
-                      {strideTimeSec.toFixed(2)}{" "}
-                      <span className="text-xs font-normal text-[var(--color-muted)]">s</span>
-                    </>
-                  ) : (
-                    "N/A"
-                  )}
-                </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
-                  {strideTimeSec != null ? "Mean step interval x 2" : "No step intervals detected"}
-                </p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Step Time</p>
-                <p className="tabular text-lg font-bold mt-0.5">
-                  {metrics.avgStepTimeSec > 0 ? (
-                    <>
-                      {metrics.avgStepTimeSec.toFixed(2)}{" "}
-                      <span className="text-xs font-normal text-[var(--color-muted)]">s</span>
-                    </>
-                  ) : (
-                    "N/A"
-                  )}
-                </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
-                  {metrics.avgStepTimeSec > 0 ? "Mean step interval" : "No step intervals detected"}
-                </p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Step Time CV</p>
-                <p className="tabular text-lg font-bold mt-0.5">{stepTimeCvPct}%</p>
-                {metrics.confidenceIntervals?.["stepTimeCV"] ? (
-                  <p className="tabular text-[10px] text-[var(--color-subtle)] mt-1">
-                    95% CI: [{(metrics.confidenceIntervals["stepTimeCV"].ci95Lower! * 100).toFixed(1)}% – {(metrics.confidenceIntervals["stepTimeCV"].ci95Upper! * 100).toFixed(1)}%]
-                  </p>
-                ) : (
-                  <p className="text-[10px] text-[var(--color-subtle)] mt-1">Lower = More Regular</p>
-                )}
-              </div>
+            <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+              <table className="clinical-table w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[var(--color-surface-2)] text-[var(--color-muted)] font-medium border-b border-[var(--color-border)]">
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Parameter</th>
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Value</th>
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Interpretation / Basis</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Cadence</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {cadence.toFixed(0)} <span className="font-normal text-xs text-[var(--color-muted)]">spm</span>
+                    </td>
+                    <td className="px-3 py-1 font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
+                      {metrics.confidenceIntervals?.["cadence"]
+                        ? `95% CI: [${metrics.confidenceIntervals["cadence"].ci95Lower?.toFixed(0)} – ${metrics.confidenceIntervals["cadence"].ci95Upper?.toFixed(0)}]`
+                        : "Steps per minute"}
+                    </td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Stride Time</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {strideTimeSec != null ? `${strideTimeSec.toFixed(2)} s` : "N/A"}
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">
+                      {strideTimeSec != null ? "Mean step interval x 2" : "No step intervals detected"}
+                    </td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Step Time</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {metrics.avgStepTimeSec > 0 ? `${metrics.avgStepTimeSec.toFixed(2)} s` : "N/A"}
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">
+                      {metrics.avgStepTimeSec > 0 ? "Mean step interval" : "No step intervals detected"}
+                    </td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Step Time CV</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {stepTimeCvPct}%
+                    </td>
+                    <td className="px-3 py-1 font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
+                      {metrics.confidenceIntervals?.["stepTimeCV"]
+                        ? `95% CI: [${(metrics.confidenceIntervals["stepTimeCV"].ci95Lower! * 100).toFixed(1)}% – ${(metrics.confidenceIntervals["stepTimeCV"].ci95Upper! * 100).toFixed(1)}%]`
+                        : "Lower = More Regular"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </div>
 
       {/* CLUSTER 2: Inter-limb Symmetry & ROM */}
-      <Card
+      <div
         data-testid="cluster-symmetry"
-        className="border-[var(--color-border)] overflow-hidden transition-colors"
+        className="border-b border-[var(--color-border)] last:border-b-0"
       >
-        <CardHeader
+        <div
           tabIndex={0}
           role="button"
           aria-expanded={openClusters.symmetry}
@@ -275,13 +271,13 @@ export function CognitiveClusters({
           onClick={() => toggleCluster("symmetry")}
           onKeyDown={(e) => handleHeaderKeyDown("symmetry", e)}
           data-testid="cluster-header-1"
-          className="cursor-pointer select-none border-b border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 hover:bg-[var(--color-surface-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+          className="cursor-pointer select-none border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 hover:bg-[var(--color-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <Layers className="size-5 text-[var(--color-accent)]" />
+              <Layers className="size-5 text-[var(--color-success)]" />
               <div>
-                <CardTitle className="text-base font-semibold">2. Inter-limb Symmetry & ROM</CardTitle>
+                <h3 className="text-base font-medium text-[var(--color-fg)]">2. Inter-limb Symmetry & ROM</h3>
                 <p className="text-xs text-[var(--color-muted)]">
                   Zifchock SA %, step-time asymmetry, stance/swing ratio, & joint kinematics
                 </p>
@@ -289,84 +285,91 @@ export function CognitiveClusters({
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Badge
-                  tone={symmetryStatus ? statusTone(symmetryStatus) : "info"}
-                  data-testid="status-badge-symmetry"
-                >
-                  {symmetryStatus ? STATUS_LABEL[symmetryStatus] : "Not assessed"}
-                </Badge>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular">
-                  <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
+                <MaterialStatusBadge
+                  status={symmetryStatus}
+                  label={symmetryStatus ? STATUS_LABEL[symmetryStatus] : "Not assessed"}
+                  testId="status-badge-symmetry"
+                />
+                <div className="flex items-center gap-2 text-xs font-semibold tabular-nums">
+                  <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 border border-[var(--color-border)] text-[var(--color-fg)]">
                     SA: {symmetryAngleText}
                   </span>
-                  <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
+                  <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 border border-[var(--color-border)] text-[var(--color-fg)]">
                     Asym: {(metrics.stepTimeAsymmetry * 100).toFixed(0)}%
                   </span>
                 </div>
               </div>
               {openClusters.symmetry ? (
-                <ChevronUp className="size-4 text-[var(--color-subtle)]" />
+                <ChevronUp className="size-4 text-[var(--color-muted)]" />
               ) : (
-                <ChevronDown className="size-4 text-[var(--color-subtle)]" />
+                <ChevronDown className="size-4 text-[var(--color-muted)]" />
               )}
             </div>
           </div>
-        </CardHeader>
+        </div>
 
         {openClusters.symmetry && (
-          <CardContent
+          <div
             id="cluster-content-symmetry"
             role="region"
             aria-labelledby="cluster-header-symmetry"
             className="p-4 space-y-4"
           >
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Symmetry Angle (SA)</p>
-                <p className="tabular text-lg font-bold mt-0.5">{symmetryAngleText}</p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Zifchock et al. (0% = perfect)</p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Step-Time Asymmetry</p>
-                <p className="tabular text-lg font-bold mt-0.5">{(metrics.stepTimeAsymmetry * 100).toFixed(1)}%</p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">L/R timing difference ratio</p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Stance / Swing Ratio</p>
-                <p className="tabular text-lg font-bold mt-0.5">
-                  {metrics.leftStancePct != null && metrics.leftSwingPct != null
-                    ? (metrics.leftStancePct / metrics.leftSwingPct).toFixed(2)
-                    : "N/A (Requires Side View)"}
-                </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Normal ~1.50 (60% / 40%)</p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Double Support</p>
-                <p className="tabular text-lg font-bold mt-0.5">
-                  {metrics.doubleSupportPct != null ? `${metrics.doubleSupportPct.toFixed(1)}%` : "N/A"}
-                </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Percent of stride phase</p>
-              </div>
+            <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+              <table className="clinical-table w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[var(--color-surface-2)] text-[var(--color-muted)] font-medium border-b border-[var(--color-border)]">
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Parameter</th>
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Value</th>
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Reference / Basis</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Symmetry Angle (SA)</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">{symmetryAngleText}</td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">Zifchock et al. (0% = perfect)</td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Step-Time Asymmetry</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">{(metrics.stepTimeAsymmetry * 100).toFixed(1)}%</td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">L/R timing difference ratio</td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Stance / Swing Ratio</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {metrics.leftStancePct != null && metrics.leftSwingPct != null
+                        ? (metrics.leftStancePct / metrics.leftSwingPct).toFixed(2)
+                        : "N/A (Requires Side View)"}
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">Normal ~1.50 (60% / 40%)</td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Double Support</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {metrics.doubleSupportPct != null ? `${metrics.doubleSupportPct.toFixed(1)}%` : "N/A"}
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">Percent of stride phase</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
             {/* Zeni Kinematic Gait Phase Progress Bars */}
-            <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-fg)]">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 space-y-3">
+              <h4 className="text-xs font-medium uppercase tracking-wider text-[var(--color-fg)]">
                 Zeni Kinematic Gait Phase Breakdown
               </h4>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs font-medium">
+                  <div className="flex justify-between text-xs font-medium text-[var(--color-fg)]">
                     <span>Left Stance Phase</span>
-                    <span className="tabular">{metrics.leftStancePct != null ? `${metrics.leftStancePct.toFixed(1)}%` : "N/A"}</span>
+                    <span className="tabular-nums font-mono">{metrics.leftStancePct != null ? `${metrics.leftStancePct.toFixed(1)}%` : "N/A"}</span>
                   </div>
                   {metrics.leftStancePct != null ? (
                     <Progress
                       value={metrics.leftStancePct}
-                      className="h-2"
+                      className="h-1.5 bg-[var(--color-border)] [&>div]:bg-[var(--color-fg)]"
                       role="progressbar"
                       aria-valuenow={metrics.leftStancePct}
                       aria-valuemin={0}
@@ -374,19 +377,19 @@ export function CognitiveClusters({
                       aria-label="Left stance phase percentage"
                     />
                   ) : (
-                    <div className="h-2 rounded bg-[var(--color-border)]" />
+                    <div className="h-2 rounded bg-[#DADCE0]" />
                   )}
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs font-medium">
+                  <div className="flex justify-between text-xs font-medium text-[var(--color-fg)]">
                     <span>Right Stance Phase</span>
-                    <span className="tabular">{metrics.rightStancePct != null ? `${metrics.rightStancePct.toFixed(1)}%` : "N/A"}</span>
+                    <span className="tabular-nums font-mono">{metrics.rightStancePct != null ? `${metrics.rightStancePct.toFixed(1)}%` : "N/A"}</span>
                   </div>
                   {metrics.rightStancePct != null ? (
                     <Progress
                       value={metrics.rightStancePct}
-                      className="h-2"
+                      className="h-1.5 bg-[var(--color-border)] [&>div]:bg-[var(--color-fg)]"
                       role="progressbar"
                       aria-valuenow={metrics.rightStancePct}
                       aria-valuemin={0}
@@ -394,19 +397,19 @@ export function CognitiveClusters({
                       aria-label="Right stance phase percentage"
                     />
                   ) : (
-                    <div className="h-2 rounded bg-[var(--color-border)]" />
+                    <div className="h-2 rounded bg-[#DADCE0]" />
                   )}
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs font-medium">
+                  <div className="flex justify-between text-xs font-medium text-[var(--color-fg)]">
                     <span>Double Support Time</span>
-                    <span className="tabular">{metrics.doubleSupportPct != null ? `${metrics.doubleSupportPct.toFixed(1)}%` : "N/A"}</span>
+                    <span className="tabular-nums font-mono">{metrics.doubleSupportPct != null ? `${metrics.doubleSupportPct.toFixed(1)}%` : "N/A"}</span>
                   </div>
                   {metrics.doubleSupportPct != null ? (
                     <Progress
                       value={metrics.doubleSupportPct}
-                      className="h-2"
+                      className="h-1.5 bg-[var(--color-border)] [&>div]:bg-[var(--color-fg)]"
                       role="progressbar"
                       aria-valuenow={metrics.doubleSupportPct}
                       aria-valuemin={0}
@@ -414,7 +417,7 @@ export function CognitiveClusters({
                       aria-label="Double support time percentage"
                     />
                   ) : (
-                    <div className="h-2 rounded bg-[var(--color-border)]" />
+                    <div className="h-2 rounded bg-[#DADCE0]" />
                   )}
                 </div>
               </div>
@@ -422,16 +425,16 @@ export function CognitiveClusters({
 
             {/* Expandable Joint Angles Chart ROM Waveforms */}
             <JointAnglesChart angleAnalysis={derivedAngleAnalysis} />
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </div>
 
       {/* CLUSTER 3: Trunk Stability & Smoothness */}
-      <Card
+      <div
         data-testid="cluster-stability"
-        className="border-[var(--color-border)] overflow-hidden transition-colors"
+        className="border-b border-[var(--color-border)] last:border-b-0"
       >
-        <CardHeader
+        <div
           tabIndex={0}
           role="button"
           aria-expanded={openClusters.stability}
@@ -441,13 +444,13 @@ export function CognitiveClusters({
           onClick={() => toggleCluster("stability")}
           onKeyDown={(e) => handleHeaderKeyDown("stability", e)}
           data-testid="cluster-header-2"
-          className="cursor-pointer select-none border-b border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 hover:bg-[var(--color-surface-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+          className="cursor-pointer select-none border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 hover:bg-[var(--color-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <Zap className="size-5 text-[var(--color-warn)]" />
+              <Zap className="size-5 text-[var(--color-warn-text,#b06000)]" />
               <div>
-                <CardTitle className="text-base font-semibold">3. Trunk Stability & Smoothness</CardTitle>
+                <h3 className="text-base font-medium text-[var(--color-fg)]">3. Trunk Stability & Smoothness</h3>
                 <p className="text-xs text-[var(--color-muted)]">
                   Lateral sway, vertical CoM bounce, pelvic obliquity, & trajectory smoothness
                 </p>
@@ -455,79 +458,88 @@ export function CognitiveClusters({
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Badge tone={statusTone(stabilityStatus)} data-testid="status-badge-stability">
-                  {STATUS_LABEL[stabilityStatus]}
-                </Badge>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular">
-                  <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
+                <MaterialStatusBadge
+                  status={stabilityStatus}
+                  label={STATUS_LABEL[stabilityStatus]}
+                  testId="status-badge-stability"
+                />
+                <div className="flex items-center gap-2 text-xs font-semibold tabular-nums">
+                  <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 border border-[var(--color-border)] text-[var(--color-fg)]">
                     Smooth: {(metrics.pathSmoothness * 100).toFixed(0)}%
                   </span>
-                  <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
+                  <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 border border-[var(--color-border)] text-[var(--color-fg)]">
                     Auto: {metrics.automaticityScore.toFixed(0)}/100
                   </span>
                 </div>
               </div>
               {openClusters.stability ? (
-                <ChevronUp className="size-4 text-[var(--color-subtle)]" />
+                <ChevronUp className="size-4 text-[var(--color-muted)]" />
               ) : (
-                <ChevronDown className="size-4 text-[var(--color-subtle)]" />
+                <ChevronDown className="size-4 text-[var(--color-muted)]" />
               )}
             </div>
           </div>
-        </CardHeader>
+        </div>
 
         {openClusters.stability && (
-          <CardContent
+          <div
             id="cluster-content-stability"
             role="region"
             aria-labelledby="cluster-header-stability"
             className="p-4 space-y-4"
           >
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Lateral Sway</p>
-                <p className="tabular text-lg font-bold mt-0.5">
-                  {metrics.lateralSway != null ? metrics.lateralSway.toFixed(3) : "N/A"}
-                </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Normalized CoM side displacement</p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Vertical Bounce</p>
-                <p className="tabular text-lg font-bold mt-0.5">{metrics.verticalBounce.toFixed(3)}</p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Up-down CoM oscillation index</p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Pelvic Obliquity</p>
-                <p className="tabular text-lg font-bold mt-0.5">
-                  {metrics.pelvicObliquity != null ? metrics.pelvicObliquity.toFixed(3) : "N/A"}
-                </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Mean hip tilt index</p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Path Smoothness</p>
-                <p className="tabular text-lg font-bold mt-0.5">{(metrics.pathSmoothness * 100).toFixed(0)}%</p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Linear progression score</p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Automaticity</p>
-                <p className="tabular text-lg font-bold mt-0.5">{metrics.automaticityScore.toFixed(0)} / 100</p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">Composite motor index</p>
-              </div>
+            <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+              <table className="clinical-table w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[var(--color-surface-2)] text-[var(--color-muted)] font-medium border-b border-[var(--color-border)]">
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Parameter</th>
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Value</th>
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Lateral Sway</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {metrics.lateralSway != null ? metrics.lateralSway.toFixed(3) : "N/A"}
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">Normalized CoM side displacement</td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Vertical Bounce</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">{metrics.verticalBounce.toFixed(3)}</td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">Up-down CoM oscillation index</td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Pelvic Obliquity</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {metrics.pelvicObliquity != null ? metrics.pelvicObliquity.toFixed(3) : "N/A"}
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">Mean hip tilt index</td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Path Smoothness</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">{(metrics.pathSmoothness * 100).toFixed(0)}%</td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">Linear progression score</td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Automaticity</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">{metrics.automaticityScore.toFixed(0)} / 100</td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">Composite motor index</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </div>
 
       {/* CLUSTER 4: Dual-Task Cognitive Cost */}
-      <Card
+      <div
         data-testid="cluster-dualtask"
-        className="border-[var(--color-border)] overflow-hidden transition-colors"
+        className="border-b border-[var(--color-border)] last:border-b-0"
       >
-        <CardHeader
+        <div
           tabIndex={0}
           role="button"
           aria-expanded={openClusters.dualtask}
@@ -537,13 +549,13 @@ export function CognitiveClusters({
           onClick={() => toggleCluster("dualtask")}
           onKeyDown={(e) => handleHeaderKeyDown("dualtask", e)}
           data-testid="cluster-header-3"
-          className="cursor-pointer select-none border-b border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 hover:bg-[var(--color-surface-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+          className="cursor-pointer select-none border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 hover:bg-[var(--color-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <Brain className="size-5 text-[var(--color-info)]" />
               <div>
-                <CardTitle className="text-base font-semibold">4. Dual-Task Cognitive Cost</CardTitle>
+                <h3 className="text-base font-medium text-[var(--color-fg)]">4. Dual-Task Cognitive Cost</h3>
                 <p className="text-xs text-[var(--color-muted)]">
                   Cadence & variability Dual-Task Effect (DTE), stability delta, & CMI classification
                 </p>
@@ -551,17 +563,16 @@ export function CognitiveClusters({
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Badge
-                  tone={dualTaskStatus ? statusTone(dualTaskStatus) : "info"}
-                  data-testid="status-badge-dualtask"
-                >
-                  {dualTaskStatus ? STATUS_LABEL[dualTaskStatus] : "Not assessed"}
-                </Badge>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular">
-                  <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)]">
+                <MaterialStatusBadge
+                  status={dualTaskStatus}
+                  label={dualTaskStatus ? STATUS_LABEL[dualTaskStatus] : "Not assessed"}
+                  testId="status-badge-dualtask"
+                />
+                <div className="flex items-center gap-2 text-xs font-semibold tabular-nums">
+                  <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 border border-[var(--color-border)] text-[var(--color-fg)]">
                     DTE: {dteCadence != null ? `${dteCadence.toFixed(1)}%` : "N/A"}
                   </span>
-                  <span className="rounded bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border)] capitalize">
+                  <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 border border-[var(--color-border)] text-[var(--color-fg)] capitalize">
                     {dualTaskCost?.cmiClassification
                       ? dualTaskCost.cmiClassification.replace(/_/g, " ")
                       : taskMode === "dual"
@@ -573,85 +584,84 @@ export function CognitiveClusters({
                 </div>
               </div>
               {openClusters.dualtask ? (
-                <ChevronUp className="size-4 text-[var(--color-subtle)]" />
+                <ChevronUp className="size-4 text-[var(--color-muted)]" />
               ) : (
-                <ChevronDown className="size-4 text-[var(--color-subtle)]" />
+                <ChevronDown className="size-4 text-[var(--color-muted)]" />
               )}
             </div>
           </div>
-        </CardHeader>
+        </div>
 
         {openClusters.dualtask && (
-          <CardContent
+          <div
             id="cluster-content-dualtask"
             role="region"
             aria-labelledby="cluster-header-dualtask"
             className="p-4 space-y-4"
           >
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Cadence DTE</p>
-                <p className="tabular text-lg font-bold mt-0.5">
-                  {dteCadence != null ? `${dteCadence.toFixed(1)}%` : "N/A"}
-                </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
-                  {dteCadence != null
-                    ? "Plummer & Eskes (2015) DTE formula"
-                    : NOT_ASSESSED_CAPTION}
-                </p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Step Time CV DTE</p>
-                <p className="tabular text-lg font-bold mt-0.5">
-                  {dteStepTimeCv != null ? `${dteStepTimeCv.toFixed(1)}%` : "N/A"}
-                </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
-                  {dteStepTimeCv != null
-                    ? "Secondary task variability impact"
-                    : NOT_ASSESSED_CAPTION}
-                </p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">Stability DTE</p>
-                <p className="tabular text-lg font-bold mt-0.5">
-                  {/* DTE-signed (negative = worse), matching the sibling DTE tiles. */}
-                  {dte ? `${dte.stabilityDte.toFixed(1)} pts` : "N/A"}
-                </p>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
-                  {dualTaskCost ? "Trunk stability point shift" : NOT_ASSESSED_CAPTION}
-                </p>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3 flex flex-col justify-between">
-                <div>
-                  <p className="text-[11px] text-[var(--color-subtle)] font-medium uppercase tracking-wide">CMI Classification</p>
-                  <div className="mt-1">
-                    <Badge tone="accent" className="capitalize text-xs">
-                      {dualTaskCost?.cmiClassification
-                        ? dualTaskCost.cmiClassification.replace(/_/g, " ")
-                        : "Single-Task Walk Baseline"}
-                    </Badge>
-                  </div>
-                </div>
-                <p className="text-[10px] text-[var(--color-subtle)] mt-1">
-                  {dualTaskCost
-                    ? "Kelly et al. (2010) cognitive interference"
-                    : NOT_ASSESSED_CAPTION}
-                </p>
-              </div>
+            <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+              <table className="clinical-table w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[var(--color-surface-2)] text-[var(--color-muted)] font-medium border-b border-[var(--color-border)]">
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Parameter</th>
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Value</th>
+                    <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Basis / Citation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Cadence DTE</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {dteCadence != null ? `${dteCadence.toFixed(1)}%` : "N/A"}
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">
+                      {dteCadence != null ? "Plummer & Eskes (2015) DTE formula" : NOT_ASSESSED_CAPTION}
+                    </td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Step Time CV DTE</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {dteStepTimeCv != null ? `${dteStepTimeCv.toFixed(1)}%` : "N/A"}
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">
+                      {dteStepTimeCv != null ? "Secondary task variability impact" : NOT_ASSESSED_CAPTION}
+                    </td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">Stability DTE</td>
+                    <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)]">
+                      {dte ? `${dte.stabilityDte.toFixed(1)} pts` : "N/A"}
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">
+                      {dualTaskCost ? "Trunk stability point shift" : NOT_ASSESSED_CAPTION}
+                    </td>
+                  </tr>
+                  <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">CMI Classification</td>
+                    <td className="px-3 py-1 font-medium text-[var(--color-fg)]">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#E8F0FE] text-[var(--color-info)] border border-[#D2E3FC] capitalize">
+                        {dualTaskCost?.cmiClassification
+                          ? dualTaskCost.cmiClassification.replace(/_/g, " ")
+                          : "Single-Task Walk Baseline"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1 text-[11px] text-[var(--color-muted)]">
+                      {dualTaskCost ? "Kelly et al. (2010) cognitive interference" : NOT_ASSESSED_CAPTION}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
             {dualTaskCost?.summary && (
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-xs leading-relaxed text-[var(--color-muted)]">
-                <p className="font-semibold text-[var(--color-fg)] mb-0.5">Dual-Task Interference Summary:</p>
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-xs leading-relaxed text-[var(--color-muted)]">
+                <p className="font-medium text-[var(--color-fg)] mb-0.5">Dual-Task Interference Summary:</p>
                 <p>{dualTaskCost.summary}</p>
               </div>
             )}
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </div>
     </section>
   );
 }

@@ -12,9 +12,9 @@ import {
   Pause,
   SkipBack,
   SkipForward,
-  Sliders,
+
   ClipboardCheck,
-  Users,
+
   Camera,
   Square,
   RefreshCw,
@@ -30,11 +30,11 @@ import { GuessesPanel } from "./GuessesPanel";
 import { GuidePanel } from "./GuidePanel";
 import { ReportPanel } from "./ReportPanel";
 import { CognitiveClusters } from "./CognitiveClusters";
-import { ScoreRing } from "./ScoreRing";
 import { SamplePicker } from "./SamplePicker";
 import { SessionHistoryDrawer } from "./SessionHistoryDrawer";
 import { SessionComparisonView } from "./SessionComparisonView";
 import { WorkflowHeader, type WorkflowStage } from "./WorkflowHeader";
+import { SideNavRail } from "./SideNavRail";
 import { computeDualTaskCost, computeGaitMetrics, matchPeople, tracksToPeople } from "@/lib/gait/analysis";
 import { computeGaitAngleAnalysis, calculateKneeFlexion } from "@/lib/gait/angles";
 import { detectGaitEventsZeni } from "@/lib/gait/events";
@@ -191,6 +191,9 @@ export function GaitApp() {
   const [viewMode, setViewMode] = useState<"workflow" | "comparison">("workflow");
   const [compareSessionA, setCompareSessionA] = useState<GaitSessionRecord | null>(null);
   const [compareSessionB, setCompareSessionB] = useState<GaitSessionRecord | null>(null);
+  // Collapsed by default — stage rail is the primary nav; rail is a secondary deep-link only.
+  const [isSideNavCollapsed, setIsSideNavCollapsed] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Live WebCam State
   const [inputMode, setInputMode] = useState<"file" | "webcam">("file");
@@ -1052,7 +1055,7 @@ export function GaitApp() {
     phase === "loading_model" || phase === "scanning" || phase === "analyzing";
 
   return (
-    <div className="relative min-h-dvh bg-[var(--color-bg)] text-[var(--color-fg)]">
+    <div className="relative min-h-dvh bg-[var(--color-bg)] text-[var(--color-fg)] flex flex-col">
       {/* Sticky Semantic Workflow Header */}
       <WorkflowHeader
         currentStage={computedStage}
@@ -1062,9 +1065,39 @@ export function GaitApp() {
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenCompare={() => setViewMode("comparison")}
         fileName={fileName}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        isSideNavCollapsed={isSideNavCollapsed}
+        onToggleSideNav={() => setIsSideNavCollapsed((prev) => !prev)}
       />
 
-      <main className="relative mx-auto flex w-full max-w-[1120px] flex-col gap-8 px-5 pb-20 pt-[calc(var(--grok-banner-h,0px)+1.5rem)] sm:px-8">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Navigation Rail Sidebar */}
+        <SideNavRail
+          isCollapsed={isSideNavCollapsed}
+          onToggleCollapse={() => setIsSideNavCollapsed((prev) => !prev)}
+          currentStage={computedStage}
+          hasResults={Boolean(result)}
+          onOpenReport={() => {
+            if (result) {
+              setTab("report");
+              setActiveStage(4);
+            }
+          }}
+          onNavSelect={(navId) => {
+            if (navId === "capture") handleSelectStage(1);
+            else if (navId === "process") handleSelectStage(2);
+            else if (navId === "spatiotemporal" || navId === "trajectories" || navId === "dualtask") handleSelectStage(3);
+            else if (navId === "report") {
+              if (result) {
+                setTab("report");
+                setActiveStage(4);
+              }
+            }
+          }}
+        />
+
+        <main className="relative mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-7 overflow-y-auto px-5 pb-20 pt-[calc(var(--grok-banner-h,0px)+1.25rem)] sm:px-8">
         {/* Hidden / active video element */}
         <video
           ref={videoRef}
@@ -1812,13 +1845,13 @@ export function GaitApp() {
               </TabBtn>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
-              {/* Sticky video column */}
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start">
+              {/* Sticky video — person + overlays live in the same chrome */}
               <section
                 aria-label="Video Canvas Viewer and Playback Controls"
-                className="flex flex-col gap-3 lg:sticky lg:top-28"
+                className="flex flex-col lg:sticky lg:top-24"
               >
-                <Card className="overflow-hidden p-0 border-[var(--color-border)] shadow-none">
+                <Card className="overflow-hidden border-[var(--color-border)] p-0 shadow-none">
                   <div className="relative aspect-video bg-black">
                     <SkeletonCanvas
                       video={videoRef.current}
@@ -1832,17 +1865,16 @@ export function GaitApp() {
                     />
                   </div>
 
-                  {/* Interactive Frame Scrubber & Timeline */}
-                  <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 space-y-2">
+                  <div className="space-y-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                     <div className="flex items-center gap-2">
                       <Button variant="secondary" size="sm" onClick={togglePlay} aria-label={isPlaying ? "Pause video" : "Play video"} className="h-8 px-2.5">
                         {isPlaying ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => stepFrame(-1)} aria-label="Step back 1 frame" className="h-8 px-2 text-xs">
-                        <SkipBack className="size-3 mr-1" /> -1f
+                      <Button variant="ghost" size="sm" onClick={() => stepFrame(-1)} aria-label="Step back 1 frame" className="h-8 px-2 text-xs">
+                        <SkipBack className="size-3" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => stepFrame(1)} aria-label="Step forward 1 frame" className="h-8 px-2 text-xs">
-                        +1f <SkipForward className="size-3 ml-1" />
+                      <Button variant="ghost" size="sm" onClick={() => stepFrame(1)} aria-label="Step forward 1 frame" className="h-8 px-2 text-xs">
+                        <SkipForward className="size-3" />
                       </Button>
                       <input
                         type="range"
@@ -1857,156 +1889,100 @@ export function GaitApp() {
                         step={0.033}
                         value={currentTime}
                         onChange={(e) => seekToTime(parseFloat(e.target.value))}
-                        className="flex-1 accent-[var(--color-primary)] cursor-pointer h-1.5 bg-[var(--color-border)] rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                        className="h-1.5 flex-1 cursor-pointer rounded-lg bg-[var(--color-border)] accent-[var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
                       />
-                      <span className="tabular text-xs font-mono text-[var(--color-subtle)] min-w-[110px] text-right">
+                      <span className="min-w-[100px] text-right font-mono text-[11px] tabular text-[var(--color-subtle)]">
                         {formatTimecode(currentTime)} / {formatTimecode(duration)}
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[var(--color-border)] text-xs">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-[var(--color-fg)]">{fileName ?? "Video Clip"}</p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-border)] pt-2 text-[11px] text-[var(--color-muted)]">
+                      <span className="truncate font-medium text-[var(--color-fg)]">
+                        {fileName ?? "Video clip"}
+                      </span>
+                      {people.length > 1 && (
+                        <div role="listbox" aria-label="Person tracks" className="flex flex-wrap gap-1">
+                          {people.map((p, i) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              role="option"
+                              aria-selected={selectedPersonId === p.id}
+                              aria-label={`Select Person track ${i + 1}`}
+                              onClick={() => {
+                                setSelectedPersonId(p.id);
+                                void runAnalysis();
+                              }}
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors",
+                                selectedPersonId === p.id
+                                  ? "border-[var(--color-fg)] bg-[var(--color-surface-2)] font-semibold text-[var(--color-fg)]"
+                                  : "border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                              )}
+                            >
+                              <span
+                                className="size-1.5 rounded-full"
+                                style={{ background: p.color || PERSON_COLORS[i % PERSON_COLORS.length] }}
+                              />
+                              P{i + 1}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <div className="ml-auto flex flex-wrap items-center gap-3">
+                        <label className="inline-flex cursor-pointer items-center gap-1.5">
+                          <input type="checkbox" checked={overlaySkeleton} onChange={(e) => setOverlaySkeleton(e.target.checked)} aria-label="Toggle skeleton overlay" className="rounded border-[var(--color-border)] accent-[var(--color-fg)]" />
+                          Skeleton
+                        </label>
+                        <label className="inline-flex cursor-pointer items-center gap-1.5">
+                          <input type="checkbox" checked={overlayJointArcs} onChange={(e) => setOverlayJointArcs(e.target.checked)} aria-label="Toggle joint arcs overlay" className="rounded border-[var(--color-border)] accent-[var(--color-fg)]" />
+                          Arcs
+                        </label>
+                        <label className="inline-flex cursor-pointer items-center gap-1.5">
+                          <input type="checkbox" checked={overlaySwayVector} onChange={(e) => setOverlaySwayVector(e.target.checked)} aria-label="Toggle sway vector overlay" className="rounded border-[var(--color-border)] accent-[var(--color-fg)]" />
+                          Sway
+                        </label>
+                        <Button variant="ghost" size="sm" onClick={() => void runAnalysis()} className="h-7 text-[11px]">
+                          Re-run
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => void runAnalysis()} className="h-7 text-xs">
-                        Re-run Analysis
-                      </Button>
                     </div>
                   </div>
-                </Card>
-
-                {/* Person Track Selector Chips */}
-                {people.length > 0 && (
-                  <Card className="border-[var(--color-border)]">
-                    <CardContent className="p-3 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Users className="size-4 text-[var(--color-muted)]" />
-                        <span className="text-xs font-semibold text-[var(--color-fg)]">Person Track Selector:</span>
-                      </div>
-                      <div role="listbox" aria-label="Person tracks" className="flex flex-wrap gap-2">
-                        {people.map((p, i) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            role="option"
-                            aria-selected={selectedPersonId === p.id}
-                            aria-label={`Select Person track ${i + 1}`}
-                            onClick={() => {
-                              setSelectedPersonId(p.id);
-                              void runAnalysis();
-                            }}
-                            className={cn(
-                              "flex items-center gap-1.5 rounded-full px-3 py-1 border text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
-                              selectedPersonId === p.id
-                                ? "border-[var(--color-primary)] bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] font-semibold text-[var(--color-fg)]"
-                                : "border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-fg)]",
-                            )}
-                          >
-                            <span
-                              className="size-2 rounded-full"
-                              style={{ background: p.color || PERSON_COLORS[i % PERSON_COLORS.length] }}
-                            />
-                            Person {i + 1}
-                            <Badge tone="neutral" className="text-[10px] px-1 py-0 h-4">
-                              {p.frameCount} hits
-                            </Badge>
-                          </button>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Canvas Overlay Checkboxes */}
-                <Card className="border-[var(--color-border)]">
-                  <CardContent className="p-3 flex flex-wrap items-center justify-between gap-4">
-                    <span className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
-                      <Sliders className="size-3.5 text-[var(--color-muted)]" /> Canvas Overlays:
-                    </span>
-                    <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-[var(--color-fg)]">
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={overlaySkeleton}
-                          onChange={(e) => setOverlaySkeleton(e.target.checked)}
-                          aria-label="Toggle skeleton overlay"
-                          className="rounded border-[var(--color-border)] accent-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                        />
-                        Skeleton
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={overlayJointArcs}
-                          onChange={(e) => setOverlayJointArcs(e.target.checked)}
-                          aria-label="Toggle joint arcs overlay"
-                          className="rounded border-[var(--color-border)] accent-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                        />
-                        Joint Arcs
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={overlaySwayVector}
-                          onChange={(e) => setOverlaySwayVector(e.target.checked)}
-                          aria-label="Toggle sway vector overlay"
-                          className="rounded border-[var(--color-border)] accent-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                        />
-                        Sway Vector
-                      </label>
-                    </div>
-                  </CardContent>
                 </Card>
               </section>
 
-              {/* Findings column */}
-              <section aria-label="Findings and domain metrics" className="flex min-w-0 flex-col gap-4">
-                {/* Compact domain strip — not a second hero card */}
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <ScoreRing score={Math.round(result.metrics.overallScore)} label="Overall" size={52} />
-                    <div>
-                      <p className="text-[12px] font-medium text-[var(--color-muted)]">Domain indices</p>
-                      <p className="text-[11px] text-[var(--color-subtle)]">Exploratory · non-diagnostic</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                      <Badge tone={result.metrics.mobilityScore >= 70 ? "success" : result.metrics.mobilityScore >= 50 ? "neutral" : "info"}>
-                        Pace: {Math.round(result.metrics.mobilityScore)}/100
+              <section aria-label="Findings and domain metrics" className="flex min-w-0 flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-[var(--color-muted)]">
+                  <span className="tabular font-semibold text-[var(--color-fg)]">
+                    {Math.round(result.metrics.overallScore)}
+                    <span className="font-normal text-[var(--color-subtle)]">/100</span>
+                  </span>
+                  <span className="tabular">Pace: {Math.round(result.metrics.mobilityScore)}/100</span>
+                  <span className="tabular">Symmetry: {Math.round(result.metrics.symmetryScore)}/100</span>
+                  <span className="tabular">Stability: {Math.round(result.metrics.stabilityScore)}/100</span>
+                  {(() => {
+                    const cadenceDte = result.dualTaskCost
+                      ? resolveDteValues(result.dualTaskCost).cadenceDte
+                      : null;
+                    return (
+                      <Badge
+                        tone={
+                          cadenceDte != null
+                            ? Math.abs(cadenceDte) < 5
+                              ? "success"
+                              : "warn"
+                            : "neutral"
+                        }
+                      >
+                        Dual-Task:{" "}
+                        {cadenceDte != null
+                          ? `${cadenceDte.toFixed(1)}%`
+                          : result.taskMode === "dual"
+                            ? "unavailable"
+                            : "Baseline"}
                       </Badge>
-                      <Badge tone={result.metrics.symmetryScore >= 70 ? "success" : result.metrics.symmetryScore >= 50 ? "neutral" : "info"}>
-                        Symmetry: {Math.round(result.metrics.symmetryScore)}/100
-                      </Badge>
-                      <Badge tone={result.metrics.stabilityScore >= 70 ? "success" : result.metrics.stabilityScore >= 50 ? "neutral" : "info"}>
-                        Stability: {Math.round(result.metrics.stabilityScore)}/100
-                      </Badge>
-                      {(() => {
-                        // One canonical value for both the tone and the number. analysis.ts
-                        // defines cadenceCostPct = -cadenceDTE, so reading the badge tone
-                        // from one and the label from the other let them disagree in sign.
-                        const cadenceDte = result.dualTaskCost
-                          ? resolveDteValues(result.dualTaskCost).cadenceDte
-                          : null;
-                        return (
-                          <Badge
-                            tone={
-                              cadenceDte != null
-                                ? Math.abs(cadenceDte) < 5
-                                  ? "success"
-                                  : "warn"
-                                : "neutral"
-                            }
-                          >
-                            Dual-Task:{" "}
-                            {cadenceDte != null
-                              ? `${cadenceDte.toFixed(1)}%`
-                              : result.taskMode === "dual"
-                                ? "unavailable"
-                                : "Baseline"}
-                          </Badge>
-                        );
-                      })()}
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 {/* A dual-task run with no paired single-task baseline yields no DTE.
@@ -2079,6 +2055,7 @@ export function GaitApp() {
           </>
         )}
       </main>
+      </div>
 
       <footer className="no-print print:hidden px-5 pb-10 pt-4 text-center text-[11px] text-[var(--color-subtle)] sm:px-8">
         Gait Lab · Research / educational spatio-temporal analysis · Not a medical device
