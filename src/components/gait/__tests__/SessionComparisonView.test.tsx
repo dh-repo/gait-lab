@@ -20,6 +20,8 @@ vi.mock("@/lib/gait/persistence", () => ({
   deleteGaitSession: vi.fn(),
   saveGaitSession: vi.fn(),
   getGaitSession: vi.fn(),
+  // Durable by default so the ephemeral-storage banner stays hidden here.
+  getPersistenceMode: vi.fn(async () => ({ source: "neon", durable: true })),
 }));
 
 const mockListGaitSessions = vi.mocked(

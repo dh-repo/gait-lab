@@ -33,6 +33,8 @@ vi.mock("@/lib/gait/persistence", () => ({
   listGaitSessions: listSpy,
   deleteGaitSession: vi.fn(async () => ({})),
   getGaitSession: vi.fn(async () => null),
+  // Durable by default so the ephemeral-storage note stays hidden here.
+  getPersistenceMode: vi.fn(async () => ({ source: "neon", durable: true })),
 }));
 
 const { GaitApp } = await import("../GaitApp");

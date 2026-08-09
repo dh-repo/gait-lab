@@ -155,3 +155,25 @@ export const deleteGaitSession = createServerFn({ method: "POST" })
     await sql`DELETE FROM gait_sessions WHERE id = ${id} AND user_id = ${context.userId}`;
     return { success: true };
   });
+
+/**
+ * Whether saved sessions actually outlive the request that created them.
+ *
+ * With no DATABASE_URL the app falls back to PGLite, which db.ts constructs
+ * with no dataDir — an in-memory database scoped to one serverless instance.
+ * Sessions "saved" there vanish on cold start and are invisible to any other
+ * concurrent instance. That is a legitimate zero-config default, but the UI
+ * must not imply durability it does not have.
+ *
+ * Reported from the server so the caveat disappears by itself the moment a real
+ * DATABASE_URL is configured — no copy to remember to update.
+ */
+export const getPersistenceMode = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const { dbSource } = await import("@/lib/db");
+    return {
+      source: dbSource,
+      durable: dbSource !== "pglite",
+    };
+  },
+);

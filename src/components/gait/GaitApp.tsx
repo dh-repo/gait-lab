@@ -40,7 +40,11 @@ import { computeGaitAngleAnalysis, calculateKneeFlexion } from "@/lib/gait/angle
 import { detectGaitEventsZeni } from "@/lib/gait/events";
 import { buildEducatedGuesses, resolveDteValues } from "@/lib/gait/guesses";
 import { PERSON_COLORS, boundingBox } from "@/lib/gait/landmarks";
-import { saveGaitSession, type GaitSessionRecord } from "@/lib/gait/persistence";
+import {
+  getPersistenceMode,
+  saveGaitSession,
+  type GaitSessionRecord,
+} from "@/lib/gait/persistence";
 import { PoseTracker, parseWebcamError } from "@/lib/gait/PoseTracker";
 import {
   getPoseLandmarker,
@@ -175,6 +179,8 @@ export function GaitApp() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  /** null until the server answers; see getPersistenceMode in persistence.ts. */
+  const [persistenceDurable, setPersistenceDurable] = useState<boolean | null>(null);
   /**
    * Why a save failed, or null. persistence.saveGaitSession throws when the row's
    * user_id ownership guard rejects the upsert; without this the failure was only
@@ -374,6 +380,21 @@ export function GaitApp() {
       if (videoUrl) URL.revokeObjectURL(videoUrl);
     };
   }, [videoUrl]);
+
+  // Ask once whether saves are durable on this deployment.
+  useEffect(() => {
+    let cancelled = false;
+    getPersistenceMode()
+      .then((m) => {
+        if (!cancelled) setPersistenceDurable(m.durable);
+      })
+      .catch(() => {
+        /* leave null: say nothing rather than guess */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const ref = abortRef;
@@ -1746,6 +1767,17 @@ export function GaitApp() {
                   )}
                   {saveSuccess ? "Saved" : "Save session"}
                 </Button>
+                {/* "Saved" must not imply durability the deployment cannot provide.
+                    Sourced from the server, so it disappears once DATABASE_URL is set. */}
+                {saveSuccess && persistenceDurable === false && (
+                  <p
+                    data-testid="save-ephemeral-note"
+                    className="max-w-xs text-[11px] leading-snug text-[var(--color-muted)]"
+                  >
+                    Saved to this session only — no database is configured, so it will not
+                    survive a server restart. Export the report to keep it.
+                  </p>
+                )}
                 {saveError && (
                   <p
                     role="alert"

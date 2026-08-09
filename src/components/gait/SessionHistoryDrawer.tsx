@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   listGaitSessions,
   deleteGaitSession,
+  getPersistenceMode,
   type GaitSessionRecord,
 } from "@/lib/gait/persistence";
 import type { AnalysisResult } from "@/lib/gait/types";
@@ -27,11 +28,17 @@ export function SessionHistoryDrawer({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // null = not yet known; the banner stays hidden until the server answers, so a
+  // durable deployment never flashes a false warning.
+  const [durable, setDurable] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
       setErr(null);
+      getPersistenceMode()
+        .then((m) => setDurable(m.durable))
+        .catch(() => setDurable(null));
       listGaitSessions()
         .then(setSessions)
         .catch((e) => {
@@ -82,6 +89,22 @@ export function SessionHistoryDrawer({
             Close
           </Button>
         </div>
+
+        {durable === false && (
+          <div
+            data-testid="ephemeral-storage-warning"
+            className="mx-6 mt-4 rounded-md border border-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_10%,var(--color-surface))] p-3"
+          >
+            <p className="text-xs font-semibold text-[var(--color-fg)]">
+              Sessions are not stored permanently
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-muted)]">
+              No database is configured, so this deployment keeps sessions in memory only. They are
+              lost when the server restarts and may not be visible across requests. Export a report
+              for anything you need to keep.
+            </p>
+          </div>
+        )}
 
         {/* Sessions List Area */}
         <div className="flex-1 overflow-y-auto p-6">

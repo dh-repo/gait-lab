@@ -4,7 +4,7 @@ import React from "react";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { SessionHistoryDrawer } from "../SessionHistoryDrawer";
 import type { GaitSessionRecord } from "@/lib/gait/persistence";
-import { listGaitSessions, deleteGaitSession } from "@/lib/gait/persistence";
+import { getPersistenceMode, listGaitSessions, deleteGaitSession } from "@/lib/gait/persistence";
 import type { GaitMetrics } from "@/lib/gait/types";
 
 // The drawer calls the persistence server fns directly on open; mock the module
@@ -14,6 +14,8 @@ vi.mock("@/lib/gait/persistence", () => ({
   deleteGaitSession: vi.fn(),
   saveGaitSession: vi.fn(),
   getGaitSession: vi.fn(),
+  // Durable by default so the ephemeral-storage banner stays hidden here.
+  getPersistenceMode: vi.fn(async () => ({ source: "neon", durable: true })),
 }));
 
 const mockList = vi.mocked(
@@ -300,5 +302,41 @@ describe("SessionHistoryDrawer", () => {
     expect(mockDelete).toHaveBeenCalledWith({ data: "sess-2" });
     expect(screen.getByText(/\(1\/2 selected\)/)).toBeTruthy();
     expect(screen.queryByTestId("compare-selected-button")).toBeNull();
+  });
+});
+
+describe("ephemeral storage disclosure", () => {
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("warns that sessions are not stored permanently when the backend is in-memory", async () => {
+    // With no DATABASE_URL the app falls back to PGLite with no dataDir: sessions
+    // live in one serverless instance's memory and vanish on cold start. The drawer
+    // must not present them as durably saved.
+    vi.mocked(getPersistenceMode as unknown as () => Promise<{ source: string; durable: boolean }>)
+      .mockResolvedValue({ source: "pglite", durable: false });
+    mockList.mockResolvedValue([]);
+
+    render(
+      <SessionHistoryDrawer isOpen onClose={() => {}} onLoadSession={() => {}} />,
+    );
+
+    const warning = await screen.findByTestId("ephemeral-storage-warning");
+    expect(warning.textContent).toContain("not stored permanently");
+  });
+
+  it("stays silent when a real database is configured", async () => {
+    vi.mocked(getPersistenceMode as unknown as () => Promise<{ source: string; durable: boolean }>)
+      .mockResolvedValue({ source: "neon", durable: true });
+    mockList.mockResolvedValue([]);
+
+    render(
+      <SessionHistoryDrawer isOpen onClose={() => {}} onLoadSession={() => {}} />,
+    );
+
+    await screen.findByText(/No saved sessions/i);
+    expect(screen.queryByTestId("ephemeral-storage-warning")).toBeNull();
   });
 });
