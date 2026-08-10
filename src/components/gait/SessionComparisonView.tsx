@@ -489,25 +489,25 @@ export function SessionComparisonView({
         data-testid="comparison-load-error"
         role="alert"
         aria-live="assertive"
-        className={cn("w-full max-w-4xl mx-auto my-8 p-6 border-[#DADCE0] bg-white shadow-card", className)}
+        className={cn("w-full max-w-4xl mx-auto my-8 p-6 border-[var(--color-border)] bg-[var(--color-surface)] shadow-card", className)}
       >
         <CardHeader className="text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[#FCE8E6] text-[#C5221F]">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[var(--color-danger-bg)] text-[var(--color-danger-text)]">
             <ShieldAlert className="size-6" />
           </div>
-          <CardTitle className="mt-3 text-xl font-bold text-[#202124]">Could Not Load Saved Sessions</CardTitle>
-          <CardDescription className="max-w-md mx-auto mt-1 text-[#5F6368]">
+          <CardTitle className="mt-3 text-xl font-bold text-[var(--color-fg)]">Could Not Load Saved Sessions</CardTitle>
+          <CardDescription className="max-w-md mx-auto mt-1 text-[var(--color-muted)]">
             {loadError} This is a load failure, not an empty session list — your saved sessions may
             still exist.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4 mt-2">
           <div className="flex flex-wrap justify-center gap-3">
-            <Button data-testid="comparison-load-retry" onClick={loadSessions} className="gap-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white">
+            <Button data-testid="comparison-load-retry" onClick={loadSessions} className="gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-active)] text-[var(--color-primary-fg)]">
               <RefreshCw className="size-4" /> Retry
             </Button>
             {handleClose && (
-              <Button variant="ghost" onClick={handleClose} className="gap-2 text-[#5F6368]">
+              <Button variant="ghost" onClick={handleClose} className="gap-2 text-[var(--color-muted)]">
                 <ArrowLeft className="size-4" /> Back to Workflow
               </Button>
             )}
@@ -522,30 +522,30 @@ export function SessionComparisonView({
   // ----------------------------------------------------
   if (!loading && sessions.length === 0) {
     return (
-      <Card data-testid="fallback-0-sessions" className={cn("w-full max-w-4xl mx-auto my-8 p-6 border-[#DADCE0] bg-white shadow-card", className)}>
+      <Card data-testid="fallback-0-sessions" className={cn("w-full max-w-4xl mx-auto my-8 p-6 border-[var(--color-border)] bg-[var(--color-surface)] shadow-card", className)}>
         <CardHeader className="text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[#E8F0FE] text-[#1A73E8]">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[var(--color-info-bg)] text-[var(--color-primary)]">
             <Layers className="size-6" />
           </div>
-          <CardTitle className="mt-3 text-xl font-bold text-[#202124]">Dual Session Comparison Requires 2 Gait Sessions</CardTitle>
-          <CardDescription className="max-w-md mx-auto mt-1 text-[#5F6368]">
+          <CardTitle className="mt-3 text-xl font-bold text-[var(--color-fg)]">Dual Session Comparison Requires 2 Gait Sessions</CardTitle>
+          <CardDescription className="max-w-md mx-auto mt-1 text-[var(--color-muted)]">
             Side-by-side gait comparison enables clinical tracking of baseline vs. follow-up or single vs. dual-task walks. Currently, no saved sessions exist in the database.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4 mt-2">
           <div className="flex flex-wrap justify-center gap-3">
             {onNewSession && (
-              <Button onClick={onNewSession} className="gap-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white">
+              <Button onClick={onNewSession} className="gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-active)] text-[var(--color-primary-fg)]">
                 <Activity className="size-4" /> Analyze New Video
               </Button>
             )}
             {onOpenHistory && (
-              <Button variant="secondary" onClick={onOpenHistory} className="gap-2 border-[#DADCE0] bg-[#F8F9FA] text-[#202124]">
+              <Button variant="secondary" onClick={onOpenHistory} className="gap-2 border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)]">
                 <Clock className="size-4" /> Open Session History
               </Button>
             )}
             {handleClose && (
-              <Button variant="ghost" onClick={handleClose} className="gap-2 text-[#5F6368]">
+              <Button variant="ghost" onClick={handleClose} className="gap-2 text-[var(--color-muted)]">
                 <ArrowLeft className="size-4" /> Back to Workflow
               </Button>
             )}
@@ -561,28 +561,28 @@ export function SessionComparisonView({
   if (!loading && sessions.length === 1 && !sessionB) {
     const singleSession = sessions[0];
     return (
-      <Card data-testid="fallback-1-session" className={cn("w-full max-w-4xl mx-auto my-8 p-6 border-[#DADCE0] bg-white shadow-card", className)}>
+      <Card data-testid="fallback-1-session" className={cn("w-full max-w-4xl mx-auto my-8 p-6 border-[var(--color-border)] bg-[var(--color-surface)] shadow-card", className)}>
         <CardHeader className="text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[#FEF7E0] text-[#B06000]">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[var(--color-warn-bg)] text-[var(--color-warn-text)]">
             <Info className="size-6" />
           </div>
-          <CardTitle className="mt-3 text-xl font-bold text-[#202124]">Only 1 Saved Session Found</CardTitle>
-          <CardDescription className="max-w-md mx-auto mt-1 text-[#5F6368]">
+          <CardTitle className="mt-3 text-xl font-bold text-[var(--color-fg)]">Only 1 Saved Session Found</CardTitle>
+          <CardDescription className="max-w-md mx-auto mt-1 text-[var(--color-muted)]">
             Session A (Baseline) is loaded as <strong>"{singleSession.sessionName}"</strong>. Save a second session (e.g. Follow-up or Dual-Task) to compute metric deltas and joint angle curve overlays.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-6 mt-2">
-          <div className="w-full max-w-md rounded-lg border border-[#DADCE0] p-4 bg-[#F8F9FA] text-left">
+          <div className="w-full max-w-md rounded-lg border border-[var(--color-border)] p-4 bg-[var(--color-bg)] text-left">
             <div className="flex justify-between items-start">
               <div>
-                <h4 className="font-semibold text-sm text-[#202124]">{singleSession.sessionName}</h4>
-                <p className="text-xs text-[#5F6368]">
+                <h4 className="font-semibold text-sm text-[var(--color-fg)]">{singleSession.sessionName}</h4>
+                <p className="text-xs text-[var(--color-muted)]">
                   {new Date(singleSession.createdAt).toLocaleString()}
                 </p>
               </div>
-              <Badge tone="primary" className="bg-[#1A73E8] text-white">{singleSession.overallScore.toFixed(0)} / 100</Badge>
+              <Badge tone="primary" className="bg-[var(--color-primary)] text-[var(--color-primary-fg)]">{singleSession.overallScore.toFixed(0)} / 100</Badge>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#5F6368]">
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--color-muted)]">
               <div>Cadence: {singleSession.cadenceSpm.toFixed(0)} spm</div>
               <div>Mode: {singleSession.taskMode}</div>
               <div>Steps: {singleSession.stepCount}</div>
@@ -592,17 +592,17 @@ export function SessionComparisonView({
 
           <div className="flex flex-wrap justify-center gap-3">
             {onNewSession && (
-              <Button onClick={onNewSession} className="gap-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white">
+              <Button onClick={onNewSession} className="gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-active)] text-[var(--color-primary-fg)]">
                 <Activity className="size-4" /> Record / Analyze 2nd Video
               </Button>
             )}
             {onOpenHistory && (
-              <Button variant="secondary" onClick={onOpenHistory} className="gap-2 border-[#DADCE0] bg-[#F8F9FA] text-[#202124]">
+              <Button variant="secondary" onClick={onOpenHistory} className="gap-2 border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)]">
                 <Clock className="size-4" /> View Saved Sessions
               </Button>
             )}
             {handleClose && (
-              <Button variant="ghost" onClick={handleClose} className="gap-2 text-[#5F6368]">
+              <Button variant="ghost" onClick={handleClose} className="gap-2 text-[var(--color-muted)]">
                 <ArrowLeft className="size-4" /> Back to Workflow
               </Button>
             )}
@@ -618,11 +618,11 @@ export function SessionComparisonView({
   return (
     <div data-testid="session-comparison-view" className={cn("w-full max-w-6xl mx-auto space-y-6 py-6 px-4 sm:px-6", className)}>
       {/* Header & Controls in Google Workspace Card Layout */}
-      <div className="rounded-lg border border-[#DADCE0] bg-white shadow-card overflow-hidden">
-        <div className="bg-[#1A73E8] px-6 py-4 text-white flex flex-wrap items-center justify-between gap-4">
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-card overflow-hidden">
+        <div className="bg-[var(--color-primary)] px-6 py-4 text-white flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             {handleClose && (
-              <Button variant="secondary" size="sm" onClick={handleClose} aria-label="Back" className="bg-white/10 hover:bg-white/20 text-white border-none">
+              <Button variant="secondary" size="sm" onClick={handleClose} aria-label="Back" className="bg-[var(--color-surface)]/10 hover:bg-[var(--color-surface)]/20 text-white border-none">
                 <ArrowLeft className="size-4 mr-1" /> Back
               </Button>
             )}
@@ -637,26 +637,26 @@ export function SessionComparisonView({
             </div>
           </div>
           {onOpenHistory && (
-            <Button variant="secondary" size="sm" onClick={onOpenHistory} className="bg-white/10 hover:bg-white/20 text-white border-none">
+            <Button variant="secondary" size="sm" onClick={onOpenHistory} className="bg-[var(--color-surface)]/10 hover:bg-[var(--color-surface)]/20 text-white border-none">
               <Clock className="size-3.5 mr-1.5" /> History Drawer
             </Button>
           )}
         </div>
 
         {/* Dropdown Selectors Row */}
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#F8F9FA]">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[var(--color-bg)]">
           {/* Baseline Session A Selector */}
-          <div className="space-y-1.5 p-4 rounded-md border border-[#DADCE0] bg-white">
+          <div className="space-y-1.5 p-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]">
             <div className="flex items-center justify-between">
               <label htmlFor="selector-session-a" className="flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1A73E8] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">A · Baseline</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">A · Baseline</span>
               </label>
-              {sessionA && <Badge tone="primary" className="text-[10px] bg-[#E8F0FE] text-[#1967D2]">{sessionA.taskMode}</Badge>}
+              {sessionA && <Badge tone="primary" className="text-[10px] bg-[var(--color-info-bg)] text-[var(--color-info-text)]">{sessionA.taskMode}</Badge>}
             </div>
             <select
               id="selector-session-a"
               data-testid="selector-session-a"
-              className="w-full rounded-md border border-[#DADCE0] bg-white p-2 text-sm text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
+              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
               value={sessionAId ?? ""}
               onChange={(e) => setSessionAId(e.target.value || null)}
             >
@@ -668,7 +668,7 @@ export function SessionComparisonView({
               ))}
             </select>
             {sessionA && (
-              <p className="text-[11px] text-[#5F6368] flex items-center gap-3 pt-1">
+              <p className="text-[11px] text-[var(--color-muted)] flex items-center gap-3 pt-1">
                 <span><Calendar className="inline size-3 mr-1" />{new Date(sessionA.createdAt).toLocaleString()}</span>
                 <span><Activity className="inline size-3 mr-1" />{sessionA.cadenceSpm.toFixed(0)} spm</span>
               </p>
@@ -676,17 +676,17 @@ export function SessionComparisonView({
           </div>
 
           {/* Target Session B Selector */}
-          <div className="space-y-1.5 p-4 rounded-md border border-[#DADCE0] bg-white">
+          <div className="space-y-1.5 p-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]">
             <div className="flex items-center justify-between">
               <label htmlFor="selector-session-b" className="flex items-center gap-1.5">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#188038] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">B · Follow-up</span>
               </label>
-              {sessionB && <Badge tone="accent" className="text-[10px] bg-[#E6F4EA] text-[#137333]">{sessionB.taskMode}</Badge>}
+              {sessionB && <Badge tone="accent" className="text-[10px] bg-[var(--color-success-bg)] text-[var(--color-success-text)]">{sessionB.taskMode}</Badge>}
             </div>
             <select
               id="selector-session-b"
               data-testid="selector-session-b"
-              className="w-full rounded-md border border-[#DADCE0] bg-white p-2 text-sm text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#188038]"
+              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[#188038]"
               value={sessionBId ?? ""}
               onChange={(e) => setSessionBId(e.target.value || null)}
             >
@@ -698,7 +698,7 @@ export function SessionComparisonView({
               ))}
             </select>
             {sessionB && (
-              <p className="text-[11px] text-[#5F6368] flex items-center gap-3 pt-1">
+              <p className="text-[11px] text-[var(--color-muted)] flex items-center gap-3 pt-1">
                 <span><Calendar className="inline size-3 mr-1" />{new Date(sessionB.createdAt).toLocaleString()}</span>
                 <span><Activity className="inline size-3 mr-1" />{sessionB.cadenceSpm.toFixed(0)} spm</span>
               </p>
@@ -708,8 +708,8 @@ export function SessionComparisonView({
 
         {/* Identical Session Warning */}
         {sessionAId && sessionBId && sessionAId === sessionBId && (
-          <div data-testid="same-session-warning" className="m-4 flex items-center gap-2 rounded-md border border-[#F9AB00] bg-[#FEF7E0] p-3 text-xs text-[#B06000]">
-            <AlertTriangle className="size-4 shrink-0 text-[#B06000]" />
+          <div data-testid="same-session-warning" className="m-4 flex items-center gap-2 rounded-md border border-[#F9AB00] bg-[var(--color-warn-bg)] p-3 text-xs text-[var(--color-warn-text)]">
+            <AlertTriangle className="size-4 shrink-0 text-[var(--color-warn-text)]" />
             <span>Baseline (Session A) and Target (Session B) are identical. Select two different sessions for meaningful clinical delta analysis.</span>
           </div>
         )}
@@ -721,20 +721,20 @@ export function SessionComparisonView({
           {/* Domain Gait Health Scores Summary Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {domainDeltas.map((d) => (
-              <Card key={d.key} data-testid={`card-${d.key}`} className="p-3 border-[#DADCE0] bg-white shadow-card flex flex-col justify-between">
+              <Card key={d.key} data-testid={`card-${d.key}`} className="p-3 border-[var(--color-border)] bg-[var(--color-surface)] shadow-card flex flex-col justify-between">
                 <div>
-                  <span className="text-[11px] font-medium text-[#5F6368] truncate block">{d.name}</span>
+                  <span className="text-[11px] font-medium text-[var(--color-muted)] truncate block">{d.name}</span>
                   <div className="mt-1 flex items-baseline justify-between">
-                    <span className="text-xs text-[#5F6368]">A: {d.formattedValA}</span>
-                    <span className="text-xs font-semibold text-[#202124]">B: {d.formattedValB}</span>
+                    <span className="text-xs text-[var(--color-muted)]">A: {d.formattedValA}</span>
+                    <span className="text-xs font-semibold text-[var(--color-fg)]">B: {d.formattedValB}</span>
                   </div>
                 </div>
-                <div className="mt-2 pt-2 border-t border-[#DADCE0] flex items-center justify-between">
+                <div className="mt-2 pt-2 border-t border-[var(--color-border)] flex items-center justify-between">
                   <span className={cn(
                     "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-medium",
                     d.badgeTone === "success" && "chip-success",
                     d.badgeTone === "danger" && "chip-danger",
-                    d.badgeTone === "neutral" && "chip-info bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]"
+                    d.badgeTone === "neutral" && "chip-info bg-[var(--color-surface-2)] text-[var(--color-muted)] border-[var(--color-border)]"
                   )}>
                     {d.interpretation === "improved" && <span aria-hidden="true">↑</span>}
                     {d.interpretation === "degraded" && <span aria-hidden="true">↓</span>}
@@ -742,19 +742,19 @@ export function SessionComparisonView({
                   </span>
                   {d.interpretation === "improved" ? (
                     <TrendingUp
-                      className="size-3.5 text-[#137333]"
+                      className="size-3.5 text-[var(--color-success-text)]"
                       role="img"
                       aria-label={`${d.name}: moved in the favourable direction, beyond measurement noise`}
                     />
                   ) : d.interpretation === "degraded" ? (
                     <TrendingDown
-                      className="size-3.5 text-[#C5221F]"
+                      className="size-3.5 text-[var(--color-danger-text)]"
                       role="img"
                       aria-label={`${d.name}: moved in the unfavourable direction, beyond measurement noise`}
                     />
                   ) : (
                     <Minus
-                      className="size-3.5 text-[#5F6368]"
+                      className="size-3.5 text-[var(--color-muted)]"
                       role="img"
                       aria-label={`${d.name}: within measurement noise, no detectable change`}
                     />
@@ -765,12 +765,12 @@ export function SessionComparisonView({
           </div>
 
           {/* Comparison Metric Tables */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x md:divide-[#DADCE0] border border-[#DADCE0] rounded-lg overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x md:divide-[#DADCE0] border border-[var(--color-border)] rounded-lg overflow-hidden">
             {/* Spatio-Temporal Parameters Table */}
-            <Card className="border-0 bg-white shadow-none rounded-none">
-              <CardHeader className="pb-3 border-b border-[#DADCE0] bg-[#F8F9FA]">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 text-[#202124]">
-                  <Activity className="size-4 text-[#1A73E8]" /> Spatio-Temporal Parameters
+            <Card className="border-0 bg-[var(--color-surface)] shadow-none rounded-none">
+              <CardHeader className="pb-3 border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-[var(--color-fg)]">
+                  <Activity className="size-4 text-[var(--color-primary)]" /> Spatio-Temporal Parameters
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -789,7 +789,7 @@ export function SessionComparisonView({
                         const isContextOnly = CONTEXT_ONLY_METRIC_KEYS.has(d.key);
                         return (
                           <tr key={d.key} data-testid={`row-${d.key}`}>
-                            <td className="font-medium text-[#202124]">
+                            <td className="font-medium text-[var(--color-fg)]">
                               {d.name}
                               {isContextOnly && (
                                 <span
@@ -801,14 +801,14 @@ export function SessionComparisonView({
                                 </span>
                               )}
                             </td>
-                            <td className="text-right font-mono text-[#5F6368]">{d.formattedValA}</td>
-                            <td className="text-right font-mono font-semibold text-[#202124]">{d.formattedValB}</td>
+                            <td className="text-right font-mono text-[var(--color-muted)]">{d.formattedValA}</td>
+                            <td className="text-right font-mono font-semibold text-[var(--color-fg)]">{d.formattedValB}</td>
                             <td className="text-right">
                               <span className={cn(
                                 "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-medium",
                                 d.badgeTone === "success" && "chip-success",
                                 d.badgeTone === "danger" && "chip-danger",
-                                d.badgeTone === "neutral" && "chip-info bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]"
+                                d.badgeTone === "neutral" && "chip-info bg-[var(--color-surface-2)] text-[var(--color-muted)] border-[var(--color-border)]"
                               )}>
                                 {d.interpretation === "improved" && <span aria-hidden="true">↑</span>}
                                 {d.interpretation === "degraded" && <span aria-hidden="true">↓</span>}
@@ -825,9 +825,9 @@ export function SessionComparisonView({
             </Card>
 
             {/* Symmetry & Variability Table */}
-            <Card className="border-0 bg-white shadow-none rounded-none">
-              <CardHeader className="pb-3 border-b border-[#DADCE0] bg-[#F8F9FA]">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 text-[#202124]">
+            <Card className="border-0 bg-[var(--color-surface)] shadow-none rounded-none">
+              <CardHeader className="pb-3 border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-[var(--color-fg)]">
                   <GitCompare className="size-4 text-[#188038]" /> Symmetry & Variability Metrics
                 </CardTitle>
               </CardHeader>
@@ -845,15 +845,15 @@ export function SessionComparisonView({
                     <tbody>
                       {symmetryAndVariabilityDeltas.map((d) => (
                         <tr key={d.key} data-testid={`row-${d.key}`}>
-                          <td className="font-medium text-[#202124]">{d.name}</td>
-                          <td className="text-right font-mono text-[#5F6368]">{d.formattedValA}</td>
-                          <td className="text-right font-mono font-semibold text-[#202124]">{d.formattedValB}</td>
+                          <td className="font-medium text-[var(--color-fg)]">{d.name}</td>
+                          <td className="text-right font-mono text-[var(--color-muted)]">{d.formattedValA}</td>
+                          <td className="text-right font-mono font-semibold text-[var(--color-fg)]">{d.formattedValB}</td>
                           <td className="text-right">
                             <span className={cn(
                               "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-medium",
                               d.badgeTone === "success" && "chip-success",
                               d.badgeTone === "danger" && "chip-danger",
-                              d.badgeTone === "neutral" && "chip-info bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]"
+                              d.badgeTone === "neutral" && "chip-info bg-[var(--color-surface-2)] text-[var(--color-muted)] border-[var(--color-border)]"
                             )}>
                               {d.interpretation === "improved" && <span aria-hidden="true">↑</span>}
                               {d.interpretation === "degraded" && <span aria-hidden="true">↓</span>}
@@ -872,7 +872,7 @@ export function SessionComparisonView({
           {/* Provenance footnote */}
           <p
             data-testid="delta-threshold-footnote"
-            className="text-[11px] leading-relaxed text-[#5F6368]"
+            className="text-[11px] leading-relaxed text-[var(--color-muted)]"
           >
             A change is flagged only when it exceeds a per-metric threshold. One of those thresholds has a
             measured basis: the step-time and stride-time CV threshold (2.4 percentage points) comes from
@@ -885,20 +885,20 @@ export function SessionComparisonView({
           </p>
 
           {/* Overlaid Joint Kinematic Trajectory Curves Section */}
-          <Card className="border-[#DADCE0] bg-white shadow-card">
-            <CardHeader className="border-b border-[#DADCE0] bg-[#F8F9FA]">
+          <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card">
+            <CardHeader className="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <Activity className="size-5 text-[#1A73E8]" />
-                  <CardTitle className="text-base font-bold text-[#202124]">Overlaid Joint Kinematic Trajectories</CardTitle>
+                  <Activity className="size-5 text-[var(--color-primary)]" />
+                  <CardTitle className="text-base font-bold text-[var(--color-fg)]">Overlaid Joint Kinematic Trajectories</CardTitle>
                 </div>
-                <div className="flex items-center gap-1 rounded-md border border-[#DADCE0] p-1 bg-white">
+                <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] p-1 bg-[var(--color-surface)]">
                   <Button
                     variant={activeJoint === "knee" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setActiveJoint("knee")}
                     data-testid="joint-tab-knee"
-                    className={cn(activeJoint === "knee" && "bg-[#1A73E8] text-white hover:bg-[#1557B0]")}
+                    className={cn(activeJoint === "knee" && "bg-[var(--color-primary)] text-[var(--color-primary-fg)] hover:bg-[#1557B0]")}
                   >
                     Knee
                   </Button>
@@ -907,7 +907,7 @@ export function SessionComparisonView({
                     size="sm"
                     onClick={() => setActiveJoint("hip")}
                     data-testid="joint-tab-hip"
-                    className={cn(activeJoint === "hip" && "bg-[#1A73E8] text-white hover:bg-[#1557B0]")}
+                    className={cn(activeJoint === "hip" && "bg-[var(--color-primary)] text-[var(--color-primary-fg)] hover:bg-[#1557B0]")}
                   >
                     Hip
                   </Button>
@@ -916,13 +916,13 @@ export function SessionComparisonView({
                     size="sm"
                     onClick={() => setActiveJoint("ankle")}
                     data-testid="joint-tab-ankle"
-                    className={cn(activeJoint === "ankle" && "bg-[#1A73E8] text-white hover:bg-[#1557B0]")}
+                    className={cn(activeJoint === "ankle" && "bg-[var(--color-primary)] text-[var(--color-primary-fg)] hover:bg-[#1557B0]")}
                   >
                     Ankle
                   </Button>
                 </div>
               </div>
-              <CardDescription className="text-xs text-[#5F6368]">
+              <CardDescription className="text-xs text-[var(--color-muted)]">
                 Comparison of Session A (Solid lines) vs. Session B (Dashed lines) normalized joint trajectories (0–100% Gait Cycle) overlaid against Perry &amp; Burnfield (2010) normative reference envelope.
               </CardDescription>
             </CardHeader>
@@ -932,7 +932,7 @@ export function SessionComparisonView({
               {isSuppressedAny && (
                 <div
                   data-testid="view-suppression-banner"
-                  className="flex items-start gap-3 rounded-md border border-[#F9AB00] bg-[#FEF7E0] p-4 text-sm text-[#B06000]"
+                  className="flex items-start gap-3 rounded-md border border-[#F9AB00] bg-[var(--color-warn-bg)] p-4 text-sm text-[var(--color-warn-text)]"
                 >
                   <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
@@ -946,29 +946,29 @@ export function SessionComparisonView({
               {!isSuppressedAny && jointRomStats && (
                 <div
                   data-testid="joint-rom-badges"
-                  className="flex flex-wrap items-center gap-2 rounded-md border border-[#DADCE0] bg-[#F8F9FA] p-3 text-xs"
+                  className="flex flex-wrap items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-xs"
                 >
-                  <span className="font-semibold text-[#202124] mr-2">{jointRomStats.title}:</span>
-                  <Badge tone="primary" data-testid="rom-left-a" className="bg-[#E8F0FE] text-[#1967D2] border border-[#1967D2]/20">
+                  <span className="font-semibold text-[var(--color-fg)] mr-2">{jointRomStats.title}:</span>
+                  <Badge tone="primary" data-testid="rom-left-a" className="bg-[var(--color-info-bg)] text-[var(--color-info-text)] border border-[#1967D2]/20">
                     Left ROM A: {jointRomStats.leftRomA != null ? `${jointRomStats.leftRomA.toFixed(1)}°` : "—"}
                   </Badge>
-                  <Badge tone="success" data-testid="rom-left-b" className="bg-[#E6F4EA] text-[#137333] border border-[#137333]/20">
+                  <Badge tone="success" data-testid="rom-left-b" className="bg-[var(--color-success-bg)] text-[var(--color-success-text)] border border-[#137333]/20">
                     Left ROM B: {jointRomStats.leftRomB != null ? `${jointRomStats.leftRomB.toFixed(1)}°` : "—"}
                   </Badge>
-                  <Badge tone="accent" data-testid="rom-right-a" className="bg-[#FEF7E0] text-[#B06000] border border-[#B06000]/20">
+                  <Badge tone="accent" data-testid="rom-right-a" className="bg-[var(--color-warn-bg)] text-[var(--color-warn-text)] border border-[#B06000]/20">
                     Right ROM A: {jointRomStats.rightRomA != null ? `${jointRomStats.rightRomA.toFixed(1)}°` : "—"}
                   </Badge>
-                  <Badge tone="warn" data-testid="rom-right-b" className="bg-[#FCE8E6] text-[#C5221F] border border-[#C5221F]/20">
+                  <Badge tone="warn" data-testid="rom-right-b" className="bg-[var(--color-danger-bg)] text-[var(--color-danger-text)] border border-[#C5221F]/20">
                     Right ROM B: {jointRomStats.rightRomB != null ? `${jointRomStats.rightRomB.toFixed(1)}°` : "—"}
                   </Badge>
-                  <Badge tone="neutral" data-testid="asymmetry-comp" className="bg-[#F1F3F4] text-[#5F6368] border border-[#DADCE0]">
+                  <Badge tone="neutral" data-testid="asymmetry-comp" className="bg-[var(--color-surface-2)] text-[var(--color-muted)] border border-[var(--color-border)]">
                     Asymmetry: A {jointRomStats.asymmetryA != null ? `${jointRomStats.asymmetryA.toFixed(1)}%` : "—"} vs B {jointRomStats.asymmetryB != null ? `${jointRomStats.asymmetryB.toFixed(1)}%` : "—"}
                   </Badge>
                 </div>
               )}
 
               {/* Recharts Chart Container */}
-              <div className="h-80 w-full min-w-0 border border-[#DADCE0] rounded-lg overflow-hidden">
+              <div className="h-80 w-full min-w-0 border border-[var(--color-border)] rounded-lg overflow-hidden">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart
                     data={chartData}
@@ -1021,7 +1021,7 @@ export function SessionComparisonView({
                       content={({ payload }) => (
                         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                           {payload?.map((entry, idx) => (
-                            <span key={idx} className="inline-flex items-center gap-1.5 text-xs text-[#5F6368] font-['Roboto',sans-serif]">
+                            <span key={idx} className="inline-flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-['Roboto',sans-serif]">
                               <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
                               {entry.value}
                             </span>
@@ -1083,7 +1083,7 @@ export function SessionComparisonView({
               {!hasNormativeBand && (
                 <p
                   data-testid="normative-band-unavailable"
-                  className="text-[11px] text-[#5F6368]"
+                  className="text-[11px] text-[var(--color-muted)]"
                 >
                   No normative reference envelope is stored for either session, so the shaded
                   normative band is omitted rather than drawn at 0°.

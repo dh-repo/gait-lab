@@ -89,24 +89,24 @@ export function GoogleTopAppBar({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 w-full border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md shadow-[0_1px_2px_0_rgba(60,64,67,0.1)]",
+        "sticky top-0 z-30 w-full border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md shadow-[var(--shadow-card)]",
         className,
       )}
     >
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-5 sm:px-8">
-        <div className="flex min-w-0 items-center gap-3.5">
+      <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-4 px-5 sm:h-16 sm:px-8">
+        <div className="flex min-w-0 items-center gap-3">
           {/* Brand mark — gait cadence bars */}
           <div
-            className="flex size-11 shrink-0 items-end justify-center gap-[3px] rounded-xl bg-[#1A73E8] px-2 pb-2 pt-1.5"
+            className="flex size-10 shrink-0 items-end justify-center gap-[3px] rounded-[var(--radius-lg)] bg-[var(--color-primary)] px-2 pb-2 pt-1.5 sm:size-11"
             aria-hidden
           >
-            <span className="w-[3px] rounded-full bg-white/90" style={{ height: "10px" }} />
-            <span className="w-[3px] rounded-full bg-white" style={{ height: "16px" }} />
-            <span className="w-[3px] rounded-full bg-white/90" style={{ height: "12px" }} />
+            <span className="w-[3px] rounded-full bg-[var(--color-surface)]/90" style={{ height: "10px" }} />
+            <span className="w-[3px] rounded-full bg-[var(--color-surface)]" style={{ height: "16px" }} />
+            <span className="w-[3px] rounded-full bg-[var(--color-surface)]/90" style={{ height: "12px" }} />
           </div>
           <div className="min-w-0">
             <div className="flex items-baseline gap-2.5">
-              <span className="text-[20px] font-medium tracking-[-0.02em] text-[var(--color-fg)] leading-none">
+              <span className="text-[18px] font-medium tracking-[-0.02em] text-[var(--color-fg)] leading-none sm:text-[20px]">
                 Gait Lab
               </span>
             </div>
@@ -139,7 +139,7 @@ export function GoogleTopAppBar({
       {saveError ? (
         <div
           role="alert"
-          className="border-t border-[var(--color-danger)]/20 bg-[var(--color-danger-bg,#fef2f2)] px-5 py-1.5 text-[12px] text-[var(--color-danger)] sm:px-8"
+          className="border-t border-[var(--color-danger)]/20 bg-[var(--color-danger-bg)] px-5 py-1.5 text-[12px] text-[var(--color-danger-text)] sm:px-8"
         >
           {saveError}
         </div>
@@ -167,7 +167,7 @@ export function GoogleTopAppBar({
                     className={cn(
                       "absolute left-0 top-1/2 hidden h-px w-4 -translate-x-2 -translate-y-1/2 sm:block",
                       isCompleted || isActive
-                        ? "bg-[var(--color-fg)]/20"
+                        ? "bg-[var(--color-primary)]/30"
                         : "bg-[var(--color-border)]",
                     )}
                   />
@@ -179,12 +179,12 @@ export function GoogleTopAppBar({
                   aria-current={isActive ? "step" : undefined}
                   aria-label={`Stage ${s.number}: ${s.title} - ${s.description}`}
                   className={cn(
-                    "relative flex min-h-11 w-full items-center justify-center gap-2 px-1 py-2.5 sm:min-h-0 sm:justify-start sm:px-3",
-                    "text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]",
+                    "relative flex min-h-11 w-full items-center justify-center gap-2 px-1 py-2.5 sm:min-h-12 sm:justify-start sm:px-3",
+                    "text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-ring)]",
                     isActive
                       ? "text-[var(--color-fg)]"
                       : isSelectable
-                        ? "cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+                        ? "cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]/60"
                         : "cursor-not-allowed text-[var(--color-subtle)] opacity-50",
                   )}
                 >
@@ -192,9 +192,9 @@ export function GoogleTopAppBar({
                     className={cn(
                       "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold transition-colors duration-150",
                       isActive
-                        ? "bg-[#1A73E8] text-white"
+                        ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)]"
                         : isCompleted
-                          ? "bg-[#E8F0FE] text-[#1A73E8] ring-1 ring-[#1A73E8]/20"
+                          ? "bg-[var(--color-info-bg)] text-[var(--color-primary)] ring-1 ring-[color-mix(in_srgb,var(--color-primary)_20%,transparent)]"
                           : "ring-1 ring-[var(--color-border)] text-[var(--color-subtle)]",
                     )}
                   >
@@ -220,7 +220,7 @@ export function GoogleTopAppBar({
                   {isActive ? (
                     <span
                       aria-hidden
-                      className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#1A73E8] sm:inset-x-4"
+                      className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[var(--color-primary)] sm:inset-x-4"
                     />
                   ) : null}
                 </button>

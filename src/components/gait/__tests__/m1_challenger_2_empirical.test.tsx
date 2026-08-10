@@ -107,7 +107,8 @@ describe("Milestone 1 Empirical Layout, Tokens & Landmark Verification", () => {
     );
     expect(expandedHtml).toContain('data-testid="side-nav-rail"');
     expect(expandedHtml).toContain('data-testid="side-nav-toggle"');
-    expect(expandedHtml).toContain("w-60");
+    // Material navigation rail expanded ~256px (w-64), collapsed 72px
+    expect(expandedHtml).toContain("w-64");
     expect(expandedHtml).toContain("WORKSTATION");
     expect(expandedHtml).toContain("ANALYTICS &amp; KINEMATICS");
     expect(expandedHtml).toContain("REPORTS &amp; EXPORT");
@@ -115,7 +116,7 @@ describe("Milestone 1 Empirical Layout, Tokens & Landmark Verification", () => {
     const collapsedHtml = renderToStaticMarkup(
       <SideNavRail isCollapsed={true} onToggleCollapse={() => {}} />,
     );
-    expect(collapsedHtml).toContain("w-16");
+    expect(collapsedHtml).toContain("w-[72px]");
   });
 
   it("verifies WorkflowHeader 100% backward compatibility pass-through", () => {

@@ -31,8 +31,8 @@ export function BaselineSparkline({
       : pctChange >= 25;
 
   const badgeColor = isDegraded
-    ? "bg-[#FCE8E6] text-[#C5221F] border-[#D93025]/30"
-    : "bg-[#E6F4EA] text-[#137333] border-[#188038]/30";
+    ? "bg-[var(--color-danger-bg)] text-[var(--color-danger-text)] border-[#D93025]/30"
+    : "bg-[var(--color-success-bg)] text-[var(--color-success-text)] border-[#188038]/30";
 
   // Visual Bounds for SVG Sparkline [-2.5 std, +2.5 std]
   const minVal = Math.max(0, mean - 2.5 * std);
@@ -48,10 +48,10 @@ export function BaselineSparkline({
     <div
       data-testid="baseline-sparkline"
       data-metric={metricName}
-      className={cn("flex flex-col gap-1.5 rounded-md border border-[#DADCE0] bg-white p-3 shadow-xs", className)}
+      className={cn("flex flex-col gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-card)]", className)}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-[#202124]">{label}</span>
+        <span className="text-xs font-semibold text-[var(--color-fg)]">{label}</span>
         <span
           data-testid="sparkline-delta-badge"
           className={cn("tabular text-[11px] font-bold px-2 py-0.5 rounded border", badgeColor)}
@@ -60,10 +60,10 @@ export function BaselineSparkline({
         </span>
       </div>
 
-      <div className="flex items-baseline justify-between text-xs text-[#5F6368]">
+      <div className="flex items-baseline justify-between text-xs text-[var(--color-muted)]">
         <div>
           <span className="text-[10px] uppercase font-medium">Current: </span>
-          <span data-testid="sparkline-current-value" className="tabular font-bold text-[#202124]">
+          <span data-testid="sparkline-current-value" className="tabular font-bold text-[var(--color-fg)]">
             {currentValue.toFixed(2)} {unit}
           </span>
         </div>
@@ -76,10 +76,10 @@ export function BaselineSparkline({
       </div>
 
       {/* SVG Range Bar */}
-      <div className="relative h-4 w-full bg-[#F1F3F4] rounded overflow-hidden border border-[#DADCE0]">
+      <div className="relative h-4 w-full bg-[var(--color-surface-2)] rounded overflow-hidden border border-[var(--color-border)]">
         {/* Normal Range Band (1 Std Dev) */}
         <div
-          className="absolute top-0 bottom-0 bg-[#E8F0FE]"
+          className="absolute top-0 bottom-0 bg-[var(--color-info-bg)]"
           style={{ left: `${normalMinX}%`, width: `${normalMaxX - normalMinX}%` }}
         />
         {/* Mean Marker Line */}
@@ -91,7 +91,7 @@ export function BaselineSparkline({
         <div
           data-testid="sparkline-current-pin"
           className={cn(
-            "absolute top-0 bottom-0 w-2 rounded-full border border-white shadow-xs -ml-1",
+            "absolute top-0 bottom-0 w-2 rounded-full border border-white shadow-[var(--shadow-card)] -ml-1",
             isDegraded ? "bg-[#D93025]" : "bg-[#188038]"
           )}
           style={{ left: `${currentX}%` }}

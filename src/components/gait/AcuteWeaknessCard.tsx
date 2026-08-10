@@ -15,13 +15,13 @@ export function AcuteWeaknessCard({ card, className }: AcuteWeaknessCardProps) {
     ? "border-[#D93025] bg-[#FFF8F7]"
     : isWarning
     ? "border-[#F9AB00] bg-[#FEFDF9]"
-    : "border-[#DADCE0] bg-[#F8F9FA]";
+    : "border-[var(--color-border)] bg-[var(--color-bg)]";
 
   const headerBg = isCritical
-    ? "bg-[#FCE8E6] text-[#C5221F]"
+    ? "bg-[var(--color-danger-bg)] text-[var(--color-danger-text)]"
     : isWarning
-    ? "bg-[#FEF7E0] text-[#B06000]"
-    : "bg-[#E8F0FE] text-[#1967D2]";
+    ? "bg-[var(--color-warn-bg)] text-[var(--color-warn-text)]"
+    : "bg-[var(--color-info-bg)] text-[var(--color-info-text)]";
 
   const IconComponent = isCritical
     ? AlertTriangle
@@ -37,7 +37,7 @@ export function AcuteWeaknessCard({ card, className }: AcuteWeaknessCardProps) {
       data-severity={card.severity}
       data-card-id={card.id}
       className={cn(
-        "flex flex-col rounded-lg border shadow-xs overflow-hidden transition-all",
+        "flex flex-col rounded-lg border shadow-[var(--shadow-card)] overflow-hidden transition-all",
         cardBorder,
         className
       )}
@@ -50,20 +50,20 @@ export function AcuteWeaknessCard({ card, className }: AcuteWeaknessCardProps) {
         </div>
         <span
           data-testid="card-severity-badge"
-          className="uppercase tracking-wider text-[10px] font-bold px-2 py-0.5 rounded bg-white/70 backdrop-blur-xs"
+          className="uppercase tracking-wider text-[10px] font-bold px-2 py-0.5 rounded bg-[var(--color-surface)]/70 backdrop-blur-xs"
         >
           {card.severity}
         </span>
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-3 text-xs text-[#202124]">
+      <div className="p-4 space-y-3 text-xs text-[var(--color-fg)]">
         {/* Primary Flag Banner */}
-        <div className="rounded-md border border-inherit bg-white p-2.5 shadow-2xs">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5F6368] block">
+        <div className="rounded-md border border-inherit bg-[var(--color-surface)] p-2.5 shadow-[var(--shadow-card)]">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)] block">
             Primary Deterioration Flag
           </span>
-          <p data-testid="card-primary-flag" className="text-sm font-bold text-[#202124] mt-0.5">
+          <p data-testid="card-primary-flag" className="text-sm font-bold text-[var(--color-fg)] mt-0.5">
             {card.primaryFlag}
           </p>
         </div>
@@ -71,7 +71,7 @@ export function AcuteWeaknessCard({ card, className }: AcuteWeaknessCardProps) {
         {/* Detected Anomalies */}
         {card.detectedAnomalies.length > 0 && (
           <div className="space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5F6368]">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
               Triggered Biomarkers ({card.detectedAnomalies.length})
             </span>
             <ul className="space-y-1 pl-1">
@@ -79,15 +79,15 @@ export function AcuteWeaknessCard({ card, className }: AcuteWeaknessCardProps) {
                 <li
                   key={anom.ruleId}
                   data-testid="detected-anomaly-item"
-                  className="rounded border border-[#DADCE0] bg-white p-2 text-xs"
+                  className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-xs"
                 >
-                  <div className="flex justify-between font-semibold text-[#202124]">
+                  <div className="flex justify-between font-semibold text-[var(--color-fg)]">
                     <span>{anom.ruleId}</span>
                     <span className="tabular text-[#D93025]">
                       {anom.percentChange > 0 ? `+${anom.percentChange}%` : `${anom.percentChange}%`} (Z={anom.zScore})
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#5F6368] mt-0.5">{anom.thresholdBreached}</p>
+                  <p className="text-[11px] text-[var(--color-muted)] mt-0.5">{anom.thresholdBreached}</p>
                 </li>
               ))}
             </ul>
@@ -97,12 +97,12 @@ export function AcuteWeaknessCard({ card, className }: AcuteWeaknessCardProps) {
         {/* Differential Diagnoses */}
         {card.differentialDiagnoses.length > 0 && (
           <div className="space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5F6368]">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
               Differential Diagnoses to Evaluate
             </span>
-            <ul data-testid="differential-diagnoses-list" className="space-y-0.5 rounded-md bg-white p-2.5 border border-[#DADCE0]">
+            <ul data-testid="differential-diagnoses-list" className="space-y-0.5 rounded-md bg-[var(--color-surface)] p-2.5 border border-[var(--color-border)]">
               {card.differentialDiagnoses.map((diag, i) => (
-                <li key={i} className="text-xs font-medium text-[#202124]">
+                <li key={i} className="text-xs font-medium text-[var(--color-fg)]">
                   {diag}
                 </li>
               ))}
@@ -112,12 +112,12 @@ export function AcuteWeaknessCard({ card, className }: AcuteWeaknessCardProps) {
 
         {/* Provider Recommendations */}
         {card.providerRecommendations.length > 0 && (
-          <div className="space-y-1 border-t border-[#DADCE0] pt-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1A73E8]">
+          <div className="space-y-1 border-t border-[var(--color-border)] pt-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-primary)]">
               <Stethoscope className="size-3.5" />
               <span>Actionable Provider Recommendations</span>
             </div>
-            <ul data-testid="provider-recommendations-list" className="space-y-0.5 text-xs text-[#3C4043] pl-2">
+            <ul data-testid="provider-recommendations-list" className="space-y-0.5 text-xs text-[var(--color-muted)] pl-2">
               {card.providerRecommendations.map((rec, i) => (
                 <li key={i}>{rec}</li>
               ))}

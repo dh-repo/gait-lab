@@ -22,23 +22,65 @@ export interface SideNavItem {
   section: string;
   stageTarget?: WorkflowStage;
   actionKey?: "report";
+  /** Maps to GaitApp analysis tab when stage is Analyze */
+  tabTarget?: "clusters" | "metrics" | "fallrisk" | "report" | "guesses" | "guide";
 }
 
 const SIDE_NAV_SECTIONS = [
   {
     title: "WORKSTATION",
     items: [
-      { id: "capture", label: "Capture", icon: Camera, section: "WORKSTATION", stageTarget: 1 as WorkflowStage },
-      { id: "process", label: "Process", icon: Users, section: "WORKSTATION", stageTarget: 2 as WorkflowStage },
+      {
+        id: "capture",
+        label: "Capture",
+        icon: Camera,
+        section: "WORKSTATION",
+        stageTarget: 1 as WorkflowStage,
+      },
+      {
+        id: "process",
+        label: "Process",
+        icon: Users,
+        section: "WORKSTATION",
+        stageTarget: 2 as WorkflowStage,
+      },
     ],
   },
   {
     title: "ANALYTICS & KINEMATICS",
     items: [
-      { id: "spatiotemporal", label: "Findings", icon: Activity, section: "ANALYTICS & KINEMATICS", stageTarget: 3 as WorkflowStage },
-      { id: "trajectories", label: "Charts", icon: TrendingUp, section: "ANALYTICS & KINEMATICS", stageTarget: 3 as WorkflowStage },
-      { id: "dualtask", label: "Dual-task", icon: Brain, section: "ANALYTICS & KINEMATICS", stageTarget: 3 as WorkflowStage },
-      { id: "fallrisk", label: "Fall Risk", icon: ShieldAlert, section: "ANALYTICS & KINEMATICS", stageTarget: 3 as WorkflowStage },
+      {
+        id: "spatiotemporal",
+        label: "Findings",
+        icon: Activity,
+        section: "ANALYTICS & KINEMATICS",
+        stageTarget: 3 as WorkflowStage,
+        tabTarget: "clusters" as const,
+      },
+      {
+        id: "trajectories",
+        label: "Charts",
+        icon: TrendingUp,
+        section: "ANALYTICS & KINEMATICS",
+        stageTarget: 3 as WorkflowStage,
+        tabTarget: "metrics" as const,
+      },
+      {
+        id: "dualtask",
+        label: "Dual-task",
+        icon: Brain,
+        section: "ANALYTICS & KINEMATICS",
+        stageTarget: 3 as WorkflowStage,
+        tabTarget: "guesses" as const,
+      },
+      {
+        id: "fallrisk",
+        label: "Fall Risk",
+        icon: ShieldAlert,
+        section: "ANALYTICS & KINEMATICS",
+        stageTarget: 3 as WorkflowStage,
+        tabTarget: "fallrisk" as const,
+      },
     ],
   },
   {
@@ -51,12 +93,9 @@ const SIDE_NAV_SECTIONS = [
         section: "REPORTS & EXPORT",
         stageTarget: 4 as WorkflowStage,
         actionKey: "report" as const,
+        tabTarget: "report" as const,
       },
     ],
-  },
-  {
-    title: "SYSTEM & MODEL",
-    items: [] as SideNavItem[],
   },
 ];
 
@@ -95,15 +134,13 @@ export function SideNavRail({
       data-testid="side-nav-rail"
       className={cn(
         "hidden h-full shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] transition-all duration-200 lg:flex",
-        isCollapsed ? "w-16" : "w-60",
+        isCollapsed ? "w-[72px]" : "w-64",
         className,
       )}
     >
-      <div className="flex h-11 items-center justify-between border-b border-[var(--color-border)] px-2">
+      <div className="flex h-12 items-center justify-between border-b border-[var(--color-border)] px-2">
         {!isCollapsed && (
-          <span className="px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-subtle)]">
-            Navigate
-          </span>
+          <span className="section-eyebrow px-2">Navigate</span>
         )}
         <Button
           variant="ghost"
@@ -111,7 +148,7 @@ export function SideNavRail({
           onClick={onToggleCollapse}
           data-testid="side-nav-toggle"
           aria-label={isCollapsed ? "Expand navigation rail" : "Collapse navigation rail"}
-          className="size-8 rounded-full p-0 text-[var(--color-muted)] transition-colors duration-150 hover:bg-[var(--color-surface-2)]"
+          className="size-9 rounded-full p-0 text-[var(--color-muted)] hover:bg-[var(--color-surface-2)]"
         >
           {isCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
         </Button>
@@ -122,9 +159,7 @@ export function SideNavRail({
           group.items.length === 0 ? null : (
             <div key={group.title} className="px-2">
               {!isCollapsed && (
-                <h3 className="px-2 pb-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-subtle)]">
-                  {group.title}
-                </h3>
+                <h3 className="section-eyebrow px-2 pb-2.5">{group.title}</h3>
               )}
               <ul className="space-y-0.5">
                 {group.items.map((item) => {
@@ -137,14 +172,15 @@ export function SideNavRail({
                         onClick={() => handleItemClick(item)}
                         title={isCollapsed ? item.label : undefined}
                         className={cn(
-                          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] transition-all duration-200 ease-out",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A73E8]",
+                          "flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-left text-[13px] transition-colors duration-150",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]",
+                          isCollapsed && "justify-center px-0",
                           isActive
-                            ? "bg-[#E8F0FE] font-semibold text-[#1A73E8]"
+                            ? "bg-[var(--color-info-bg)] font-semibold text-[var(--color-info-text)]"
                             : "font-medium text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-fg)]",
                         )}
                       >
-                        <Icon className="size-5 shrink-0" />
+                        <Icon className="size-5 shrink-0" strokeWidth={isActive ? 2.25 : 2} />
                         {!isCollapsed && <span className="truncate">{item.label}</span>}
                       </button>
                     </li>

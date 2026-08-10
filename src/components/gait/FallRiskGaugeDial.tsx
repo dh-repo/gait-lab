@@ -39,10 +39,10 @@ export function FallRiskGaugeDial({
 
   const badgeBg =
     derivedCategory === "high"
-      ? "bg-[#FCE8E6] text-[#C5221F] border-[#D93025]/30"
+      ? "bg-[var(--color-danger-bg)] text-[var(--color-danger-text)] border-[#D93025]/30"
       : derivedCategory === "moderate"
-      ? "bg-[#FEF7E0] text-[#B06000] border-[#F9AB00]/30"
-      : "bg-[#E6F4EA] text-[#137333] border-[#188038]/30";
+      ? "bg-[var(--color-warn-bg)] text-[var(--color-warn-text)] border-[#F9AB00]/30"
+      : "bg-[var(--color-success-bg)] text-[var(--color-success-text)] border-[#188038]/30";
 
   // SVG Gauge dimensions (half dial: -180 deg to 0 deg)
   const strokeWidth = 12;
@@ -87,11 +87,11 @@ export function FallRiskGaugeDial({
         <div className="absolute bottom-1 flex flex-col items-center justify-center">
           <span
             data-testid="gauge-dial-score"
-            className="tabular-nums text-3xl font-bold tracking-tight text-[#202124]"
+            className="tabular-nums text-3xl font-bold tracking-tight text-[var(--color-fg)]"
           >
             {safeScore}
           </span>
-          <span className="text-[11px] font-medium text-[#5F6368]">{label}</span>
+          <span className="text-[11px] font-medium text-[var(--color-muted)]">{label}</span>
         </div>
       </div>
 
@@ -99,7 +99,7 @@ export function FallRiskGaugeDial({
       <span
         data-testid="gauge-dial-category-badge"
         className={cn(
-          "inline-flex items-center rounded-full border px-3 py-0.5 text-xs font-semibold tracking-wide shadow-xs",
+          "inline-flex items-center rounded-full border px-3 py-0.5 text-xs font-semibold tracking-wide shadow-[var(--shadow-card)]",
           badgeBg
         )}
       >

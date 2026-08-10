@@ -126,12 +126,12 @@ export function SkeletonCanvas({
         tabIndex={interactive ? 0 : -1}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        className="h-full w-full object-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A73E8]"
+        className="h-full w-full object-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
         style={{ cursor: interactive ? "pointer" : "default" }}
       />
 
       {/* Google AR/CV Live HUD Overlay Badge */}
-      <div className="absolute top-3 left-3 pointer-events-none flex items-center gap-2 rounded bg-[#202124]/80 px-3 py-1.5 text-[11px] font-sans font-medium text-white shadow-md backdrop-blur-sm border border-[#00E5FF]/30">
+      <div className="absolute top-3 left-3 pointer-events-none flex items-center gap-2 rounded bg-[var(--color-fg)]/80 px-3 py-1.5 text-[11px] font-sans font-medium text-white shadow-md backdrop-blur-sm border border-[#00E5FF]/30">
         <span className="size-2 rounded-full bg-[#00E5FF] animate-pulse" />
         <span className="tracking-wide">GOOGLE AR/CV POSE ENGINE</span>
         {poses.length > 0 && (

@@ -113,31 +113,29 @@ export function SamplePicker({ onSelectSample, onCustomUploadClick, isLoading }:
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
         <div>
-          <h3 className="text-[11px] font-medium uppercase tracking-wider text-[#5F6368]">
-            Reference clips
-          </h3>
-          <p className="mt-0.5 text-[12px] text-[var(--color-muted)]">
+          <h3 className="section-eyebrow">Reference clips</h3>
+          <p className="mt-1 text-[13px] text-[var(--color-muted)]">
             Optional samples for multi-view testing.
           </p>
         </div>
         {onCustomUploadClick && (
           <Button size="sm" variant="ghost" onClick={onCustomUploadClick} className="text-[var(--color-muted)]">
-            <Video className="size-3.5" />
+            <Video className="size-[18px]" />
             Upload
           </Button>
         )}
       </div>
 
       {errorMsg && (
-        <p className="text-[12px] text-[var(--color-danger)]" role="alert">
+        <p className="text-[13px] text-[var(--color-danger-text)]" role="alert">
           {errorMsg}
         </p>
       )}
 
-      <ul className="divide-y divide-[var(--color-border)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+      <ul className="divide-y divide-[var(--color-border)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden shadow-[var(--shadow-card)]">
         {SAMPLE_VIDEOS.map((sample) => {
           const busy = isLoading || loadingId === sample.id;
           return (
@@ -147,27 +145,27 @@ export function SamplePicker({ onSelectSample, onCustomUploadClick, isLoading }:
                 disabled={busy}
                 onClick={() => void handleLoadSample(sample)}
                 className={cn(
-                  "flex w-full items-center gap-3 px-4 h-[48px] text-left transition-colors duration-150",
-                  "hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]",
+                  "flex w-full min-h-[52px] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150",
+                  "hover:bg-[var(--color-surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-ring)]",
                   "disabled:opacity-60",
                 )}
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-[var(--color-fg)]">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-[var(--color-fg)]">
                   {busy ? (
-                    <Loader2 className="size-[20px] animate-spin text-[var(--color-primary)]" />
+                    <Loader2 className="size-5 animate-spin text-[var(--color-primary)]" />
                   ) : (
-                    <Play className="size-[20px] fill-current" />
+                    <Play className="size-5 fill-current" />
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] font-medium text-[var(--color-fg)]">
                     {sample.title}
                   </span>
-                  <span className="mt-0.5 block truncate text-[12px] text-[#5F6368]">
+                  <span className="mt-0.5 block truncate text-[12px] text-[var(--color-muted)]">
                     {sample.viewBadge} · {sample.duration} · {sample.features.slice(0, 2).join(" · ")}
                   </span>
                 </span>
-                <span className="shrink-0 text-[12px] font-medium text-[#1A73E8]">
+                <span className="shrink-0 text-[13px] font-medium text-[var(--color-primary)]">
                   {busy ? "Loading…" : "Load"}
                 </span>
               </button>

@@ -45,7 +45,7 @@ function MaterialStatusBadge({
   testId: string;
 }) {
   const tone =
-    status === "Normal" ? "success" : status === "Borderline" ? "warn" : status === "Pathological" ? "info" : "neutral";
+    status === "Normal" ? "success" : status === "Borderline" ? "warn" : status === "Pathological" ? "danger" : "neutral";
 
   return (
     <Badge tone={tone} data-testid={testId} className="rounded-full h-6 text-[12px] px-3">
@@ -377,7 +377,7 @@ export function CognitiveClusters({
                       aria-label="Left stance phase percentage"
                     />
                   ) : (
-                    <div className="h-2 rounded bg-[#DADCE0]" />
+                    <div className="h-2 rounded bg-[var(--color-border)]" />
                   )}
                 </div>
 
@@ -397,7 +397,7 @@ export function CognitiveClusters({
                       aria-label="Right stance phase percentage"
                     />
                   ) : (
-                    <div className="h-2 rounded bg-[#DADCE0]" />
+                    <div className="h-2 rounded bg-[var(--color-border)]" />
                   )}
                 </div>
 
@@ -417,7 +417,7 @@ export function CognitiveClusters({
                       aria-label="Double support time percentage"
                     />
                   ) : (
-                    <div className="h-2 rounded bg-[#DADCE0]" />
+                    <div className="h-2 rounded bg-[var(--color-border)]" />
                   )}
                 </div>
               </div>
@@ -639,7 +639,7 @@ export function CognitiveClusters({
                   <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
                     <td className="px-3 py-1 font-medium text-[var(--color-fg)]">CMI Classification</td>
                     <td className="px-3 py-1 font-medium text-[var(--color-fg)]">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#E8F0FE] text-[var(--color-info)] border border-[#D2E3FC] capitalize">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--color-info-bg)] text-[var(--color-info)] border border-[color-mix(in_srgb,var(--color-info)_25%,transparent)] capitalize">
                         {dualTaskCost?.cmiClassification
                           ? dualTaskCost.cmiClassification.replace(/_/g, " ")
                           : "Single-Task Walk Baseline"}

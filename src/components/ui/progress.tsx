@@ -16,10 +16,10 @@ export function Progress({
   const v = Math.max(0, Math.min(100, value));
 
   const toneColors = {
-    primary: "bg-[#1A73E8]",
-    success: "bg-[#188038]",
-    warn: "bg-[#F9AB00]",
-    danger: "bg-[#D93025]",
+    primary: "bg-[var(--color-primary)]",
+    success: "bg-[var(--color-success)]",
+    warn: "bg-[var(--color-warn)]",
+    danger: "bg-[var(--color-danger)]",
   };
 
   return (
@@ -29,7 +29,7 @@ export function Progress({
       aria-valuemin={0}
       aria-valuemax={100}
       className={cn(
-        "h-2 w-full overflow-hidden rounded-full bg-[#E8EAED]",
+        "h-2 w-full overflow-hidden rounded-full bg-[var(--color-surface-3)]",
         className,
       )}
       {...props}

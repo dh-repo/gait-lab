@@ -19,8 +19,8 @@ import type { GaitMetrics } from "@/lib/gait/types";
 function CustomChartTooltip({ active, payload, label }: any) {
   if (active && payload && payload.length) {
     return (
-      <div className="rounded-lg bg-[#202124] p-2.5 text-white shadow-lg border border-[#3C4043] font-['Google_Sans',sans-serif] text-xs">
-        <p className="font-semibold text-[#E8EAED] mb-1 border-b border-[#3C4043] pb-0.5">
+      <div className="rounded-lg bg-[var(--color-fg)] p-2.5 text-[var(--color-bg)] shadow-lg border border-[var(--color-surface-3)] font-sans text-xs">
+        <p className="font-semibold text-[var(--color-bg)] mb-1 border-b border-[var(--color-surface-3)] pb-0.5">
           Time: {label} s
         </p>
         <div className="space-y-1 pt-0.5">
@@ -63,12 +63,12 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
       : undefined;
 
   return (
-    <div className="flex flex-col gap-4 font-['Google_Sans',sans-serif]" style={{ fontVariantNumeric: 'tabular-nums' }}>
+    <div className="flex flex-col gap-4 font-sans" style={{ fontVariantNumeric: 'tabular-nums' }}>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone="info" className="capitalize bg-[#E8F0FE] text-[#1967D2] border-[#D2E3FC]">
+        <Badge tone="info" className="capitalize bg-[var(--color-info-bg)] text-[var(--color-info-text)] border-[color-mix(in_srgb,var(--color-info)_25%,transparent)]">
           {metrics.viewAngle} view
         </Badge>
-        <Badge tone="neutral" className="bg-[#F1F3F4] text-[#3C4043] border-[#DADCE0]">
+        <Badge tone="neutral" className="bg-[var(--color-surface-2)] text-[var(--color-muted)] border-[var(--color-border)]">
           {(metrics.viewConfidence * 100).toFixed(0)}% view confidence
         </Badge>
       </div>
@@ -220,10 +220,10 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
 
       <section className="flex flex-col gap-2">
         <BandHeading title="Composite research indices (unvalidated weighting)" />
-        <Card className="border border-[#DADCE0] bg-white rounded-xl shadow-xs">
-          <CardHeader className="border-b border-[#F1F3F4] pb-3">
-            <CardTitle className="text-base font-medium text-[#202124]">Exploratory domain indices</CardTitle>
-            <CardDescription className="text-xs text-[#5F6368]">
+        <Card className="border border-[var(--color-border)] bg-[var(--color-surface)] rounded-xl shadow-[var(--shadow-card)]">
+          <CardHeader className="border-b border-[var(--color-surface-2)] pb-3">
+            <CardTitle className="text-base font-medium text-[var(--color-fg)]">Exploratory domain indices</CardTitle>
+            <CardDescription className="text-xs text-[var(--color-muted)]">
               Secondary 0–100 research indices — not clinical scores or a diagnosis.
             </CardDescription>
           </CardHeader>
@@ -260,10 +260,10 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
 
       {series.length > 2 && (
         <>
-          <Card className="border border-[#DADCE0] bg-white rounded-xl shadow-xs">
-            <CardHeader className="border-b border-[#F1F3F4] pb-3">
-              <CardTitle className="text-base font-medium text-[#202124]">Ankle height over time</CardTitle>
-              <CardDescription className="text-xs text-[#5F6368]">
+          <Card className="border border-[var(--color-border)] bg-[var(--color-surface)] rounded-xl shadow-[var(--shadow-card)]">
+            <CardHeader className="border-b border-[var(--color-surface-2)] pb-3">
+              <CardTitle className="text-base font-medium text-[var(--color-fg)]">Ankle height over time</CardTitle>
+              <CardDescription className="text-xs text-[var(--color-muted)]">
                 Image Y (higher = lower on screen). Peaks often align with foot contact.
               </CardDescription>
             </CardHeader>
@@ -305,10 +305,10 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
             </CardContent>
           </Card>
 
-          <Card className="border border-[#DADCE0] bg-white rounded-xl shadow-xs">
-            <CardHeader className="border-b border-[#F1F3F4] pb-3">
-              <CardTitle className="text-base font-medium text-[#202124]">Trunk path (hip center)</CardTitle>
-              <CardDescription className="text-xs text-[#5F6368]">Normalized position — used for sway and bounce estimates.</CardDescription>
+          <Card className="border border-[var(--color-border)] bg-[var(--color-surface)] rounded-xl shadow-[var(--shadow-card)]">
+            <CardHeader className="border-b border-[var(--color-surface-2)] pb-3">
+              <CardTitle className="text-base font-medium text-[var(--color-fg)]">Trunk path (hip center)</CardTitle>
+              <CardDescription className="text-xs text-[var(--color-muted)]">Normalized position — used for sway and bounce estimates.</CardDescription>
             </CardHeader>
             <CardContent className="h-56 pt-4">
               <ResponsiveContainer width="100%" height="100%">
@@ -348,10 +348,10 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
             </CardContent>
           </Card>
 
-          <Card className="border border-[#DADCE0] bg-white rounded-xl shadow-xs">
-            <CardHeader className="border-b border-[#F1F3F4] pb-3">
-              <CardTitle className="text-base font-medium text-[#202124]">Knee flexion angle</CardTitle>
-              <CardDescription className="text-xs text-[#5F6368]">
+          <Card className="border border-[var(--color-border)] bg-[var(--color-surface)] rounded-xl shadow-[var(--shadow-card)]">
+            <CardHeader className="border-b border-[var(--color-surface-2)] pb-3">
+              <CardTitle className="text-base font-medium text-[var(--color-fg)]">Knee flexion angle</CardTitle>
+              <CardDescription className="text-xs text-[var(--color-muted)]">
                 {metrics.kneeFlexLeft != null
                   ? "Degrees at hip–knee–ankle. Larger range often means freer swing."
                   : "Suppressed for frontal camera view (requires side view)."}
@@ -394,7 +394,7 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
                 </ResponsiveContainer>
               </CardContent>
             ) : (
-              <CardContent className="h-24 flex items-center justify-center text-xs text-[#5F6368]">
+              <CardContent className="h-24 flex items-center justify-center text-xs text-[var(--color-muted)]">
                 Knee flexion kinematic chart suppressed for frontal camera perspective.
               </CardContent>
             )}
@@ -408,9 +408,9 @@ export function MetricsPanel({ metrics }: { metrics: GaitMetrics }) {
 function BandHeading({ title, caption }: { title: string; caption?: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <h3 className="text-sm font-semibold tracking-tight text-[#202124]">{title}</h3>
+      <h3 className="text-sm font-semibold tracking-tight text-[var(--color-fg)]">{title}</h3>
       {caption ? (
-        <p className="text-xs text-[#5F6368]">{caption}</p>
+        <p className="text-xs text-[var(--color-muted)]">{caption}</p>
       ) : null}
     </div>
   );
@@ -429,14 +429,14 @@ function Band({
   return (
     <section className="flex flex-col gap-2">
       <BandHeading title={title} caption={caption} />
-      <div className="overflow-hidden rounded-xl border border-[#DADCE0] bg-white shadow-xs">
+      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
         <table className="clinical-table w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-[#F8F9FA] text-[#5F6368] font-medium border-b border-[#DADCE0]">
-              <th className="px-3 py-2 border-b border-[#DADCE0] font-medium text-[#5F6368]">Parameter / Metric</th>
-              <th className="px-3 py-2 border-b border-[#DADCE0] font-medium text-[#5F6368]">Measured Value</th>
-              <th className="px-3 py-2 border-b border-[#DADCE0] font-medium text-[#5F6368]">95% CI / Basis</th>
-              <th className="px-3 py-2 border-b border-[#DADCE0] font-medium text-[#5F6368]">Provenance / Status</th>
+            <tr className="bg-[var(--color-bg)] text-[var(--color-muted)] font-medium border-b border-[var(--color-border)]">
+              <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Parameter / Metric</th>
+              <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Measured Value</th>
+              <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">95% CI / Basis</th>
+              <th className="px-3 py-2 border-b border-[var(--color-border)] font-medium text-[var(--color-muted)]">Provenance / Status</th>
             </tr>
           </thead>
           <tbody>{children}</tbody>
@@ -466,36 +466,36 @@ function Stat({
   const hasCI = ci && ci.ci95Lower != null && ci.ci95Upper != null;
 
   let statusBadge = (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]">
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--color-success-bg)] text-[var(--color-success-text)] border border-[#CEEAD6]">
       Directly Measured
     </span>
   );
   if (statusType === "uncalibrated") {
     statusBadge = (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-[#FEF7E0] text-[#B06000] border border-[#FCE8E6]">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--color-warn-bg)] text-[var(--color-warn-text)] border border-[color-mix(in_srgb,var(--color-danger)_22%,transparent)]">
         Uncalibrated Index
       </span>
     );
   } else if (statusType === "context") {
     statusBadge = (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-[#E8F0FE] text-[#1967D2] border border-[#D2E3FC]">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--color-info-bg)] text-[var(--color-info-text)] border border-[color-mix(in_srgb,var(--color-info)_25%,transparent)]">
         Recording Context
       </span>
     );
   }
 
   return (
-    <tr className="h-[32px] border-b border-[#DADCE0] hover:bg-[#F1F3F4] transition-colors">
-      <td className="px-3 py-1 font-medium text-[#202124] border-b border-[#DADCE0]">{label}</td>
-      <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[#202124] border-b border-[#DADCE0]">
-        {value} {unit ? <span className="font-normal text-xs text-[#5F6368]">{unit}</span> : null}
+    <tr className="h-[32px] border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors">
+      <td className="px-3 py-1 font-medium text-[var(--color-fg)] border-b border-[var(--color-border)]">{label}</td>
+      <td className="px-3 py-1 font-mono font-semibold tabular-nums text-[var(--color-fg)] border-b border-[var(--color-border)]">
+        {value} {unit ? <span className="font-normal text-xs text-[var(--color-muted)]">{unit}</span> : null}
       </td>
-      <td className="px-3 py-1 font-mono text-[11px] tabular-nums text-[#5F6368] border-b border-[#DADCE0]">
+      <td className="px-3 py-1 font-mono text-[11px] tabular-nums text-[var(--color-muted)] border-b border-[var(--color-border)]">
         {hasCI && <div>[95% CI: {ci.ci95Lower?.toFixed(1)} – {ci.ci95Upper?.toFixed(1)}]</div>}
         {basis && <div>{basis}</div>}
         {!hasCI && !basis && "—"}
       </td>
-      <td className="px-3 py-1 border-b border-[#DADCE0]">
+      <td className="px-3 py-1 border-b border-[var(--color-border)]">
         {statusBadge}
       </td>
     </tr>

@@ -1105,6 +1105,21 @@ export function GaitApp() {
           onToggleCollapse={() => setIsSideNavCollapsed((prev) => !prev)}
           currentStage={computedStage}
           hasResults={Boolean(result)}
+          activeNav={
+            computedStage === 1
+              ? "capture"
+              : computedStage === 2
+                ? "process"
+                : computedStage === 4 || tab === "report"
+                  ? "report"
+                  : tab === "metrics"
+                    ? "trajectories"
+                    : tab === "guesses"
+                      ? "dualtask"
+                      : tab === "fallrisk"
+                        ? "fallrisk"
+                        : "spatiotemporal"
+          }
           onOpenReport={() => {
             if (result) {
               setTab("report");
@@ -1114,8 +1129,27 @@ export function GaitApp() {
           onNavSelect={(navId) => {
             if (navId === "capture") handleSelectStage(1);
             else if (navId === "process") handleSelectStage(2);
-            else if (navId === "spatiotemporal" || navId === "trajectories" || navId === "dualtask") handleSelectStage(3);
-            else if (navId === "report") {
+            else if (navId === "spatiotemporal") {
+              if (result) {
+                setTab("clusters");
+                setActiveStage(3);
+              } else handleSelectStage(3);
+            } else if (navId === "trajectories") {
+              if (result) {
+                setTab("metrics");
+                setActiveStage(3);
+              } else handleSelectStage(3);
+            } else if (navId === "dualtask") {
+              if (result) {
+                setTab("guesses");
+                setActiveStage(3);
+              } else handleSelectStage(3);
+            } else if (navId === "fallrisk") {
+              if (result) {
+                setTab("fallrisk");
+                setActiveStage(3);
+              } else handleSelectStage(3);
+            } else if (navId === "report") {
               if (result) {
                 setTab("report");
                 setActiveStage(4);
@@ -1124,7 +1158,7 @@ export function GaitApp() {
           }}
         />
 
-        <main className="relative mx-auto flex w-full max-w-[960px] flex-1 flex-col gap-4 overflow-y-auto px-5 pb-20 pt-[calc(var(--grok-banner-h,0px)+1.25rem)] sm:px-8">
+        <main className="relative mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-4 overflow-y-auto px-5 pb-20 pt-[calc(var(--grok-banner-h,0px)+1.25rem)] sm:px-8">
         {/* Hidden / active video element */}
         <video
           ref={videoRef}
@@ -1143,13 +1177,11 @@ export function GaitApp() {
             className="mx-auto w-full max-w-xl space-y-8"
           >
             <header className="space-y-3 text-center sm:text-left">
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--color-subtle)]">
-                Capture
-              </p>
+              <p className="section-eyebrow">Capture</p>
               <h1 className="text-[1.75rem] font-semibold tracking-tight text-[var(--color-fg)] sm:text-[2rem] leading-tight">
                 New gait session
               </h1>
-              <p className="text-[15px] leading-relaxed text-[var(--color-muted)] max-w-md mx-auto sm:mx-0">
+              <p className="text-[14px] leading-relaxed text-[var(--color-muted)] max-w-md mx-auto sm:mx-0 sm:text-[15px]">
                 One continuous walk. Analysis runs entirely in this browser.
               </p>
             </header>
@@ -1157,9 +1189,7 @@ export function GaitApp() {
             {/* Protocol + source as quiet controls, not competing cards */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1.5">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-subtle)]">
-                  Assessment protocol
-                </p>
+                <p className="section-eyebrow">Assessment protocol</p>
                 <div className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
                   <button
                     type="button"
@@ -1167,8 +1197,8 @@ export function GaitApp() {
                     className={cn(
                       "rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
                       taskMode === "single"
-                        ? "bg-[var(--color-fg)] text-white"
-                        : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                        ? "bg-[var(--color-info-bg)] text-[var(--color-info-text)] shadow-sm"
+                        : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
                     )}
                   >
                     Single-Task (Walk Only)
@@ -1179,8 +1209,8 @@ export function GaitApp() {
                     className={cn(
                       "rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
                       taskMode === "dual"
-                        ? "bg-[var(--color-fg)] text-white"
-                        : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                        ? "bg-[var(--color-info-bg)] text-[var(--color-info-text)] shadow-sm"
+                        : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
                     )}
                   >
                     Dual-Task (Walk + Cognitive)
@@ -1198,8 +1228,8 @@ export function GaitApp() {
                   className={cn(
                     "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:min-h-0 sm:min-w-0",
                     inputMode === "file"
-                      ? "bg-[var(--color-fg)] text-white"
-                      : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                      ? "bg-[var(--color-info-bg)] text-[var(--color-info-text)] shadow-sm"
+                      : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
                   )}
                 >
                   <Film className="size-3.5" />
@@ -1211,8 +1241,8 @@ export function GaitApp() {
                   className={cn(
                     "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:min-h-0 sm:min-w-0",
                     inputMode === "webcam"
-                      ? "bg-[var(--color-fg)] text-white"
-                      : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                      ? "bg-[var(--color-info-bg)] text-[var(--color-info-text)] shadow-sm"
+                      : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
                   )}
                 >
                   <Camera className="size-3.5" />
@@ -1228,8 +1258,8 @@ export function GaitApp() {
                   className={cn(
                     "border-dashed border-2 shadow-none transition-colors duration-150",
                     dragOver
-                      ? "border-[#1A73E8] bg-[#E8F0FE]"
-                      : "border-[#DADCE0] bg-[var(--color-surface)]",
+                      ? "border-[var(--color-primary)] bg-[var(--color-info-bg)]"
+                      : "border-[var(--color-border)] bg-[var(--color-surface)]",
                   )}
                   style={{ borderDasharray: '8px 4px' } as React.CSSProperties}
                   onDragOver={(e) => {
@@ -1239,9 +1269,9 @@ export function GaitApp() {
                   onDragLeave={() => setDragOver(false)}
                   onDrop={onDrop}
                 >
-                  <CardContent className="flex flex-col items-center gap-6 px-6 py-14 text-center sm:py-16">
-                    <div className="flex size-16 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-[#5F6368]">
-                      <Upload className="size-[48px]" strokeWidth={1.5} />
+                  <CardContent className="flex flex-col items-center gap-5 px-6 py-10 text-center sm:py-12">
+                    <div className="flex size-12 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-[var(--color-muted)]">
+                      <Upload className="size-6" strokeWidth={1.75} />
                     </div>
                     <div className="space-y-2">
                       <h2 className="text-[17px] font-semibold tracking-tight">Drop walking video here</h2>
@@ -1250,7 +1280,7 @@ export function GaitApp() {
                         improves reliability of variability measures.
                       </p>
                     </div>
-                    <Button size="lg" onClick={() => fileRef.current?.click()} className="min-w-[11rem] rounded-full bg-[#1A73E8] hover:bg-[#1765CC] text-white text-[14px] font-medium">
+                    <Button size="lg" onClick={() => fileRef.current?.click()} className="min-w-[11rem] rounded-full text-[14px] font-medium">
                       <Film className="size-4" />
                       Choose video file
                     </Button>
@@ -1442,7 +1472,7 @@ export function GaitApp() {
 
                   {/* Camera fallback notice (non-blocking) */}
                   {webcamFallbackNotice && (
-                    <div className="rounded-[var(--radius-md)] border border-[#fde68a] bg-[#fffbeb] p-3 text-xs text-[var(--color-warn)] flex flex-wrap items-center justify-between gap-2">
+                    <div className="rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--color-warn)_40%,transparent)] bg-[var(--color-warn-bg)] p-3 text-xs text-[var(--color-warn)] flex flex-wrap items-center justify-between gap-2">
                       <p>{webcamFallbackNotice}</p>
                       <Button
                         size="sm"
@@ -1468,7 +1498,7 @@ export function GaitApp() {
 
                   {/* Camera Error Fallback Banner */}
                   {webcamError && (
-                    <div className="rounded-[var(--radius-md)] border border-[#fecaca] bg-[#fef2f2] p-4 text-xs text-[var(--color-danger)] space-y-2">
+                    <div className="rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--color-danger)_35%,transparent)] bg-[var(--color-danger-bg)] p-4 text-xs text-[var(--color-danger)] space-y-2">
                       <p className="font-semibold">{webcamError}</p>
                       <div className="flex items-center gap-2 pt-1">
                         <Button
@@ -1506,7 +1536,7 @@ export function GaitApp() {
 
                     {/* Live capture status panel (restrained clinical HUD) */}
                     {webcamState === "streaming" && (
-                      <div className="absolute top-3 right-3 flex flex-col gap-1.5 bg-white/95 backdrop-blur-sm p-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-[var(--color-fg)] text-xs font-mono shadow-sm pointer-events-none min-w-[170px]">
+                      <div className="absolute top-3 right-3 flex flex-col gap-1.5 bg-[var(--color-surface)]/95 backdrop-blur-sm p-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-[var(--color-fg)] text-xs font-mono shadow-sm pointer-events-none min-w-[170px]">
                         <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-1.5 mb-0.5">
                           <span className="text-[var(--color-muted)] text-[10px] font-sans font-semibold tracking-wide">
                             Recording
@@ -1863,7 +1893,7 @@ export function GaitApp() {
               </TabBtn>
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start">
               {/* Sticky video — person + overlays live in the same chrome */}
               <section
                 aria-label="Video Canvas Viewer and Playback Controls"
@@ -1907,7 +1937,7 @@ export function GaitApp() {
                         step={0.033}
                         value={currentTime}
                         onChange={(e) => seekToTime(parseFloat(e.target.value))}
-                        className="h-1.5 flex-1 cursor-pointer rounded-lg bg-[var(--color-border)] accent-[var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                        className="h-1.5 flex-1 cursor-pointer rounded-lg bg-[var(--color-border)] accent-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                       />
                       <span className="min-w-[100px] text-right font-mono text-[11px] tabular text-[var(--color-subtle)]">
                         {formatTimecode(currentTime)} / {formatTimecode(duration)}
@@ -1934,8 +1964,8 @@ export function GaitApp() {
                               className={cn(
                                 "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors",
                                 selectedPersonId === p.id
-                                  ? "border-[var(--color-fg)] bg-[var(--color-surface-2)] font-semibold text-[var(--color-fg)]"
-                                  : "border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+                                  ? "border-[var(--color-primary)] bg-[var(--color-info-bg)] font-semibold text-[var(--color-info-text)]"
+                                  : "border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
                               )}
                             >
                               <span
@@ -1949,15 +1979,15 @@ export function GaitApp() {
                       )}
                       <div className="ml-auto flex flex-wrap items-center gap-3">
                         <label className="inline-flex cursor-pointer items-center gap-1.5">
-                          <input type="checkbox" checked={overlaySkeleton} onChange={(e) => setOverlaySkeleton(e.target.checked)} aria-label="Toggle skeleton overlay" className="rounded border-[var(--color-border)] accent-[var(--color-fg)]" />
+                          <input type="checkbox" checked={overlaySkeleton} onChange={(e) => setOverlaySkeleton(e.target.checked)} aria-label="Toggle skeleton overlay" className="rounded border-[var(--color-border)] accent-[var(--color-primary)]" />
                           Skeleton
                         </label>
                         <label className="inline-flex cursor-pointer items-center gap-1.5">
-                          <input type="checkbox" checked={overlayJointArcs} onChange={(e) => setOverlayJointArcs(e.target.checked)} aria-label="Toggle joint arcs overlay" className="rounded border-[var(--color-border)] accent-[var(--color-fg)]" />
+                          <input type="checkbox" checked={overlayJointArcs} onChange={(e) => setOverlayJointArcs(e.target.checked)} aria-label="Toggle joint arcs overlay" className="rounded border-[var(--color-border)] accent-[var(--color-primary)]" />
                           Arcs
                         </label>
                         <label className="inline-flex cursor-pointer items-center gap-1.5">
-                          <input type="checkbox" checked={overlaySwayVector} onChange={(e) => setOverlaySwayVector(e.target.checked)} aria-label="Toggle sway vector overlay" className="rounded border-[var(--color-border)] accent-[var(--color-fg)]" />
+                          <input type="checkbox" checked={overlaySwayVector} onChange={(e) => setOverlaySwayVector(e.target.checked)} aria-label="Toggle sway vector overlay" className="rounded border-[var(--color-border)] accent-[var(--color-primary)]" />
                           Sway
                         </label>
                         <Button variant="ghost" size="sm" onClick={() => void runAnalysis()} className="h-7 text-[11px]">
@@ -2099,17 +2129,17 @@ function TabBtn({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "relative -mb-px px-4 py-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+        "relative -mb-px min-h-11 px-4 py-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-ring)] sm:min-h-12",
         active
-          ? "text-[var(--color-fg)]"
-          : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+          ? "text-[var(--color-info-text)]"
+          : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]/50",
       )}
     >
       {children}
       {active ? (
         <span
           aria-hidden
-          className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[var(--color-fg)]"
+          className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[var(--color-primary)]"
         />
       ) : null}
     </button>

@@ -157,15 +157,15 @@ export function ClinicalReportView({
       className={cn("flex flex-col gap-6 print:gap-4 print:text-black max-w-5xl mx-auto w-full print:[margin:24mm_18mm]", className)}
     >
       {/* Google Workspace A4 Document Banner */}
-      <Card className="border-[#DADCE0] bg-white shadow-card overflow-hidden print-card print:border-none print:shadow-none">
+      <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card overflow-hidden print-card print:border-none print:shadow-none">
         <CardHeader className="px-6 py-5 print:px-0 print:py-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-[#202124] font-sans">
+              <h1 className="text-xl font-bold tracking-tight text-[var(--color-fg)] font-sans">
                 Gait Lab
               </h1>
-              <div className="mt-2 h-0.5 w-12 bg-[#1A73E8]" />
-              <p className="mt-2 text-xs text-[#5F6368] print:text-gray-600">
+              <div className="mt-2 h-0.5 w-12 bg-[var(--color-primary)]" />
+              <p className="mt-2 text-xs text-[var(--color-muted)] print:text-gray-600">
                 Clinical Gait Assessment · Patient ID: {patientMeta.patientId || "N/A"} · {new Date().toLocaleDateString()}
               </p>
             </div>
@@ -174,7 +174,7 @@ export function ClinicalReportView({
                 type="button"
                 onClick={onPrint}
                 aria-label="Print or Export PDF Report"
-                className="no-print print:hidden inline-flex items-center gap-2 rounded-md bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[#1557B0] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A73E8]"
+                className="no-print print:hidden inline-flex items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-fg)] shadow hover:bg-[var(--color-primary-active)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
               >
                 <Printer className="size-4" />
                 Print / Export PDF
@@ -182,11 +182,11 @@ export function ClinicalReportView({
             )}
           </div>
         </CardHeader>
-        <CardContent className="p-6 bg-[#F8F9FA] print:bg-white print:p-2 border-t border-b border-[#DADCE0]">
+        <CardContent className="p-6 bg-[var(--color-bg)] print:bg-[var(--color-surface)] print:p-2 border-t border-b border-[var(--color-border)]">
           {/* Patient Metadata Form Card Container */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
-              <label htmlFor="patient-id-input" className="text-xs text-[#5F6368] print:text-gray-700">
+              <label htmlFor="patient-id-input" className="text-xs text-[var(--color-muted)] print:text-gray-700">
                 Patient ID
               </label>
               <input
@@ -197,11 +197,11 @@ export function ClinicalReportView({
                 placeholder="e.g. PT-84920"
                 data-testid="patient-id-input"
                 aria-label="Patient ID"
-                className="w-full rounded-md border border-[#DADCE0] bg-white px-3 py-2 text-sm font-medium text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] print:border-gray-300 print:bg-white print:text-black"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] print:border-gray-300 print:bg-[var(--color-surface)] print:text-black"
               />
             </div>
             <div className="space-y-1">
-              <label htmlFor="assessment-date-input" className="text-xs text-[#5F6368] print:text-gray-700">
+              <label htmlFor="assessment-date-input" className="text-xs text-[var(--color-muted)] print:text-gray-700">
                 Assessment Date
               </label>
               <input
@@ -211,11 +211,11 @@ export function ClinicalReportView({
                 onChange={(e) => onUpdateMeta?.({ assessmentDate: e.target.value })}
                 data-testid="assessment-date-input"
                 aria-label="Assessment Date"
-                className="w-full rounded-md border border-[#DADCE0] bg-white px-3 py-2 text-sm font-medium text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] print:border-gray-300 print:bg-white print:text-black"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] print:border-gray-300 print:bg-[var(--color-surface)] print:text-black"
               />
             </div>
             <div className="space-y-1">
-              <label htmlFor="assessment-condition-input" className="text-xs text-[#5F6368] print:text-gray-700">
+              <label htmlFor="assessment-condition-input" className="text-xs text-[var(--color-muted)] print:text-gray-700">
                 Assessment Condition
               </label>
               <input
@@ -226,11 +226,11 @@ export function ClinicalReportView({
                 placeholder="e.g. Single-Task Walk"
                 data-testid="assessment-condition-input"
                 aria-label="Assessment Condition"
-                className="w-full rounded-md border border-[#DADCE0] bg-white px-3 py-2 text-sm font-medium text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] print:border-gray-300 print:bg-white print:text-black"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] print:border-gray-300 print:bg-[var(--color-surface)] print:text-black"
               />
             </div>
             <div className="space-y-1 sm:col-span-2 lg:col-span-4">
-              <label htmlFor="clinician-notes-input" className="text-xs text-[#5F6368] print:text-gray-700">
+              <label htmlFor="clinician-notes-input" className="text-xs text-[var(--color-muted)] print:text-gray-700">
                 Clinician Notes
               </label>
               <textarea
@@ -241,7 +241,7 @@ export function ClinicalReportView({
                 rows={2}
                 data-testid="clinician-notes-input"
                 aria-label="Clinician Notes"
-                className="w-full rounded-md border border-[#DADCE0] bg-white p-3 text-sm text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#1A73E8] print:border-gray-300 print:bg-white print:text-black"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] print:border-gray-300 print:bg-[var(--color-surface)] print:text-black"
               />
             </div>
           </div>
@@ -251,10 +251,10 @@ export function ClinicalReportView({
       {/* Executive Summary & 5-Domain Gait Health Radar Chart */}
       <div className="grid gap-6 lg:grid-cols-2 print:grid-cols-2 print:gap-4">
         {/* Executive Summary & Overall Score */}
-        <Card className="border-[#DADCE0] bg-white shadow-card print-card">
-          <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#F8F9FA] print:bg-white">
-            <CardTitle className="text-base font-semibold text-[#202124] border-l-[3px] border-[#1A73E8] pl-2">Executive Summary</CardTitle>
-            <CardDescription className="text-xs text-[#5F6368] pl-[11px]">Overall Gait Health & Assessment Highlights</CardDescription>
+        <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card print-card">
+          <CardHeader className="pb-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
+            <CardTitle className="text-base font-semibold text-[var(--color-fg)] border-l-[3px] border-[var(--color-primary)] pl-2">Executive Summary</CardTitle>
+            <CardDescription className="text-xs text-[var(--color-muted)] pl-[11px]">Overall Gait Health & Assessment Highlights</CardDescription>
           </CardHeader>
           <CardContent className="p-6 flex flex-col gap-4">
             <div className="flex items-center gap-6">
@@ -266,18 +266,18 @@ export function ClinicalReportView({
                 />
               </div>
               <div className="space-y-1.5">
-                <h2 className="text-lg font-semibold leading-tight text-[#202124]">{report.headline}</h2>
-                <p className="text-xs leading-relaxed text-[#5F6368] print:text-gray-700">
+                <h2 className="text-lg font-semibold leading-tight text-[var(--color-fg)]">{report.headline}</h2>
+                <p className="text-xs leading-relaxed text-[var(--color-muted)] print:text-gray-700">
                   {report.oneLiner}
                 </p>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   <Badge tone={bandTone(report.domains.find((d) => d.key === "overall")?.band ?? "good")}>
                     {report.domains.find((d) => d.key === "overall")?.bandLabel}
                   </Badge>
-                  <Badge tone="neutral" className="bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]">
+                  <Badge tone="neutral" className="bg-[var(--color-surface-2)] text-[var(--color-muted)] border-[var(--color-border)]">
                     {result.taskMode === "dual" ? "Walk + cognitive" : "Walk only"}
                   </Badge>
-                  <Badge tone="primary" className="bg-[#E8F0FE] text-[#1967D2] border-[#1967D2]/20">
+                  <Badge tone="primary" className="bg-[var(--color-info-bg)] text-[var(--color-info-text)] border-[#1967D2]/20">
                     View: {result.metrics.viewAngle} ({(result.metrics.viewConfidence * 100).toFixed(0)}%)
                   </Badge>
                 </div>
@@ -287,10 +287,10 @@ export function ClinicalReportView({
         </Card>
 
         {/* 5-Domain Radar Chart */}
-        <Card className="border-[#DADCE0] bg-white shadow-card print-card">
-          <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#F8F9FA] print:bg-white">
-            <CardTitle className="text-base font-semibold text-[#202124] border-l-[3px] border-[#1A73E8] pl-2">5-Domain Gait Health Radar</CardTitle>
-            <CardDescription className="text-xs text-[#5F6368] pl-[11px]">Pace, Symmetry, Smoothness, Rhythmicity, & Stability</CardDescription>
+        <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card print-card">
+          <CardHeader className="pb-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
+            <CardTitle className="text-base font-semibold text-[var(--color-fg)] border-l-[3px] border-[var(--color-primary)] pl-2">5-Domain Gait Health Radar</CardTitle>
+            <CardDescription className="text-xs text-[var(--color-muted)] pl-[11px]">Pace, Symmetry, Smoothness, Rhythmicity, & Stability</CardDescription>
           </CardHeader>
           <CardContent className="p-4">
             <div data-testid="radar-chart-container" className="h-64 w-full">
@@ -323,10 +323,10 @@ export function ClinicalReportView({
       </div>
 
       {/* Fall Risk & Acute Weakness Evaluation Section */}
-      <Card data-testid="report-fall-risk-section" className="border-[#DADCE0] bg-white shadow-card print-card">
-        <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#F8F9FA] print:bg-white">
+      <Card data-testid="report-fall-risk-section" className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card print-card">
+        <CardHeader className="pb-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold text-[#202124] border-l-[3px] border-[#1A73E8] pl-2">
+            <CardTitle className="text-base font-semibold text-[var(--color-fg)] border-l-[3px] border-[var(--color-primary)] pl-2">
               Fall Risk &amp; Acute Motor Weakness Evaluation
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -344,19 +344,19 @@ export function ClinicalReportView({
               </Badge>
             </div>
           </div>
-          <CardDescription className="text-xs text-[#5F6368] pl-[11px]">
+          <CardDescription className="text-xs text-[var(--color-muted)] pl-[11px]">
             Comparative fall risk classification (CDC STEADI cutoffs vs Composite Index) and longitudinal acute weakness anomaly detection.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="p-6 space-y-4">
           {/* Agreement Badge */}
-          <div data-testid="report-predictive-agreement" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#DADCE0] bg-[#F8F9FA] p-3 print:bg-white">
+          <div data-testid="report-predictive-agreement" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 print:bg-[var(--color-surface)]">
             <div>
-              <span className="text-xs font-bold text-[#202124]">
+              <span className="text-xs font-bold text-[var(--color-fg)]">
                 Predictive Concordance: {derivedFallRisk.agreement.percentAgreement}% (κ = {derivedFallRisk.agreement.cohensKappa.toFixed(2)})
               </span>
-              <p data-testid="report-divergence-explanation" className="text-xs text-[#5F6368]">
+              <p data-testid="report-divergence-explanation" className="text-xs text-[var(--color-muted)]">
                 {derivedFallRisk.agreement.divergenceExplanation}
               </p>
             </div>
@@ -375,23 +375,23 @@ export function ClinicalReportView({
             </div>
 
             <div className="space-y-2 text-xs">
-              <span className="font-bold text-[#202124]">Model B Composite Sub-Scores</span>
+              <span className="font-bold text-[var(--color-fg)]">Model B Composite Sub-Scores</span>
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded border border-[#DADCE0] p-2 bg-[#F8F9FA] print:bg-white">
-                  <span className="text-[10px] text-[#5F6368] block">Kinematics</span>
-                  <span className="font-bold text-[#202124]">{derivedFallRisk.modelB.subScores.kinematicsScore} / 100</span>
+                <div className="rounded border border-[var(--color-border)] p-2 bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
+                  <span className="text-[10px] text-[var(--color-muted)] block">Kinematics</span>
+                  <span className="font-bold text-[var(--color-fg)]">{derivedFallRisk.modelB.subScores.kinematicsScore} / 100</span>
                 </div>
-                <div className="rounded border border-[#DADCE0] p-2 bg-[#F8F9FA] print:bg-white">
-                  <span className="text-[10px] text-[#5F6368] block">Trunk Sway</span>
-                  <span className="font-bold text-[#202124]">{derivedFallRisk.modelB.subScores.trunkSwayScore} / 100</span>
+                <div className="rounded border border-[var(--color-border)] p-2 bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
+                  <span className="text-[10px] text-[var(--color-muted)] block">Trunk Sway</span>
+                  <span className="font-bold text-[var(--color-fg)]">{derivedFallRisk.modelB.subScores.trunkSwayScore} / 100</span>
                 </div>
-                <div className="rounded border border-[#DADCE0] p-2 bg-[#F8F9FA] print:bg-white">
-                  <span className="text-[10px] text-[#5F6368] block">Dual-Task DTE</span>
-                  <span className="font-bold text-[#202124]">{derivedFallRisk.modelB.subScores.dteScore} / 100</span>
+                <div className="rounded border border-[var(--color-border)] p-2 bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
+                  <span className="text-[10px] text-[var(--color-muted)] block">Dual-Task DTE</span>
+                  <span className="font-bold text-[var(--color-fg)]">{derivedFallRisk.modelB.subScores.dteScore} / 100</span>
                 </div>
-                <div className="rounded border border-[#DADCE0] p-2 bg-[#F8F9FA] print:bg-white">
-                  <span className="text-[10px] text-[#5F6368] block">Variability</span>
-                  <span className="font-bold text-[#202124]">{derivedFallRisk.modelB.subScores.variabilityScore} / 100</span>
+                <div className="rounded border border-[var(--color-border)] p-2 bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
+                  <span className="text-[10px] text-[var(--color-muted)] block">Variability</span>
+                  <span className="font-bold text-[var(--color-fg)]">{derivedFallRisk.modelB.subScores.variabilityScore} / 100</span>
                 </div>
               </div>
             </div>
@@ -399,8 +399,8 @@ export function ClinicalReportView({
 
           {/* Acute Weakness Warning Cards in Report */}
           {derivedAcuteWeakness.warningCards.length > 0 && (
-            <div data-testid="report-acute-weakness-cards" className="space-y-2 pt-2 border-t border-[#DADCE0]">
-              <span className="text-xs font-bold text-[#202124]">Acute Motor Weakness Clinical Warnings</span>
+            <div data-testid="report-acute-weakness-cards" className="space-y-2 pt-2 border-t border-[var(--color-border)]">
+              <span className="text-xs font-bold text-[var(--color-fg)]">Acute Motor Weakness Clinical Warnings</span>
               <div className="grid gap-3 sm:grid-cols-2">
                 {derivedAcuteWeakness.warningCards.map((card) => (
                   <AcuteWeaknessCard key={card.id} card={card} />
@@ -412,24 +412,24 @@ export function ClinicalReportView({
       </Card>
 
       {/* Zeni Kinematic Gait Cycle Phase Breakdown */}
-      <Card className="border-[#DADCE0] bg-white shadow-card print-card">
-        <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#F8F9FA] print:bg-white">
+      <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card print-card">
+        <CardHeader className="pb-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold text-[#202124] border-l-[3px] border-[#1A73E8] pl-2">Zeni Kinematic Gait Phase Breakdown</CardTitle>
-            <Badge tone="primary" className="bg-[#E8F0FE] text-[#1967D2] border-[#1967D2]/20">
+            <CardTitle className="text-base font-semibold text-[var(--color-fg)] border-l-[3px] border-[var(--color-primary)] pl-2">Zeni Kinematic Gait Phase Breakdown</CardTitle>
+            <Badge tone="primary" className="bg-[var(--color-info-bg)] text-[var(--color-info-text)] border-[#1967D2]/20">
               SA:{" "}
               {result.metrics.symmetryAngle != null
                 ? `${result.metrics.symmetryAngle.toFixed(1)}%`
                 : "N/A"}
             </Badge>
           </div>
-          <CardDescription className="text-xs text-[#5F6368]">
+          <CardDescription className="text-xs text-[var(--color-muted)]">
             Stance phase, swing phase, and double support timing derived from foot AP position relative to pelvis (Zeni et al. 2008).
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6 grid gap-4 sm:grid-cols-3">
           <div className="space-y-1">
-            <div className="flex justify-between text-xs font-medium text-[#202124]">
+            <div className="flex justify-between text-xs font-medium text-[var(--color-fg)]">
               <span>Left Stance / Swing</span>
               <span>
                 {result.metrics.leftStancePct != null && result.metrics.leftSwingPct != null
@@ -448,11 +448,11 @@ export function ClinicalReportView({
                 aria-label="Left stance percentage"
               />
             ) : (
-              <div className="h-2 rounded bg-[#DADCE0] text-[10px] text-center leading-none text-[#70757A]">View Suppressed</div>
+              <div className="h-2 rounded bg-[var(--color-border)] text-[10px] text-center leading-none text-[var(--color-subtle)]">View Suppressed</div>
             )}
           </div>
           <div className="space-y-1">
-            <div className="flex justify-between text-xs font-medium text-[#202124]">
+            <div className="flex justify-between text-xs font-medium text-[var(--color-fg)]">
               <span>Right Stance / Swing</span>
               <span>
                 {result.metrics.rightStancePct != null && result.metrics.rightSwingPct != null
@@ -471,11 +471,11 @@ export function ClinicalReportView({
                 aria-label="Right stance percentage"
               />
             ) : (
-              <div className="h-2 rounded bg-[#DADCE0] text-[10px] text-center leading-none text-[#70757A]">View Suppressed</div>
+              <div className="h-2 rounded bg-[var(--color-border)] text-[10px] text-center leading-none text-[var(--color-subtle)]">View Suppressed</div>
             )}
           </div>
           <div className="space-y-1">
-            <div className="flex justify-between text-xs font-medium text-[#202124]">
+            <div className="flex justify-between text-xs font-medium text-[var(--color-fg)]">
               <span>Double Support Time</span>
               <span>
                 {result.metrics.doubleSupportPct != null
@@ -494,17 +494,17 @@ export function ClinicalReportView({
                 aria-label="Double support percentage"
               />
             ) : (
-              <div className="h-2 rounded bg-[#DADCE0] text-[10px] text-center leading-none text-[#70757A]">View Suppressed</div>
+              <div className="h-2 rounded bg-[var(--color-border)] text-[10px] text-center leading-none text-[var(--color-subtle)]">View Suppressed</div>
             )}
           </div>
         </CardContent>
       </Card>
 
       {/* Joint Trajectory ROM Summary Table & Joint Angles Chart */}
-      <Card className="border-[#DADCE0] bg-white shadow-card print-card">
-        <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#F8F9FA] print:bg-gray-100">
-          <CardTitle className="text-base font-semibold text-[#202124] border-l-[3px] border-[#1A73E8] pl-2">Joint Trajectory Range of Motion (ROM) Summary</CardTitle>
-          <CardDescription className="text-xs text-[#5F6368] pl-[11px]">
+      <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card print-card">
+        <CardHeader className="pb-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] print:bg-gray-100">
+          <CardTitle className="text-base font-semibold text-[var(--color-fg)] border-l-[3px] border-[var(--color-primary)] pl-2">Joint Trajectory Range of Motion (ROM) Summary</CardTitle>
+          <CardDescription className="text-xs text-[var(--color-muted)] pl-[11px]">
             Sagittal joint kinematic excursions and asymmetry metrics compared against Perry &amp; Burnfield (2010) normative reference bounds.
           </CardDescription>
         </CardHeader>
@@ -523,7 +523,7 @@ export function ClinicalReportView({
               </thead>
               <tbody>
                 <tr>
-                  <th scope="row" className="font-medium text-[#202124]">Knee</th>
+                  <th scope="row" className="font-medium text-[var(--color-fg)]">Knee</th>
                   <td className="tabular">{romMetrics.kneeRomLeft != null ? `${romMetrics.kneeRomLeft.toFixed(1)}°` : "—"}</td>
                   <td className="tabular">{romMetrics.kneeRomRight != null ? `${romMetrics.kneeRomRight.toFixed(1)}°` : "—"}</td>
                   <td className="tabular">
@@ -532,12 +532,12 @@ export function ClinicalReportView({
                   <td className="tabular">
                     L {romMetrics.kneePeakFlexionLeft != null && romMetrics.kneeRomLeft != null ? `${(romMetrics.kneePeakFlexionLeft - romMetrics.kneeRomLeft).toFixed(1)}°` : "—"} / R {romMetrics.kneePeakFlexionRight != null && romMetrics.kneeRomRight != null ? `${(romMetrics.kneePeakFlexionRight - romMetrics.kneeRomRight).toFixed(1)}°` : "—"}
                   </td>
-                  <td className="tabular font-semibold text-[#202124]">
+                  <td className="tabular font-semibold text-[var(--color-fg)]">
                     {romMetrics.kneeAsymmetryPct != null ? `${romMetrics.kneeAsymmetryPct.toFixed(1)}%` : "—"}
                   </td>
                 </tr>
                 <tr>
-                  <th scope="row" className="font-medium text-[#202124]">Hip</th>
+                  <th scope="row" className="font-medium text-[var(--color-fg)]">Hip</th>
                   <td className="tabular">{romMetrics.hipRomLeft != null ? `${romMetrics.hipRomLeft.toFixed(1)}°` : "—"}</td>
                   <td className="tabular">{romMetrics.hipRomRight != null ? `${romMetrics.hipRomRight.toFixed(1)}°` : "—"}</td>
                   <td className="tabular">
@@ -546,12 +546,12 @@ export function ClinicalReportView({
                   <td className="tabular">
                     L {romMetrics.hipPeakExtensionLeft != null ? `${romMetrics.hipPeakExtensionLeft.toFixed(1)}°` : "—"} / R {romMetrics.hipPeakExtensionRight != null ? `${romMetrics.hipPeakExtensionRight.toFixed(1)}°` : "—"}
                   </td>
-                  <td className="tabular font-semibold text-[#202124]">
+                  <td className="tabular font-semibold text-[var(--color-fg)]">
                     {romMetrics.hipAsymmetryPct != null ? `${romMetrics.hipAsymmetryPct.toFixed(1)}%` : "—"}
                   </td>
                 </tr>
                 <tr>
-                  <th scope="row" className="font-medium text-[#202124]">Ankle</th>
+                  <th scope="row" className="font-medium text-[var(--color-fg)]">Ankle</th>
                   <td className="tabular">{romMetrics.ankleRomLeft != null ? `${romMetrics.ankleRomLeft.toFixed(1)}°` : "—"}</td>
                   <td className="tabular">{romMetrics.ankleRomRight != null ? `${romMetrics.ankleRomRight.toFixed(1)}°` : "—"}</td>
                   <td className="tabular">
@@ -560,7 +560,7 @@ export function ClinicalReportView({
                   <td className="tabular">
                     L {romMetrics.anklePeakPlantarflexionLeft != null ? `${romMetrics.anklePeakPlantarflexionLeft.toFixed(1)}°` : "—"} / R {romMetrics.anklePeakPlantarflexionRight != null ? `${romMetrics.anklePeakPlantarflexionRight.toFixed(1)}°` : "—"}
                   </td>
-                  <td className="tabular font-semibold text-[#202124]">
+                  <td className="tabular font-semibold text-[var(--color-fg)]">
                     {romMetrics.ankleAsymmetryPct != null ? `${romMetrics.ankleAsymmetryPct.toFixed(1)}%` : "—"}
                   </td>
                 </tr>
@@ -574,41 +574,41 @@ export function ClinicalReportView({
 
       {/* Dual-Task Cost Block (if applicable) */}
       {result.dualTaskCost && (
-        <Card className="border-[#1A73E8]/40 bg-white shadow-card print-card">
-          <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#E8F0FE]/50 print:bg-gray-100">
-            <CardTitle className="text-base font-semibold text-[#1A73E8]">Dual-Task Cost Rating</CardTitle>
-            <CardDescription className="text-xs text-[#5F6368]">{result.dualTaskCost.summary}</CardDescription>
+        <Card className="border-[var(--color-primary)]/40 bg-[var(--color-surface)] shadow-card print-card">
+          <CardHeader className="pb-2 border-b border-[var(--color-border)] bg-[var(--color-info-bg)]/50 print:bg-gray-100">
+            <CardTitle className="text-base font-semibold text-[var(--color-primary)]">Dual-Task Cost Rating</CardTitle>
+            <CardDescription className="text-xs text-[var(--color-muted)]">{result.dualTaskCost.summary}</CardDescription>
           </CardHeader>
           <CardContent className="p-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-md border border-[#DADCE0] p-3 bg-[#F8F9FA] print:bg-gray-50">
-              <p className="text-[10px] text-[#5F6368] uppercase font-semibold">Cadence DTE</p>
-              <p className="tabular text-base font-bold text-[#202124]">
+            <div className="rounded-md border border-[var(--color-border)] p-3 bg-[var(--color-bg)] print:bg-gray-50">
+              <p className="text-[10px] text-[var(--color-muted)] uppercase font-semibold">Cadence DTE</p>
+              <p className="tabular text-base font-bold text-[var(--color-fg)]">
                 {resolveDteValues(result.dualTaskCost).cadenceDte.toFixed(0)}%
               </p>
             </div>
-            <div className="rounded-md border border-[#DADCE0] p-3 bg-[#F8F9FA] print:bg-gray-50">
-              <p className="text-[10px] text-[#5F6368] uppercase font-semibold">Step Time CV DTE</p>
-              <p className="tabular text-base font-bold text-[#202124]">
+            <div className="rounded-md border border-[var(--color-border)] p-3 bg-[var(--color-bg)] print:bg-gray-50">
+              <p className="text-[10px] text-[var(--color-muted)] uppercase font-semibold">Step Time CV DTE</p>
+              <p className="tabular text-base font-bold text-[var(--color-fg)]">
                 {resolveDteValues(result.dualTaskCost).stepTimeCvDte.toFixed(0)}%
               </p>
             </div>
-            <div className="rounded-md border border-[#DADCE0] p-3 bg-[#F8F9FA] print:bg-gray-50">
-              <p className="text-[10px] text-[#5F6368] uppercase font-semibold">Stability DTE</p>
-              <p className="tabular text-base font-bold text-[#202124]">{resolveDteValues(result.dualTaskCost).stabilityDte.toFixed(0)} pts</p>
+            <div className="rounded-md border border-[var(--color-border)] p-3 bg-[var(--color-bg)] print:bg-gray-50">
+              <p className="text-[10px] text-[var(--color-muted)] uppercase font-semibold">Stability DTE</p>
+              <p className="tabular text-base font-bold text-[var(--color-fg)]">{resolveDteValues(result.dualTaskCost).stabilityDte.toFixed(0)} pts</p>
             </div>
-            <div className="rounded-md border border-[#DADCE0] p-3 bg-[#F8F9FA] print:bg-gray-50">
-              <p className="text-[10px] text-[#5F6368] uppercase font-semibold">Automaticity DTE</p>
-              <p className="tabular text-base font-bold text-[#202124]">{resolveDteValues(result.dualTaskCost).automaticityDte.toFixed(0)} pts</p>
+            <div className="rounded-md border border-[var(--color-border)] p-3 bg-[var(--color-bg)] print:bg-gray-50">
+              <p className="text-[10px] text-[var(--color-muted)] uppercase font-semibold">Automaticity DTE</p>
+              <p className="tabular text-base font-bold text-[var(--color-fg)]">{resolveDteValues(result.dualTaskCost).automaticityDte.toFixed(0)} pts</p>
             </div>
           </CardContent>
         </Card>
       )}
 
       {/* Key Gait Metric Ratings & 95% Confidence Intervals */}
-      <Card className="border-[#DADCE0] bg-white shadow-card print-card">
-        <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#F8F9FA] print:bg-white">
-          <CardTitle className="text-base font-semibold text-[#202124] border-l-[3px] border-[#1A73E8] pl-2">Key Gait Metric Ratings &amp; 95% Confidence Intervals</CardTitle>
-          <CardDescription className="text-xs text-[#5F6368] pl-[11px]">
+      <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card print-card">
+        <CardHeader className="pb-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
+          <CardTitle className="text-base font-semibold text-[var(--color-fg)] border-l-[3px] border-[var(--color-primary)] pl-2">Key Gait Metric Ratings &amp; 95% Confidence Intervals</CardTitle>
+          <CardDescription className="text-xs text-[var(--color-muted)] pl-[11px]">
             Measured quantitative spatial-temporal metrics and favorability bands derived from split-half reliability testing.
           </CardDescription>
         </CardHeader>
@@ -619,22 +619,22 @@ export function ClinicalReportView({
             return (
               <div
                 key={m.id}
-                className="rounded-md border border-[#DADCE0] bg-[#F8F9FA] p-3 print:bg-white print:border-gray-200"
+                className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 print:bg-[var(--color-surface)] print:border-gray-200"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <span className="text-sm font-semibold text-[#202124]">{m.label}</span>
-                    <span className="ml-2 text-[10px] uppercase tracking-wider text-[#70757A]">
+                    <span className="text-sm font-semibold text-[var(--color-fg)]">{m.label}</span>
+                    <span className="ml-2 text-[10px] uppercase tracking-wider text-[var(--color-subtle)]">
                       ({m.group})
                     </span>
-                    <p className="text-[11px] text-[#5F6368] print:text-gray-600">{m.note}</p>
+                    <p className="text-[11px] text-[var(--color-muted)] print:text-gray-600">{m.note}</p>
                   </div>
                   <div className="text-right">
-                    <span className="tabular text-sm font-bold text-[#202124]">
+                    <span className="tabular text-sm font-bold text-[var(--color-fg)]">
                       {m.display} {m.unit}
                     </span>
                     {hasCI && (
-                      <p className="tabular text-[10px] text-[#5F6368] font-medium">
+                      <p className="tabular text-[10px] text-[var(--color-muted)] font-medium">
                         [95% CI: {ci.ci95Lower?.toFixed(1)} – {ci.ci95Upper?.toFixed(1)}]
                       </p>
                     )}
@@ -647,10 +647,10 @@ export function ClinicalReportView({
       </Card>
 
       {/* Hypotheses Board */}
-      <Card className="border-[#DADCE0] bg-white shadow-card print-card">
-        <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#F8F9FA] print:bg-white">
-          <CardTitle className="text-base font-semibold text-[#202124] border-l-[3px] border-[#1A73E8] pl-2">Ranked Clinical Hypotheses &amp; Evidence Board</CardTitle>
-          <CardDescription className="text-xs text-[#5F6368] pl-[11px]">
+      <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card print-card">
+        <CardHeader className="pb-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
+          <CardTitle className="text-base font-semibold text-[var(--color-fg)] border-l-[3px] border-[var(--color-primary)] pl-2">Ranked Clinical Hypotheses &amp; Evidence Board</CardTitle>
+          <CardDescription className="text-xs text-[var(--color-muted)] pl-[11px]">
             Pattern hypotheses ranked by severity and confidence algorithmically identified from biomechanical markers.
           </CardDescription>
         </CardHeader>
@@ -658,26 +658,26 @@ export function ClinicalReportView({
           {report.hypotheses.map((h, idx) => (
             <div
               key={h.id}
-              className="rounded-md border border-[#DADCE0] bg-[#F8F9FA] p-3.5 print:bg-white print:border-gray-200"
+              className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3.5 print:bg-[var(--color-surface)] print:border-gray-200"
             >
               <div className="flex items-start gap-3">
-                <span className="tabular flex size-6 shrink-0 items-center justify-center rounded-full bg-[#E8F0FE] text-[#1967D2] text-xs font-bold">
+                <span className="tabular flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-info-bg)] text-[var(--color-info-text)] text-xs font-bold">
                   {idx + 1}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-[#202124]">{h.title}</span>
+                    <span className="text-sm font-semibold text-[var(--color-fg)]">{h.title}</span>
                     <Badge tone={h.severity === "elevated" ? "danger" : h.severity === "moderate" ? "warn" : "success"}>
                       {h.severity}
                     </Badge>
-                    {h.patternTag && <Badge tone="accent" className="bg-[#E8F0FE] text-[#1967D2]">{h.patternTag}</Badge>}
-                    <span className="ml-auto text-xs text-[#5F6368] font-medium">
+                    {h.patternTag && <Badge tone="accent" className="bg-[var(--color-info-bg)] text-[var(--color-info-text)]">{h.patternTag}</Badge>}
+                    <span className="ml-auto text-xs text-[var(--color-muted)] font-medium">
                       {(h.confidence * 100).toFixed(0)}% conf.
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-[#5F6368] print:text-gray-700">{h.summary}</p>
+                  <p className="mt-1 text-xs text-[var(--color-muted)] print:text-gray-700">{h.summary}</p>
                   {h.evidence.length > 0 && (
-                    <ul className="mt-2 space-y-0.5 border-t border-[#DADCE0] pt-2 text-[11px] text-[#5F6368]">
+                    <ul className="mt-2 space-y-0.5 border-t border-[var(--color-border)] pt-2 text-[11px] text-[var(--color-muted)]">
                       {h.evidence.map((e) => (
                         <li key={e}>· {e}</li>
                       ))}
@@ -691,31 +691,31 @@ export function ClinicalReportView({
       </Card>
 
       {/* Clinician Sign-off Block */}
-      <Card data-testid="clinician-signoff-block" className="border-[#DADCE0] bg-white shadow-card print-card">
-        <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#F8F9FA] print:bg-white">
+      <Card data-testid="clinician-signoff-block" className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card print-card">
+        <CardHeader className="pb-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] print:bg-[var(--color-surface)]">
           <div className="flex items-center gap-2">
-            <UserCheck className="size-5 text-[#1A73E8]" />
-            <CardTitle className="text-base font-semibold text-[#202124]">Clinician Verification &amp; Sign-Off</CardTitle>
+            <UserCheck className="size-5 text-[var(--color-primary)]" />
+            <CardTitle className="text-base font-semibold text-[var(--color-fg)]">Clinician Verification &amp; Sign-Off</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="p-6 space-y-4">
           <div className="grid gap-6 sm:grid-cols-3 pt-2">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-[#5F6368]">Clinician Signature</p>
-              <div className="h-10 border-b-2 border-dashed border-[#DADCE0] print:border-black" />
+              <p className="text-xs font-medium text-[var(--color-muted)]">Clinician Signature</p>
+              <div className="h-10 border-b-2 border-dashed border-[var(--color-border)] print:border-black" />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-[#5F6368]">Date</p>
-              <div className="h-10 border-b-2 border-dashed border-[#DADCE0] print:border-black" />
+              <p className="text-xs font-medium text-[var(--color-muted)]">Date</p>
+              <div className="h-10 border-b-2 border-dashed border-[var(--color-border)] print:border-black" />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-[#5F6368]">License / NPI #</p>
-              <div className="h-10 border-b-2 border-dashed border-[#DADCE0] print:border-black" />
+              <p className="text-xs font-medium text-[var(--color-muted)]">License / NPI #</p>
+              <div className="h-10 border-b-2 border-dashed border-[var(--color-border)] print:border-black" />
             </div>
           </div>
 
-          <div className="flex gap-2 rounded-md border border-[#F9AB00] bg-[#FEF7E0] p-3 text-xs leading-relaxed text-[#B06000] print:bg-gray-100 print:text-black">
-            <ShieldAlert className="mt-0.5 size-4 shrink-0 text-[#B06000]" />
+          <div className="flex gap-2 rounded-md border border-[#F9AB00] bg-[var(--color-warn-bg)] p-3 text-xs leading-relaxed text-[var(--color-warn-text)] print:bg-gray-100 print:text-black">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0 text-[var(--color-warn-text)]" />
             <p>
               <strong>DISCLAIMER:</strong> This report is generated by Gait Lab using browser-based computer vision pose estimation. It is intended for biomechanical research and clinical screening assistance only, and does not constitute a diagnostic medical decision.
             </p>

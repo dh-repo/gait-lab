@@ -56,8 +56,10 @@ describe("WorkflowHeader Accessibility & Semantic Markup", () => {
     expect(buttons.length).toBeGreaterThanOrEqual(5); // 4 rail + new session
 
     for (const button of buttons) {
+      // Mobile: 44px min; desktop stage rail keeps ~48dp Material density (sm:min-h-12)
+      // while the new-session ghost control can collapse (sm:min-h-0).
       expect(button).toContain("min-h-11");
-      expect(button).toContain("sm:min-h-0");
+      expect(button.includes("sm:min-h-0") || button.includes("sm:min-h-12")).toBe(true);
     }
 
     const newSession = buttons.find((b) => b.includes('aria-label="Start new session"'));

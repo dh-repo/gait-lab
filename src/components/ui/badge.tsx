@@ -10,19 +10,19 @@ export function Badge({
 }) {
   const tones = {
     neutral:
-      "bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]",
+      "bg-[var(--color-surface-2)] text-[var(--color-muted)] border-[var(--color-border)]",
     primary:
-      "bg-[#E8F0FE] text-[#1967D2] border-[#D2E3FC]",
+      "bg-[var(--color-info-bg)] text-[var(--color-info-text)] border-[color-mix(in_srgb,var(--color-info)_20%,transparent)]",
     accent:
-      "bg-[#E8F0FE] text-[#1967D2] border-[#D2E3FC]",
+      "bg-[var(--color-info-bg)] text-[var(--color-info-text)] border-[color-mix(in_srgb,var(--color-info)_20%,transparent)]",
     warn:
-      "bg-[#FEF7E0] text-[#B06000] border-[#FCE8E6]",
+      "bg-[var(--color-warn-bg)] text-[var(--color-warn-text)] border-[color-mix(in_srgb,var(--color-warn)_28%,transparent)]",
     danger:
-      "bg-[#FCE8E6] text-[#C5221F] border-[#FAD2CF]",
+      "bg-[var(--color-danger-bg)] text-[var(--color-danger-text)] border-[color-mix(in_srgb,var(--color-danger)_22%,transparent)]",
     success:
-      "bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]",
+      "bg-[var(--color-success-bg)] text-[var(--color-success-text)] border-[color-mix(in_srgb,var(--color-success)_22%,transparent)]",
     info:
-      "bg-[#E8F0FE] text-[#1967D2] border-[#D2E3FC]",
+      "bg-[var(--color-info-bg)] text-[var(--color-info-text)] border-[color-mix(in_srgb,var(--color-info)_20%,transparent)]",
   };
   return (
     <span

@@ -40,17 +40,17 @@ function DualTaskCard({ dualTaskCost }: { dualTaskCost: DualTaskCost }) {
   const { cadenceDte, stepTimeCvDte, stabilityDte, automaticityDte } =
     resolveDteValues(dualTaskCost);
   return (
-    <Card className="border border-[#DADCE0] bg-[#E8F0FE]/20 rounded-xl shadow-xs">
-      <CardHeader className="pb-3 border-b border-[#F1F3F4]">
+    <Card className="border border-[var(--color-border)] bg-[var(--color-info-bg)]/20 rounded-xl shadow-[var(--shadow-card)]">
+      <CardHeader className="pb-3 border-b border-[var(--color-surface-2)]">
         <div className="flex justify-between items-center flex-wrap gap-2">
-          <CardTitle className="text-sm font-medium text-[#202124]">Dual-task cost (paired session)</CardTitle>
+          <CardTitle className="text-sm font-medium text-[var(--color-fg)]">Dual-task cost (paired session)</CardTitle>
           {dualTaskCost.cmiClassification && (
-            <Badge className="bg-[#E8F0FE] text-[#1967D2] border border-[#D2E3FC] text-xs font-medium capitalize">
+            <Badge className="bg-[var(--color-info-bg)] text-[var(--color-info-text)] border border-[color-mix(in_srgb,var(--color-info)_25%,transparent)] text-xs font-medium capitalize">
               CMI: {dualTaskCost.cmiClassification.replace(/_/g, " ")}
             </Badge>
           )}
         </div>
-        <CardDescription className="text-xs text-[#5F6368] mt-1">{dualTaskCost.summary}</CardDescription>
+        <CardDescription className="text-xs text-[var(--color-muted)] mt-1">{dualTaskCost.summary}</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 pt-4">
         <DtcStat label="Cadence DTE" value={`${cadenceDte.toFixed(1)}%`} />
@@ -70,9 +70,9 @@ function DualTaskCard({ dualTaskCost }: { dualTaskCost: DualTaskCost }) {
 
 function DtcStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[#DADCE0] bg-white p-2.5 shadow-2xs">
-      <p className="text-[10px] text-[#5F6368] font-medium">{label}</p>
-      <p className="tabular-nums font-mono text-sm font-semibold text-[#202124] mt-0.5">{value}</p>
+    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2.5 shadow-[var(--shadow-card)]">
+      <p className="text-[10px] text-[var(--color-muted)] font-medium">{label}</p>
+      <p className="tabular-nums font-mono text-sm font-semibold text-[var(--color-fg)] mt-0.5">{value}</p>
     </div>
   );
 }
@@ -87,24 +87,24 @@ function GuessCard({ guess }: { guess: EducatedGuess }) {
         ? Info
         : CheckCircle2;
 
-  let severityBadgeClass = "bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]";
+  let severityBadgeClass = "bg-[var(--color-success-bg)] text-[var(--color-success-text)] border-[#CEEAD6]";
   if (tone === "danger") {
-    severityBadgeClass = "bg-[#FCE8E6] text-[#C5221F] border-[#FAD2CF]";
+    severityBadgeClass = "bg-[var(--color-danger-bg)] text-[var(--color-danger-text)] border-[#FAD2CF]";
   } else if (tone === "warn") {
-    severityBadgeClass = "bg-[#FEF7E0] text-[#B06000] border-[#FCE8E6]";
+    severityBadgeClass = "bg-[var(--color-warn-bg)] text-[var(--color-warn-text)] border-[color-mix(in_srgb,var(--color-danger)_22%,transparent)]";
   }
 
   return (
-    <Card className="border border-[#DADCE0] bg-white rounded-xl shadow-xs hover:shadow-sm transition-shadow">
+    <Card className="border border-[var(--color-border)] bg-[var(--color-surface)] rounded-xl shadow-[var(--shadow-card)] hover:shadow-sm transition-shadow">
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <CardTitle className="flex items-start gap-2 text-sm font-medium text-[#202124] leading-snug">
+          <CardTitle className="flex items-start gap-2 text-sm font-medium text-[var(--color-fg)] leading-snug">
             <Icon
               className={cn(
                 "mt-0.5 size-4 shrink-0",
-                tone === "danger" && "text-[#C5221F]",
-                tone === "warn" && "text-[#B06000]",
-                tone === "success" && "text-[#137333]",
+                tone === "danger" && "text-[var(--color-danger-text)]",
+                tone === "warn" && "text-[var(--color-warn-text)]",
+                tone === "success" && "text-[var(--color-success-text)]",
               )}
             />
             {guess.title}
@@ -113,14 +113,14 @@ function GuessCard({ guess }: { guess: EducatedGuess }) {
             <Badge className={cn("text-xs font-medium border capitalize", severityBadgeClass)}>
               {guess.severity}
             </Badge>
-            <Badge className="bg-[#F1F3F4] text-[#3C4043] border border-[#DADCE0] text-xs font-medium">
+            <Badge className="bg-[var(--color-surface-2)] text-[var(--color-muted)] border border-[var(--color-border)] text-xs font-medium">
               {Math.round(guess.confidence * 100)}% conf.
             </Badge>
-            <Badge className="bg-[#E8F0FE] text-[#1967D2] border border-[#D2E3FC] text-xs font-medium capitalize">
+            <Badge className="bg-[var(--color-info-bg)] text-[var(--color-info-text)] border border-[color-mix(in_srgb,var(--color-info)_25%,transparent)] text-xs font-medium capitalize">
               {guess.category.replace(/_/g, " ")}
             </Badge>
             {guess.patternTag && (
-              <Badge className="bg-[#FEF7E0] text-[#B06000] border border-[#FCE8E6] text-xs font-medium">
+              <Badge className="bg-[var(--color-warn-bg)] text-[var(--color-warn-text)] border border-[color-mix(in_srgb,var(--color-danger)_22%,transparent)] text-xs font-medium">
                 {guess.patternTag}
               </Badge>
             )}
@@ -128,21 +128,21 @@ function GuessCard({ guess }: { guess: EducatedGuess }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-2">
-        <p className="text-xs leading-relaxed text-[#5F6368]">{guess.summary}</p>
-        <ul className="space-y-1.5 border-t border-[#DADCE0] pt-3">
+        <p className="text-xs leading-relaxed text-[var(--color-muted)]">{guess.summary}</p>
+        <ul className="space-y-1.5 border-t border-[var(--color-border)] pt-3">
           {guess.evidence.map((e) => (
-            <li key={e} className="flex gap-2 text-xs text-[#3C4043]">
-              <span className="mt-1.5 size-1 shrink-0 rounded-full bg-[#5F6368]" />
+            <li key={e} className="flex gap-2 text-xs text-[var(--color-muted)]">
+              <span className="mt-1.5 size-1 shrink-0 rounded-full bg-[var(--color-muted)]" />
               <span className="tabular-nums font-mono">{e}</span>
             </li>
           ))}
         </ul>
         {guess.alternatives && guess.alternatives.length > 0 && (
-          <div className="rounded-lg border border-[#DADCE0] bg-[#F8F9FA] p-2.5">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#5F6368]">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-2.5">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
               Also consider
             </p>
-            <p className="text-xs text-[#3C4043]">{guess.alternatives.join(" · ")}</p>
+            <p className="text-xs text-[var(--color-muted)]">{guess.alternatives.join(" · ")}</p>
           </div>
         )}
       </CardContent>
