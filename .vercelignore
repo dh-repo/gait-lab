@@ -1,0 +1,10 @@
+# Never ship local ProRes sources (H.264 copies live in public/samples/)
+*.MOV
+*.mov
+IMG_*.MOV
+node_modules
+.vercel
+screenshots
+artifacts
+tmp
+.grok
