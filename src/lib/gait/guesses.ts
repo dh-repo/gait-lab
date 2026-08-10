@@ -22,13 +22,10 @@ export function resolveDteValues(dtc: DualTaskCost): {
   automaticityDte: number;
 } {
   return {
-    cadenceDte: dtc.cadenceDTE ?? -dtc.cadenceCostPct,
-    stepTimeCvDte: dtc.stepTimeCvDTE ?? -dtc.stepTimeCvCostPct,
-    // stabilityCostPts/automaticityCostPts are computed as (single - dual), i.e.
-    // positive = worse. Negated here so all four values share one convention:
-    // NEGATIVE = worse under dual task.
-    stabilityDte: -dtc.stabilityCostPts,
-    automaticityDte: -dtc.automaticityCostPts,
+    cadenceDte: dtc.cadenceDTE ?? -(dtc.cadenceCostPct ?? 0),
+    stepTimeCvDte: dtc.stepTimeCvDTE ?? -(dtc.stepTimeCvCostPct ?? 0),
+    stabilityDte: -(dtc.stabilityCostPts ?? 0),
+    automaticityDte: -(dtc.automaticityCostPts ?? 0),
   };
 }
 
@@ -131,10 +128,15 @@ export function buildEducatedGuesses(
   }
 
   if (dtc) {
+    const cadenceCostPct = dtc.cadenceCostPct ?? 0;
+    const stepTimeCvCostPct = dtc.stepTimeCvCostPct ?? 0;
+    const stabilityCostPts = dtc.stabilityCostPts ?? 0;
+    const automaticityCostPts = dtc.automaticityCostPts ?? 0;
+
     const elevated =
-      dtc.cadenceCostPct > 15 ||
-      dtc.stepTimeCvCostPct > 25 ||
-      dtc.automaticityCostPts > 12;
+      cadenceCostPct > 15 ||
+      stepTimeCvCostPct > 25 ||
+      automaticityCostPts > 12;
     guesses.push({
       id: "dual-task-cost",
       title: elevated
@@ -142,10 +144,10 @@ export function buildEducatedGuesses(
         : "Modest dual-task cost between paired clips",
       summary: dtc.summary,
       evidence: [
-        `Cadence cost: ${dtc.cadenceCostPct.toFixed(0)}% (walk-only → dual)`,
-        `Step-time variability cost: ${dtc.stepTimeCvCostPct.toFixed(0)}%`,
-        `Stability score change: ${dtc.stabilityCostPts.toFixed(0)} pts`,
-        `Automaticity score change: ${dtc.automaticityCostPts.toFixed(0)} pts`,
+        `Cadence cost: ${cadenceCostPct.toFixed(0)}% (walk-only → dual)`,
+        `Step-time variability cost: ${stepTimeCvCostPct.toFixed(0)}%`,
+        `Stability score change: ${stabilityCostPts.toFixed(0)} pts`,
+        `Automaticity score change: ${automaticityCostPts.toFixed(0)} pts`,
       ],
       confidence: elevated ? 0.55 : 0.45,
       severity: elevated ? "moderate" : "low",
@@ -459,7 +461,7 @@ export function buildEducatedGuesses(
   }
 
   // Short slow steps + high double support — cautious / petite pas soft
-  if (m.cadenceSpm > 0 && m.cadenceSpm < 90 && m.doubleSupportHint > 0.25) {
+  if (m.cadenceSpm > 0 && m.cadenceSpm < 90 && (m.doubleSupportHint ?? 0) > 0.25) {
     guesses.push({
       id: "cautious",
       title: "Cautious / slower walking pattern",
@@ -467,7 +469,7 @@ export function buildEducatedGuesses(
         "Slow cadence with more double-support-ish frames matches “cautious gait” language used in geriatrics. Overlaps age, fear of falling, fatigue, recovery, unfamiliar footwear — not frailty certification.",
       evidence: [
         `Cadence: ${m.cadenceSpm.toFixed(0)} steps/min`,
-        `Double-support hint: ${(m.doubleSupportHint * 100).toFixed(0)}% of frames`,
+        `Double-support hint: ${((m.doubleSupportHint ?? 0) * 100).toFixed(0)}% of frames`,
         `Mobility score: ${m.mobilityScore.toFixed(0)}/100`,
       ],
       confidence: 0.55,

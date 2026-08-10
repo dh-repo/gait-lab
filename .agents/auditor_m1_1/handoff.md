@@ -1,80 +1,102 @@
-# Forensic Audit Report: Milestone 1 — Core Engine Integration & Polish
+# Forensic Audit Report — Milestone M1
 
-**Work Product**: Milestone 1 Core Engine Integration & Polish (`src/lib/gait/types.ts`, `src/lib/gait/signal.ts`, `src/lib/gait/events.ts`, `src/lib/gait/dte.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/persistence.ts`, `migrations/0002_gait_sessions.sql`, `src/components/gait/GaitApp.tsx`, `src/components/gait/ReportPanel.tsx`, `src/components/gait/ClinicalReportView.tsx`, `src/components/gait/CognitiveClusters.tsx`, `src/components/gait/SessionHistoryDrawer.tsx`)  
-**Profile**: General Project  
-**Integrity Mode**: Development (derived from `ORIGINAL_REQUEST.md`)  
-**Verdict**: CLEAN  
+**Auditor**: Forensic Auditor M1-1  
+**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/auditor_m1_1`  
+**Date**: 2026-08-09  
+**Audit Target**: Milestone M1 — Computer Vision & Model Fidelity Upgrades (`pose.ts`, `signal.ts`, `types.ts`, `analysis.ts`, `pose.test.ts`, `signal.test.ts`)  
+**Audit Profile**: General Project (Development / Demo / Benchmark Integrity Mode)  
+**Audit Verdict**: `INTEGRITY_VIOLATION`
 
 ---
 
 ## 1. Observation
 
-Direct forensic inspection of all modified code and execution output:
+### Source Code & Interface Inspection
+- **`src/lib/gait/pose.ts`**:
+  - Implements `MODEL_CANDIDATES` array defining 3 model tiers (`heavy`, `full`, `lite`) with 2 asset paths per tier (local `/models/pose_landmarker_${tier}.task` and Google Storage CDN URL).
+  - Implements 12-candidate nested trial loop in `getPoseLandmarker()` across tiers $\rightarrow$ paths $\rightarrow$ delegates (`GPU` $\rightarrow$ `CPU`).
+  - Exports `PoseDetectionResult` from `pose.ts`.
+- **`src/lib/gait/signal.ts`**:
+  - Implements `savitzkyGolay5` using 5-point convolution kernel $\frac{1}{35} [-3, 12, 17, 12, -3]$ with linear boundary reflection padding.
+  - Implements `smoothPoseFrames` applying coordinate smoothing across 33 keypoints.
+- **`src/lib/gait/types.ts`**:
+  - Exports `LandmarkFrame = PoseFrame` type alias.
+  - **MISSING / INCOMPATIBLE TYPE DEFINITIONS**: `types.ts` does NOT export `PoseDetectionResult` or `presence` property on `Landmark`, causing downstream test suites to fail compilation.
 
-1. **Hardcoded Test Results / Mocking Detection**:
-   - `src/lib/gait/signal.ts`: `olsDetrend` computes OLS linear regression slope and mean independently; `zeroPhaseButterworth` implements forward/backward biquad filtering with boundary reflection padding. No hardcoded arrays or mock responses.
-   - `src/lib/gait/events.ts`: `detectGaitEventsZeni` computes anterior-posterior displacements, median foot orientation vectors, and subframe parabolic peak interpolation `refinePeakTimestamp`.
-   - `src/lib/gait/dte.ts`: `calculateDTE` evaluates genuine dual-task formulas and Plummer & Eskes (2015) CMI classification rules.
-   - `src/lib/gait/persistence.ts`: Uses genuine TanStack Start `createServerFn` with `authMiddleware` and parameterized SQL queries (`sql\`INSERT INTO gait_sessions...\``) targeting PostgreSQL / PGLite.
+### Behavioral Verification Execution Outputs
 
-2. **Facade & Shortcut Analysis**:
-   - No facade implementations found. `computeGaitMetrics`, `computeGaitAngleAnalysis`, and `saveGaitSession` perform authentic mathematical and database execution.
+1. **`npm run typecheck`** (FAIL — Exit code 2):
+   ```
+   > typecheck
+   > tsc --noEmit
 
-3. **Validation & Error Handling**:
-   - Landmark occlusion handling in `getLandmarkX` gracefully falls back to hip centers or default coordinates without throwing or returning hardcoded `0` step spikes.
-   - Frontal view angle suppression correctly sets sagittal joint angle metrics to `isSuppressed: true` with rationale.
+   src/lib/gait/__tests__/e2e_gait_engine_tiers.test.ts(4,36): error TS2305: Module '"../types"' has no exported member 'PoseDetectionResult'.
+   src/lib/gait/__tests__/e2e_gait_engine_tiers.test.ts(468,24): error TS2352: Conversion of type 'null' to type 'MediaStreamConstraints' may be a mistake...
+   src/lib/gait/__tests__/e2e_gait_engine_tiers.test.ts(587,52): error TS2345: Argument of type '"custom_tag"' is not assignable to parameter of type 'MarkerType'.
+   src/lib/gait/__tests__/m1_2_temporal_smoothing_stress.test.ts(131,43): error TS2339: Property 'presence' does not exist on type 'Landmark'.
+   src/lib/gait/__tests__/m1_2_temporal_smoothing_stress.test.ts(131,84): error TS2339: Property 'presence' does not exist on type 'Landmark'.
+   ```
 
-4. **Empirical Verification Results**:
-   - `npm test`: PASS (38 test files, 305 tests passed cleanly).
-   - `npm run typecheck`: PASS (0 TypeScript errors).
-   - `npm run lint`: PASS (0 ESLint warnings/errors).
-   - `npm run build`: PASS (Nitro / Vercel production build succeeded cleanly).
+2. **`npm test`** (FAIL — Exit code 1):
+   ```
+   Test Files  5 failed | 58 passed (63)
+        Tests  7 failed | 730 passed (737)
+   ```
+   Failing tests include:
+   - `src/lib/gait/__tests__/e2e_gait_engine_tiers.test.ts`: `filterSteadyStateStrides` returned additional object properties (`excludedStrides`, `steadyStateStrides`) breaking exact shape match assertion on `{ steadyStrides: [], excludedCount: 0 }`.
+   - `src/lib/gait/__tests__/m1_2_temporal_smoothing_stress.test.ts`: Performance threshold assertion failed (`expected 320.96ms to be less than 50ms`).
+
+3. **`npm run lint`**:
+   ```
+   > eslint .
+   (Exit code: 0, 0 errors, 11 warnings)
+   ```
+
+4. **`npm run build`**:
+   ```
+   ✓ built in 4.80s
+   (Exit code: 0, successful production Vercel/Nitro build)
+   ```
 
 ---
 
 ## 2. Logic Chain
 
-1. **From Observation 1 & 2**: All mathematical signal processing (`olsDetrend`, `zeroPhaseButterworth`), kinematic event detection (`detectGaitEventsZeni`), symmetry calculations (`symmetryAngle`), dual-task taxonomy (`calculateDTE`), joint angle normalization (`computeGaitAngleAnalysis`), and PostgreSQL persistence (`saveGaitSession`) are fully implemented with authentic mathematical algorithms and parameter-bound database statements. No shortcuts, hardcoded mocks, or dummy facades exist.
-2. **From Observation 3**: Error handling and boundary conditions (such as landmark occlusion, view angle suppression, and split-half reliability bounds) are correctly structured and preserve data integrity.
-3. **From Observation 4**: All 4 automated build and test commands execute cleanly with zero errors, confirming full functional correctness and zero regressions.
-4. **Conclusion**: Milestone 1 work product meets all forensic integrity standards under Development Mode.
+1. **Acceptance Criteria Violation (R5)**:
+   - User acceptance criteria in `ORIGINAL_REQUEST.md` requires 100% test pass rate with 0 TypeScript compilation errors.
+   - Empirical execution of `npm run typecheck` revealed TypeScript compilation errors.
+   - Empirical execution of `npm test` revealed test failures.
+
+2. **Verification Gate Failure**:
+   - Per Integrity Forensics protocol: "Block on failure: If ANY check fails, the verdict is INTEGRITY VIOLATION and the work product must be rejected."
+   - Because `npm run typecheck` and `npm test` failed, the deliverable cannot be certified clean.
 
 ---
 
 ## 3. Caveats
 
-No caveats. All M1 target files were thoroughly inspected and verified empirically.
+- The core algorithms in `pose.ts` and `signal.ts` are mathematically genuine and functional, but type definitions and test suite assertions are broken, causing compilation and test failures.
 
 ---
 
 ## 4. Conclusion
 
-- **Verdict**: **CLEAN**
-- All 9 systematic forensic checks passed.
-- All verification commands (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`) succeeded with 0 errors.
+**Audit Verdict: `INTEGRITY_VIOLATION`**
+
+The work product fails Acceptance Criteria R5 due to TypeScript compilation errors during `npm run typecheck` and test failures during `npm test`.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify this audit:
+To reproduce the verification failures:
 
 ```bash
-# 1. Run full unit and integration test suite
-npm test
-
-# 2. Run TypeScript type checker
+# 1. Run TypeScript typecheck
 npm run typecheck
+# Output: Exit code 2 (TS2305, TS2352, TS2345, TS2339)
 
-# 3. Run linter
-npm run lint
-
-# 4. Run production build
-npm run build
+# 2. Run test suite
+npm test
+# Output: Exit code 1 (7 failed tests)
 ```
-
-Expected output:
-- `npm test`: 38 test files passed (305 tests).
-- `npm run typecheck`: 0 errors.
-- `npm run lint`: 0 errors, 0 warnings.
-- `npm run build`: Exit code 0 with Nitro bundle generated.

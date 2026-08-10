@@ -1,11 +1,12 @@
-# Progress — challenger_m1_r1_2
+# Progress Log
 
-Last visited: 2026-08-08T23:31:35Z
+Last visited: 2026-08-09T21:22:42Z
 
-- [x] Received dispatch and recorded DISPATCH.md
-- [x] Initialized BRIEFING.md and progress.md
-- [x] Run baseline verification (`typecheck`, `lint`, `vitest`, `build`) — ALL PASSED
-- [x] Inspect implementation files to design adversarial stress tests
-- [x] Write and run comprehensive stress/property tests (`stress_adversarial.test.ts` & `nan_property.test.ts` - 31 total tests PASSED)
-- [x] Verify performance and memory behavior (100k samples < 2s)
-- [x] Generate final handoff report and state verdict (VERDICT: APPROVE)
+- [x] Initialized workspace files (`DISPATCH.md`, `BRIEFING.md`, `progress.md`).
+- [ ] Read required documents (`ORIGINAL_REQUEST.md`, `PROJECT.md`, `SCOPE.md`, `worker_m1_1/handoff.md`).
+- [ ] Inspect codebase and test suite.
+- [ ] Run standard quality gates (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`).
+- [ ] Construct adversarial stress tests for `getPoseLandmarker()` fallback & `computeGaitMetricsCore` smoothing filters.
+- [ ] Run stress tests and collect empirical evidence.
+- [ ] Write handoff report with verdict.
+- [ ] Send completion message to parent.

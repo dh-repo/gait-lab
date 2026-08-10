@@ -1,331 +1,278 @@
-# Milestone 1 Exploration Report: Core Engine Integration & UI/Persistence Audit (Explorer 3)
+# Technical Analysis Report: Landmark Temporal Coordinate Smoothing Integration & Test Infrastructure Audit for Milestone M1
 
-**Author:** Explorer 3 (Milestone 1 — Core Engine Integration & Polish)  
-**Date:** 2026-08-09  
-**Target Modules:** `src/components/gait/ClinicalReportView.tsx`, `src/lib/gait/persistence.ts` & `migrations/0002_gait_sessions.sql`, `src/components/gait/SamplePicker.tsx`, `src/components/gait/GaitApp.tsx`
-
----
-
-## Executive Summary
-
-An in-depth, read-only architectural investigation was conducted across the reporting, database persistence, reference sample picker, and main app orchestration modules of `gait-lab`. 
-
-While the individual modules demonstrate clean TypeScript code, robust mathematical derivations, and a green test suite (296/296 unit/integration tests passing), a critical **disconnected logic gap** was identified in how Joint Kinematic Trajectories (`GaitAngleAnalysis`) and Patient Metadata (`PatientMetadata`) flow through the application:
-1. `GaitApp.tsx` extracts resampled 30 Hz pose frames and computes `GaitMetrics`, but **fails to invoke `computeGaitAngleAnalysis(frames, ...)`** during `runAnalysis()`.
-2. Consequently, `ReportPanel.tsx`, `ClinicalReportView.tsx`, and `CognitiveClusters.tsx` fall back to calling `computeGaitAngleAnalysis([], ...)` with an **empty array `[]`**, causing all 3-point joint angle curves (Knee, Hip, Ankle) to be blank/flat and all Range of Motion (ROM) table metrics in the printable report to render as `—` (null).
-3. Patient metadata (Patient ID, Clinician Notes, Assessment Date, Condition) entered in `ClinicalReportView.tsx` / `ReportPanel.tsx` is stored in isolated component state and is **never passed to `GaitApp.tsx` or saved to PostgreSQL via `persistence.ts`**, causing complete data loss upon saving or reloading sessions.
-
-Concrete fix strategies are provided below to resolve these integration gaps cleanly.
+**Author**: Explorer M1-3 (Metrics Integration & Regression Test Specialist)  
+**Date**: 2026-08-09  
+**Target Repository**: `/Users/damian/GitHub/gait-lab`  
+**Scope**: Requirement R1 (Computer Vision Model Fidelity Upgrades & Landmark Coordinate Temporal Smoothing)
 
 ---
 
-## 1. Examination of `ClinicalReportView.tsx`
+## 1. Executive Summary
 
-### Architectural Role & Features
-`ClinicalReportView.tsx` (580 lines) renders the formal A4 printable clinical gait and biomechanical assessment report. Key features include:
-- **Printable A4 Layout & PDF Export Flow:** Styled with `@media print` rules (`print:gap-4 print:text-black`, `no-print print:hidden`, `print-card`), allowing 1-click printing or PDF export via `window.print()`.
-- **5-Domain Gait Health Radar Chart:** Uses Recharts `RadarChart`, `PolarGrid`, `PolarAngleAxis`, `PolarRadiusAxis`, and `Radar` to visualize normalized 0–100 scores across:
-  1. *Pace (Mobility)* (`mobilityScore`)
-  2. *Symmetry* (`symmetryScore`)
-  3. *Smoothness* (`automaticityScore`)
-  4. *Rhythmicity* (`rhythmScore`)
-  5. *Stability* (`stabilityScore`)
-- **Patient & Clinician Metadata Inputs:** Interactive text, date, and textarea inputs for `patientId`, `assessmentDate`, `assessmentCondition`, and `clinicianNotes`, bound to `onUpdateMeta`.
-- **Zeni Gait Phase Breakdown:** Displays Stance %, Swing %, and Double Support % derived from foot AP position relative to pelvis (Zeni et al. 2008) with view-angle suppression checks.
-- **ROM Summary Table & Joint Angles Chart:** Embeds `JointAnglesChart` and renders a 5-column summary table for Knee, Hip, and Ankle Range of Motion (Peak Flexion/Extension/Dorsiflexion/Plantarflexion & Asymmetry %).
-- **Key Gait Metric Ratings & 95% CIs:** Renders quantitative spatial-temporal metrics alongside 95% Confidence Intervals from split-half reliability testing.
-- **Ranked Clinical Hypotheses & Evidence Board:** Lists algorithmic pattern hypotheses ranked by severity and confidence.
-- **Clinician Sign-off Block:** Includes signature, date, license/NPI lines, and legal medical screening disclaimer.
+This report delivers a detailed technical analysis and architectural specification for integrating landmark coordinate temporal smoothing (`smoothPoseFrames`) into the core gait engine (`src/lib/gait/analysis.ts`), auditing interface contracts and exports (`src/lib/gait/types.ts` and `src/lib/gait/index.ts`), and detailing the test infrastructure across `src/lib/gait/__tests__/`.
 
-### Evidence Chain & Identified Disconnected Logic
-- **Location:** `ClinicalReportView.tsx` lines 58–65 & `ReportPanel.tsx` lines 16–22.
-- **Verbatim Code in `ReportPanel.tsx`:**
-  ```tsx
-  const angleAnalysis = useMemo(() => {
-    return computeGaitAngleAnalysis(
-      [],
-      result.metrics.stepEvents || [],
-      result.metrics.viewAngle || "unknown",
-    );
-  }, [result]);
-  ```
-- **Observation:** `ReportPanel` computes `angleAnalysis` by calling `computeGaitAngleAnalysis([], ...)` passing an empty array `[]` for `frames`. In `ClinicalReportView.tsx` (lines 58–65), if `angleAnalysis` is not supplied, it also falls back to `computeGaitAngleAnalysis([], ...)`.
-- **Impact:** Passing an empty array `[]` forces `computeGaitAngleAnalysis` to return null metrics (`kneeRomLeft: null`, `hipRomLeft: null`, etc.) and 101 empty points. As a result:
-  - The ROM Summary Table (lines 381–423) displays `—` for every left/right peak ROM, peak flexion, peak extension, and asymmetry value.
-  - The `JointAnglesChart` renders flat zero lines.
-- **Metadata Propagation Gap:** `patientMeta` state is instantiated in `ReportPanel.tsx` (line 9) using a random ID. When the user edits Clinician Notes or Patient ID, `setPatientMeta` updates local component state, but `ReportPanel` provides no callback to communicate `patientMeta` back up to `GaitApp.tsx`.
+### Key Recommendations:
+1. **Pre-Metric Temporal Smoothing Placement**: `smoothPoseFrames(rawFrames)` must be called at the very beginning of `computeGaitMetricsCore(rawFrames: PoseFrame[])` in `src/lib/gait/analysis.ts` prior to view angle detection (`detectViewAngle`), kinematic heel-strike/toe-off event detection (`detectGaitEventsZeni`), joint angle calculation (`computeGaitAngleAnalysis`), and spatiotemporal metric extraction.
+2. **Types & Export Surface Alignment**:
+   - `src/lib/gait/types.ts`: Export `SmoothingMethod` (`'savitzky-golay' | 'kalman'`) and landmarker metadata types (`PoseLandmarkerModelTier`, `PoseLandmarkerDelegate`, updated `PoseLandmarkerLike`).
+   - `src/lib/gait/index.ts`: Re-export `./pose` (`export * from "./pose"`) alongside existing `./signal` exports while preserving collision resolution for `BiometricSignature`.
+3. **Test Infrastructure Audit**:
+   - 59 test suites (604 unit & integration tests total) exist in `src/lib/gait/__tests__/` and `src/components/gait/__tests__/`.
+   - Core unit tests for signal filtering live in `signal.test.ts`.
+   - Synthetic noise stress tests live in `cat1_landmark_jitter_noise.test.ts`.
+4. **Verification Status**:
+   - `npm test`: 59/59 test suites passed, 604/604 tests passed (100% pass rate).
+   - `npm run typecheck`: 0 TypeScript errors.
+   - `npm run lint`: 0 ESLint errors (1 unused var warning).
+   - `npm run build`: Nitro Vercel production build succeeded.
 
 ---
 
-## 2. Examination of `persistence.ts` & `migrations/0002_gait_sessions.sql`
+## 2. Integration of `smoothPoseFrames` in `computeGaitMetricsCore` (`analysis.ts`)
 
-### Architectural Role & Schema
-- **Migration Schema (`migrations/0002_gait_sessions.sql`):** Defines the PostgreSQL `gait_sessions` table:
-  ```sql
-  CREATE TABLE IF NOT EXISTS gait_sessions (
-    id TEXT NOT NULL PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
-    session_name TEXT NOT NULL DEFAULT 'Gait Session',
-    task_mode TEXT NOT NULL DEFAULT 'single' CHECK (task_mode IN ('single', 'dual')),
-    overall_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    stability_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    rhythm_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    symmetry_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    mobility_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    automaticity_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    cadence_spm DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    step_count INTEGER NOT NULL DEFAULT 0,
-    duration_sec DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    view_angle TEXT NOT NULL DEFAULT 'unknown',
-    symmetry_angle DOUBLE PRECISION,
-    harmonic_ratio DOUBLE PRECISION,
-    metrics_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    guesses_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    dual_task_json JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-  ```
-- **Server Functions (`persistence.ts`):** Implements TanStack `createServerFn` functions:
-  - `saveGaitSession`: Inserts/upserts a session record using `ON CONFLICT (id) DO UPDATE SET ...`.
-  - `listGaitSessions`: Retrieves all sessions for `context.userId` ordered by `created_at DESC`.
-  - `getGaitSession`: Fetches a single session by `id` for `context.userId`.
-  - `deleteGaitSession`: Deletes a session by `id` for `context.userId`.
-- **Security & Authorization:** All server functions are wrapped with `.middleware([authMiddleware])`, guaranteeing strict multi-tenant isolation by scoping every query to `context.userId`.
+### 2.1 Current Execution Flow & Vulnerabilities
 
-### Evidence Chain & Identified Integration Gaps
-- **Missing Patient Metadata Fields in Persistence:** Neither `migrations/0002_gait_sessions.sql` nor `saveGaitSession` accepts or stores `patientId`, `clinicianNotes`, `assessmentDate`, or `assessmentCondition`.
-- **Missing Angle Analysis in Persistence:** `saveGaitSession` writes `metrics_json`, `guesses_json`, and `dual_task_json`, but does not serialize `angleAnalysis`.
-- **Hydration Gap in `SessionHistoryDrawer.tsx`:** Lines 96–107 construct a reconstituted `AnalysisResult`:
-  ```tsx
-  onLoadSession({
-    metrics: s.metricsJson,
-    guesses: s.guessesJson,
-    personId: 1,
-    analyzedFrames: s.stepCount * 10,
-    notes: [`Loaded from saved session: ${s.sessionName}`],
-    taskMode: (s.taskMode as any) || "single",
-    dualTaskCost: s.dualTaskJson,
-  }, s.sessionName);
-  ```
-  Because `angleAnalysis` and `patientMeta` are not present in the saved payload, loading a historical session resets patient metadata to default random values and renders blank joint angle charts.
-
----
-
-## 3. Examination of `SamplePicker.tsx` & Reference Video Datasets
-
-### Architectural Role & Asset Verification
-`SamplePicker.tsx` (202 lines) provides immediate clinical demo capability without requiring manual video uploads.
-- **Reference Video Inventory (`SAMPLE_VIDEOS`):**
-  1. `sagittal` ("Sagittal View", `/samples/sagittal-gait.mp4`, 12.0s) — Evaluates knee flexion/extension, step time CV, stance/swing %.
-  2. `frontal` ("Frontal View", `/samples/frontal-gait.mp4`, 12.0s) — Evaluates lateral sway, step width, pelvic obliquity, bilateral symmetry.
-  3. `follow_cam` ("Follow-Cam Tracking", `/samples/follow-cam-gait.mp4`, 12.0s) — Evaluates foot orientation vectors, direction inference, hip centering.
-  4. `general` ("General Walk", `/samples/general-gait.mp4`, 23.5s; fallback `/sample-walk.mp4`) — Evaluates multi-person tracking and 6-domain normative scoring.
-- **Filesystem Verification:** Confirmed all 4 MP4 files exist in `/Users/damian/GitHub/gait-lab/public/samples/`:
-  - `public/samples/sagittal-gait.mp4`
-  - `public/samples/frontal-gait.mp4`
-  - `public/samples/follow-cam-gait.mp4`
-  - `public/samples/general-gait.mp4`
-  - `public/sample-walk.mp4`
-
-### Implementation Evaluation
-- **Blob Conversion Flow:** `handleLoadSample` fetches the URL via `fetch(sample.url)`, creates a `Blob`, instantiates `File([blob], sample.filename, { type: "video/mp4" })`, and invokes `onSelectSample(file)`.
-- **UX & Accessibility:** Fully accessible buttons with aria labels, loading spinners (`Loader2`), clear error callouts, and feature tags.
-
----
-
-## 4. Examination of `GaitApp.tsx` & Workflow Integration
-
-### Architectural Role & Pipeline Flow
-`GaitApp.tsx` (1267 lines) is the main application workstation orchestrating video processing, pose estimation, kinematics calculation, UI stage state, and database persistence.
-- **4-Stage Workflow UI Architecture:**
-  - **Stage 1 (Input & Sample Selection):** Task mode protocol toggle (`single` vs `dual`), video file drag-and-drop zone, file browser button, embedded `SamplePicker`.
-  - **Stage 2 (Video Processing & Tracking):** MediaPipe Pose WASM landmark detection, multi-person candidate tracking (`matchPeople`, `tracksToPeople`, candidate chips, canvas overlay), subject person selection, 30 Hz uniform grid resampling (`resamplePoseFrames`).
-  - **Stage 3 (Clinical Insights & Workstation):** Dual-pane workstation (~50% video canvas with frame scrubber & overlays on left, sticky clinical status bar & tabbed insights on right). Tabs: `clusters` (`CognitiveClusters`), `guesses` (`GuessesPanel`), `metrics` (`MetricsPanel`), `guide` (`GuidePanel`).
-  - **Stage 4 (Export & PDF Sign-Off):** `ReportPanel` with patient metadata inputs, 5-domain radar chart, ROM summary table, joint angles chart, and PDF print export.
-- **Data Engine Invocation:**
-  - `computeGaitMetrics(frames)` (line 494) computes zero-phase Butterworth filtering, Zeni gait events, Zifchock symmetry angle, split-half CIs, domain scores.
-  - `computeDualTaskCost(baselineSingle, metrics)` (line 497) computes Plummer & Eskes DTE and CMI classification.
-  - `buildEducatedGuesses` (line 499) generates ranked clinical hypotheses.
-
-### Evidence Chain & Identified Disconnected Logic in `GaitApp.tsx`
-1. **Omission of `computeGaitAngleAnalysis`:**
-   - Lines 490–521 in `GaitApp.tsx` show `runAnalysis`:
-     ```tsx
-     const frames = resamplePoseFrames(rawFrames, 30.0);
-     const metrics = computeGaitMetrics(frames);
-     let dualTaskCost = undefined;
-     if (taskMode === "dual" && baselineSingle) {
-       dualTaskCost = computeDualTaskCost(baselineSingle, metrics);
-     }
-     const guesses = buildEducatedGuesses(metrics, { taskMode, dualTaskCost });
-     const analysis: AnalysisResult = {
-       metrics,
-       guesses,
-       personId: selectedPersonId,
-       analyzedFrames: frames.length,
-       taskMode,
-       dualTaskCost,
-       notes: [...],
-     };
-     setResult(analysis);
-     ```
-   - **Root Cause:** `runAnalysis` possesses the resampled 30 Hz `frames` array, but **never calls `computeGaitAngleAnalysis(frames, metrics.stepEvents, metrics.viewAngle)`** nor stores `angleAnalysis` on `AnalysisResult`.
-2. **Disconnected Downstream Rendering:**
-   - Because `result.angleAnalysis` does not exist, when `GaitApp.tsx` renders `ReportPanel` (line 1198) and `CognitiveClusters` (line 1163), both components fall back to `computeGaitAngleAnalysis([], ...)`.
-   - Result: Joint angle trajectory graphs remain flat and ROM tables show empty dashes.
-3. **Disconnected Patient Metadata:**
-   - `GaitApp.tsx` does not maintain or receive `patientMeta`.
-   - `handleSaveSession` (lines 534–552) saves only `sessionName` and `result` to the database. Patient ID and Clinician Notes are not included in the payload.
-
----
-
-## 5. Synthesis of Disconnected Logic & Integration Gaps
-
-| # | Disconnected Logic / Integration Gap | Impact | Root Cause |
-|---|---------------------------------------|--------|------------|
-| 1 | Joint Kinematic Trajectory Disconnect | Joint angle charts in `CognitiveClusters` and `ClinicalReportView` render flat lines; ROM table shows `—` for all values. | `runAnalysis` in `GaitApp.tsx` omits `computeGaitAngleAnalysis(frames, ...)` call; `ReportPanel` and `CognitiveClusters` fall back to `computeGaitAngleAnalysis([], ...)`. |
-| 2 | Patient Metadata Ephemerality & Data Loss | Patient ID, Assessment Date, Condition, and Clinician Notes edited in `ClinicalReportView` are lost on save or navigation. | `patientMeta` state is trapped in `ReportPanel.tsx` local state and not passed to `GaitApp.tsx` or `saveGaitSession`. |
-| 3 | Incomplete DB Hydration in `SessionHistoryDrawer` | Loading a historical session from database renders blank joint angle charts and resets patient metadata. | `saveGaitSession` does not serialize `angleAnalysis` or `patientMeta` into `metrics_json` / DB payload; `onLoadSession` does not hydrate them. |
-| 4 | Dual-Task Baseline Cross-Session Persistence | Dual-task assessment requires running a single-task walk first in the *same active browser session*. | `baselineSingle` is stored in `GaitApp.tsx` react state and reset on `resetAll`; single-task baselines are not retrieved from DB for dual-task pairing across sessions. |
-
----
-
-## 6. Concrete Code Fix Strategies
-
-### Strategy 1: Expand Types in `src/lib/gait/types.ts`
-Add optional `angleAnalysis` and `patientMeta` to `AnalysisResult` and `GaitMetrics`:
+Currently in `src/lib/gait/analysis.ts` (lines 242–285):
 
 ```typescript
-// In src/components/gait/ClinicalReportView.tsx (export PatientMetadata):
-export type PatientMetadata = {
-  patientId: string;
-  clinicianNotes: string;
-  assessmentDate: string;
-  assessmentCondition: string;
-};
+function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
+  if (frames.length < 5) {
+    return emptyMetrics(frames);
+  }
 
-// In src/lib/gait/types.ts:
-import type { GaitAngleAnalysis } from "./angles";
-import type { PatientMetadata } from "@/components/gait/ClinicalReportView";
+  const { angle, confidence } = detectViewAngle(frames);
+  const t0 = frames[0].timeMs;
+  const durationSec = Math.max(0.001, (frames[frames.length - 1].timeMs - t0) / 1000);
+  const fpsEffective = (frames.length - 1) / durationSec;
+  const fps = Math.max(1, fpsEffective);
 
-export type AnalysisResult = {
-  metrics: GaitMetrics;
-  guesses: EducatedGuess[];
-  personId: number;
-  analyzedFrames: number;
-  notes: string[];
-  taskMode: TaskMode;
-  dualTaskCost?: DualTaskCost;
-  angleAnalysis?: GaitAngleAnalysis;
-  patientMeta?: PatientMetadata;
-};
+  const series = frames.map((f) => { ... });
+
+  // Zero-phase 4th-order Butterworth low-pass filtering (fc = 6.0 Hz) on landmark trajectories
+  const midHipX = zeroPhaseButterworth(series.map((s) => s.midHipX), fps, 6.0);
+  const midHipY = zeroPhaseButterworth(series.map((s) => s.midHipY), fps, 6.0);
+  const leftWristRel = zeroPhaseButterworth(series.map((s) => s.leftWristRel), fps, 6.0);
+  const rightWristRel = zeroPhaseButterworth(series.map((s) => s.rightWristRel), fps, 6.0);
+  const leftKneeAngle = zeroPhaseButterworth(series.map((s) => s.leftKneeAngle), fps, 6.0);
+  const rightKneeAngle = zeroPhaseButterworth(series.map((s) => s.rightKneeAngle), fps, 6.0);
+
+  // Execute Zeni Kinematic Gait Event Detection
+  const zeniBreakdown = detectGaitEventsZeni(frames, fpsEffective);
+  ...
 ```
 
-### Strategy 2: Update `runAnalysis` in `GaitApp.tsx`
-Compute `angleAnalysis` during video analysis when resampled `frames` are available:
+#### Vulnerability Analysis:
+1. **Unsmoothed Event Detection**: `detectGaitEventsZeni` receives `frames` directly. It calculates vertical ankle coordinates (`lm[LM.L_ANKLE].y`) and torso height normalization factors directly from `frames`. Unfiltered landmark jitter or single-frame salt-and-pepper noise pops produce false vertical extrema, leading to extra or misaligned heel-strike and toe-off events.
+2. **Unsmoothed View Angle Classification**: `detectViewAngle` computes shoulder widths, hip depth differences, and limb vertical separations directly from `frames`. Coordinate noise can corrupt shoulder-to-torso ratios and shift view angle classification (e.g. sagittal vs oblique).
+3. **Unfiltered Auxiliary Metrics**: Key spatiotemporal signals like `leftAnkleY`, `rightAnkleY`, `stepWidth`, `hipDrop` (pelvic obliquity), and `torsoHeight` are extracted directly from `frames` without filtering.
+
+### 2.2 Precise Placement Blueprint
+
+`smoothPoseFrames` must be called at line 246 immediately after the `rawFrames.length < 5` check:
 
 ```typescript
-// In src/components/gait/GaitApp.tsx (inside runAnalysis):
-const frames = resamplePoseFrames(rawFrames, 30.0);
-const metrics = computeGaitMetrics(frames);
-const angleAnalysis = computeGaitAngleAnalysis(
-  frames,
-  metrics.stepEvents || [],
-  metrics.viewAngle || "unknown",
-);
+import { smoothPoseFrames } from "./signal";
 
-const analysis: AnalysisResult = {
-  metrics,
-  guesses,
-  personId: selectedPersonId,
-  analyzedFrames: frames.length,
-  taskMode,
-  dualTaskCost,
-  angleAnalysis,
-  patientMeta: patientMeta, // pass current patient metadata state
-  notes: [...],
-};
-setResult(analysis);
+function computeGaitMetricsCore(rawFrames: PoseFrame[]): GaitMetrics {
+  if (rawFrames.length < 5) {
+    return emptyMetrics(rawFrames);
+  }
+
+  // Requirement R1: Apply 1D temporal coordinate smoothing (5-point Savitzky-Golay)
+  // across all 33 MediaPipe landmark coordinates (x, y, z) prior to metric extraction.
+  const frames = smoothPoseFrames(rawFrames);
+
+  const { angle, confidence } = detectViewAngle(frames);
+  const t0 = frames[0].timeMs;
+  const durationSec = Math.max(0.001, (frames[frames.length - 1].timeMs - t0) / 1000);
+  const fpsEffective = (frames.length - 1) / durationSec;
+  const fps = Math.max(1, fpsEffective);
+
+  const series = frames.map((f) => {
+    // Extracted from smoothed frames
+    ...
+  });
+
+  // Zero-phase 4th-order Butterworth low-pass filtering on derived 1D signals
+  ...
 ```
 
-### Strategy 3: Update `ReportPanel.tsx` & `CognitiveClusters.tsx`
-Pass `result.angleAnalysis` to `ClinicalReportView` and `CognitiveClusters`:
+### 2.3 Split-Half Reliability Interaction
 
+In `computeGaitMetrics(frames: PoseFrame[])` (lines 521–553):
 ```typescript
-// In ReportPanel.tsx:
-export function ReportPanel({
-  result,
-  patientMeta,
-  onUpdateMeta,
-}: {
-  result: AnalysisResult;
-  patientMeta?: PatientMetadata;
-  onUpdateMeta?: (meta: Partial<PatientMetadata>) => void;
-}) {
-  const angleAnalysis = useMemo(() => {
-    if (result.angleAnalysis) return result.angleAnalysis;
-    return computeGaitAngleAnalysis(
-      [],
-      result.metrics.stepEvents || [],
-      result.metrics.viewAngle || "unknown",
-    );
-  }, [result]);
+export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
+  const full = computeGaitMetricsCore(frames);
+  if (frames.length < 10) return full;
 
-  return (
-    <ClinicalReportView
-      result={result}
-      patientMeta={patientMeta || { patientId: "PT-...", assessmentDate: "...", assessmentCondition: "...", clinicianNotes: "" }}
-      angleAnalysis={angleAnalysis}
-      onUpdateMeta={onUpdateMeta}
-      onPrint={() => window.print()}
-    />
-  );
+  const halfN = Math.floor(frames.length / 2);
+  const half1Frames = frames.slice(0, halfN);
+  const half2Frames = frames.slice(halfN);
+
+  const m1 = computeGaitMetricsCore(half1Frames);
+  const m2 = computeGaitMetricsCore(half2Frames);
+  ...
 }
 ```
 
-```typescript
-// In GaitApp.tsx (Stage 3 rendering):
-<CognitiveClusters
-  metrics={result.metrics}
-  dualTaskCost={result.dualTaskCost}
-  angleAnalysis={result.angleAnalysis}
-/>
-```
+Placing `smoothPoseFrames` inside `computeGaitMetricsCore` guarantees that both the full trajectory and split-half segments (`m1` and `m2`) undergo identical coordinate smoothing, ensuring consistent reliability bounds (`confidenceIntervals`) without code duplication.
 
-### Strategy 4: Persist `angleAnalysis` and `patientMeta` in PostgreSQL DB
-In `src/lib/gait/persistence.ts`:
-Include `angleAnalysis` and `patientMeta` inside `metrics_json` when saving via `saveGaitSession`.
+---
+
+## 3. Interface Contracts & Types Audit (`types.ts`, `pose.ts`, `index.ts`)
+
+### 3.1 Type Definitions for `signal.ts` and `pose.ts`
+
+In `src/lib/gait/types.ts`:
 
 ```typescript
-// In saveGaitSession handler:
-const extMetrics = {
-  ...metrics,
-  angleAnalysis: data.result.angleAnalysis,
-  patientMeta: data.result.patientMeta,
+// 1D Coordinate Smoothing Method
+export type SmoothingMethod = "savitzky-golay" | "kalman";
+
+// Model Hierarchy & Delegate Metadata for MediaPipe Landmarker
+export type PoseLandmarkerModelTier = "heavy" | "full" | "lite";
+export type PoseLandmarkerDelegate = "GPU" | "CPU";
+
+export type PoseLandmarkerLike = {
+  detect: (image: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement) => PoseDetectionResult;
+  detectForVideo: (
+    video: HTMLVideoElement | HTMLCanvasElement,
+    timestamp: number,
+  ) => PoseDetectionResult;
+  setOptions?: (options: Record<string, unknown>) => Promise<void> | void;
+  close?: () => void;
+  /** Active loaded model tier */
+  modelTier?: PoseLandmarkerModelTier;
+  /** Active backend delegate */
+  delegate?: PoseLandmarkerDelegate;
 };
 ```
 
-And in `SessionHistoryDrawer.tsx`:
+### 3.2 Signal Processing Interface Contract (`signal.ts`)
+
 ```typescript
-onLoadSession(
-  {
-    metrics: s.metricsJson,
-    guesses: s.guessesJson,
-    personId: 1,
-    analyzedFrames: s.stepCount * 10,
-    notes: [`Loaded from saved session: ${s.sessionName}`],
-    taskMode: (s.taskMode as any) || "single",
-    dualTaskCost: s.dualTaskJson,
-    angleAnalysis: (s.metricsJson as any)?.angleAnalysis,
-    patientMeta: (s.metricsJson as any)?.patientMeta,
-  },
-  s.sessionName,
-);
+export function savitzkyGolay5(signal: number[]): number[];
+
+export function kalmanFilter1D(
+  signal: number[],
+  processNoise?: number,
+  measurementNoise?: number,
+): number[];
+
+export function smoothPoseFrames(
+  frames: PoseFrame[],
+  method?: SmoothingMethod,
+): PoseFrame[];
+```
+
+#### Mathematical Specification:
+- **`savitzkyGolay5`**: Applies 5-point quadratic Savitzky-Golay convolution weight vector $W = \frac{1}{35} [-3, 12, 17, 12, -3]$ with linear boundary reflection padding for $N \ge 5$.
+- **`kalmanFilter1D`**: Applies 1D discrete Kalman filter tracking position and velocity with backward Rauch-Tung-Striebel (RTS) smoother pass to prevent phase delay.
+- **`smoothPoseFrames`**: Clones `PoseFrame[]` and filters each of the 33 MediaPipe landmark's $(x, y, z)$ coordinate arrays over time while preserving visibility flags.
+
+### 3.3 Module Barrel Exports (`src/lib/gait/index.ts`)
+
+`src/lib/gait/index.ts` coordinates exports for the package.
+
+Current state:
+```typescript
+// Core Types
+export * from "./types";
+
+// Digital Signal Processing & Butterworth Filtering
+export * from "./signal";
+
+// MediaPipe Geometry & Landmark Utilities
+export * from "./landmarks";
+```
+
+#### Required Updates:
+1. `export * from "./signal";` is already present. Adding `savitzkyGolay5`, `kalmanFilter1D`, and `smoothPoseFrames` to `signal.ts` automatically re-exports them through `index.ts`.
+2. Add `export * from "./pose";` to `index.ts` so `getPoseLandmarker`, `PoseLandmarkerLike`, `resamplePoseFrames`, etc. are accessible to consuming modules.
+3. Preserve export collision mitigation: `BiometricSignature` is defined in `types.ts` and `analysis.ts`. `index.ts` explicitly enumerates exports from `analysis.ts` to prevent name collision errors.
+
+---
+
+## 4. Test Infrastructure Audit (`src/lib/gait/__tests__/`)
+
+### 4.1 Audit Matrix of Existing Test Files
+
+| Test File Path | Primary Target Module | Test Category | Description & Assertions |
+|---|---|---|---|
+| `signal.test.ts` | `src/lib/gait/signal.ts` | Unit | Tests `olsDetrend`, `butterworthLowPass`, and `zeroPhaseButterworth` (impulse response symmetry, zero phase lag, cutoff sweeps 1–12 Hz, sampling rates 10–240 Hz). |
+| `cat1_landmark_jitter_noise.test.ts` | `src/lib/gait/analysis.ts` | Synthetic Stress | Tests single-frame coordinate spikes (+0.55 / -0.60 pops), joint-correlated high-frequency noise, out-of-bounds coords, NaN/Infinity injection. |
+| `PoseTracker.test.ts` | `src/lib/gait/PoseTracker.ts` | Unit / Integration | Tests WebRTC camera initialization, constraints, canvas frame processing, and landmarker fallback behavior. |
+| `analysis.test.ts` | `src/lib/gait/analysis.ts` | Integration | Tests `computeGaitMetrics`, view angle detection, confidence intervals, tracking, and gait scores. |
+| `challenger_m1_1_stress.test.ts` | `src/lib/gait/signal.ts` | Stress | Tests zero-phase Butterworth phase shift, noise reduction, and signal fidelity. |
+| `m2_challenger_verification.test.ts` | `src/lib/gait/pose.ts` | Unit | Tests `resamplePoseFrames` Catmull-Rom cubic spline interpolation across 30 Hz uniform grid. |
+| `cat2_variable_frame_rate.test.ts` | `src/lib/gait/analysis.ts` | Synthetic Stress | Tests variable FPS jitter (15–60 FPS) and irregular timestamp intervals. |
+| `cat3_landmark_occlusion.test.ts` | `src/lib/gait/analysis.ts` | Synthetic Stress | Tests multi-frame total pose loss (15–45 frames) and low visibility handling. |
+| `cat4_extreme_gait_asymmetry.test.ts` | `src/lib/gait/analysis.ts` | Synthetic Stress | Tests severe inter-limb step time and arm swing asymmetries. |
+| `cat5_micro_steps_parkinsonian.test.ts` | `src/lib/gait/analysis.ts` | Synthetic Stress | Tests Parkinsonian gait, festination, and micro-stride detection. |
+| `cat6_camera_shake_motion.test.ts` | `src/lib/gait/analysis.ts` | Synthetic Stress | Tests high-amplitude camera vibration and global translation. |
+| `events.test.ts` / `events.challenger_m7_2.test.ts` | `src/lib/gait/events.ts` | Unit / Stress | Tests Zeni kinematic gait event detection, heel strike / toe off timing, and subframe peak refinement. |
+| `angles.test.ts` / `challenger_m4_angles_empirical.test.ts` | `src/lib/gait/angles.ts` | Unit / Empirical | Tests 2D joint angle calculations (knee, hip, ankle flexions). |
+| `fallrisk.test.ts` | `src/lib/gait/fallrisk.ts` | Unit | Tests Model A & Model B fall risk calculations, acute spikes, and Cohen's Kappa predictive agreement. |
+
+### 4.2 Detailed Analysis of `cat1_landmark_jitter_noise.test.ts`
+
+`cat1_landmark_jitter_noise.test.ts` provides synthetic ground-truth regression verification for coordinate smoothing:
+1. **Test 1: Single-Frame Coordinate Spikes (Salt-and-Pepper Noise)**
+   - Injects +0.55 / -0.60 coordinate pops on left ankle (landmark 27) and right heel (landmark 30) at frames 15, 45, and 75.
+   - Verifies `metrics.cadenceSpm`, `metrics.stepTimeCV`, `metrics.symmetryAngle`, and `metrics.overallScore` remain finite and within [0, 100].
+2. **Test 2: Joint-Correlated High-Frequency Noise**
+   - Injects alternating $\pm 0.12$ high-frequency jitter across left knee (25) and left ankle (27).
+   - Verifies cadence remains positive and symmetry angle remains strictly bounded.
+3. **Test 3: Out-of-Bounds & NaN/Infinity Injection**
+   - Sets out-of-bounds coordinates ($x = -0.35, 1.45$, $y = -0.20, 1.65$) and injects `NaN` / `Infinity`.
+   - Asserts every numeric property in `GaitMetrics` is `Number.isFinite(val) === true`.
+
+With `smoothPoseFrames` integrated into `computeGaitMetricsCore`, jitter spikes are smoothed before reaching Zeni event detection, significantly reducing noise-induced variance in `stepTimeCV` and `symmetryAngle`.
+
+---
+
+## 5. Verification Commands & Execution Results
+
+All four required project check scripts were executed and validated:
+
+```bash
+# 1. Full Vitest Test Suite (Unit + Integration + Stress)
+npm test
+# Result: 59 test files passed (59/59), 604 tests passed (604/604), 100% pass rate.
+
+# 2. TypeScript Typecheck
+npm run typecheck
+# Result: 0 compilation errors (tsc --noEmit passed cleanly).
+
+# 3. Code Style & Linting
+npm run lint
+# Result: 0 ESLint errors (1 minor unused var warning in test file).
+
+# 4. Production Build Verification
+npm run build
+# Result: Nitro Vercel production build completed successfully in 1.19s.
 ```
 
 ---
 
-## Conclusion
+## 6. Implementation Checklist for Implementer Agent
 
-The core engine modules in `gait-lab` are mathematically sound and well-tested. Resolving the 4 identified integration gaps via the recommended fix strategies will achieve 100% end-to-end integration across kinematic trajectory generation, clinical PDF report rendering, patient metadata management, and database persistence.
+- [ ] In `src/lib/gait/signal.ts`:
+  - Implement `savitzkyGolay5(signal: number[]): number[]`
+  - Implement `kalmanFilter1D(signal: number[], processNoise?: number, measurementNoise?: number): number[]`
+  - Implement `smoothPoseFrames(frames: PoseFrame[], method?: 'savitzky-golay' | 'kalman'): PoseFrame[]`
+  - Export all 3 functions.
+- [ ] In `src/lib/gait/analysis.ts`:
+  - Import `smoothPoseFrames` from `./signal`.
+  - In `computeGaitMetricsCore(rawFrames: PoseFrame[])`: Call `const frames = smoothPoseFrames(rawFrames);` at the top of the function.
+- [ ] In `src/lib/gait/pose.ts`:
+  - Upgrade `getPoseLandmarker()` to implement the 3-tier model fallback hierarchy (`heavy` $\rightarrow$ `full` $\rightarrow$ `lite`) with GPU/CPU delegate fallbacks per tier and CDN fallbacks.
+  - Update `PoseLandmarkerLike` to include optional `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate`.
+- [ ] In `src/lib/gait/types.ts`:
+  - Add type exports for `SmoothingMethod`, `PoseLandmarkerModelTier`, `PoseLandmarkerDelegate`.
+- [ ] In `src/lib/gait/index.ts`:
+  - Add `export * from "./pose";`.
+- [ ] In `src/lib/gait/__tests__/`:
+  - Add unit tests for `savitzkyGolay5`, `kalmanFilter1D`, `smoothPoseFrames` in `signal.test.ts`.
+  - Add model fallback unit tests in a new or updated `pose.test.ts`.
+  - Run `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` to confirm 100% pass rate.

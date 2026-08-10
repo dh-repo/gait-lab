@@ -1,246 +1,412 @@
-# Comprehensive Codebase Analysis: Gait Engine & Kinematic Trajectory Integration (Explorer 2 — Milestone 1)
+# Technical Analysis Report: 1D Landmark Coordinate Temporal Smoothing via 5-Point Savitzky-Golay Filter
 
-## Executive Summary
-
-An exhaustive analysis of `src/lib/gait/symmetry.ts`, `src/lib/gait/dte.ts`, `src/lib/gait/angles.ts`, `src/components/gait/JointAnglesChart.tsx`, `src/lib/gait/analysis.ts`, and `src/components/gait/GaitApp.tsx` was conducted. While individual algorithmic units in `symmetry.ts`, `dte.ts`, and `angles.ts` possess robust mathematical foundations and comprehensive unit test coverage (296/296 tests passing), a **critical integration disconnect** was identified in the runtime pipeline between `GaitApp.tsx`, `analysis.ts`, `ReportPanel.tsx`, `ClinicalReportView.tsx`, and `CognitiveClusters.tsx`.
-
-Specifically, `GaitApp.tsx` never invokes `computeGaitAngleAnalysis` during video analysis, nor does `AnalysisResult` store `angleAnalysis`. Consequently, downstream UI components (`ReportPanel.tsx` and `CognitiveClusters.tsx`) fall back to passing an empty array (`frames: []`) to `computeGaitAngleAnalysis`. This causes `JointAnglesChart.tsx` and the Clinical PDF Report (`ClinicalReportView.tsx`) to render completely empty trajectory curves and display `—` for all Range of Motion (ROM) metrics in live production analysis.
-
-Additionally, a minor classification edge case was discovered in `dte.ts` where motor prioritization is only evaluated against `cadenceDTE` rather than checking both `cadenceDTE` and `stepTimeCvDTE`.
+**Author:** Explorer M1-2 (Signal Processing & Temporal Smoothing Specialist)  
+**Date:** 2026-08-09  
+**Target Repository:** `/Users/damian/GitHub/gait-lab`  
+**Scope:** Milestone M1.2 — Requirement R1 (Computer Vision Model Fidelity & 1D Landmark Coordinate Temporal Filtering)  
+**Primary Output Path:** `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/analysis.md`
 
 ---
 
-## 1. Module-by-Module Findings
+## 1. Executive Summary
 
-### 1.1 Zifchock Symmetry Angle & Symmetry Index (`src/lib/gait/symmetry.ts`)
-- **Scientific Foundation**: Implements Zifchock et al. (2008) Symmetry Angle ($SA$):
-  $$SA = \frac{|45^\circ - \arctan(X_L / X_R)|}{90^\circ} \times 100\%$$
-- **Mathematical Bounds**:
-  - For non-negative magnitudes ($X_L \ge 0, X_R \ge 0$), $\arctan(X_L / X_R) \in [0^\circ, 90^\circ]$.
-  - The quantity $|45^\circ - \theta| / 90^\circ \times 100\%$ ranges from $0.0\%$ (perfect 1:1 symmetry) to $50.0\%$ (complete unilateral asymmetry where one limb is 0).
-  - Docstring in line 11 mentions $[0, 100]\%$, but `symmetryAngle` mathematically maxes at $50.0\%$. Line 40 correctly caps with `Math.min(100.0, rawSA)`.
-- **Epsilon Threshold**: Robustly checks `absL < 1e-6 && absR < 1e-6` returning `0.0%` to prevent division by zero or NaN propagation.
-- **Reference-Free Invariance**: Verified that $SA(X_L, X_R) \equiv SA(X_R, X_L)$.
-- **Gait Symmetry Index (GSI)**: Implements $GSI = (\min(|X_L|, |X_R|) / \max(|X_L|, |X_R|)) \times 100\%$, returning $100.0\%$ for equal magnitudes and $0.0\%$ when one limb is 0.
+This report delivers the detailed technical analysis and design specification for **1D Landmark Coordinate Temporal Smoothing** in `gait-lab`. 
 
-### 1.2 Standardized Dual-Task Effect & CMI Taxonomy (`src/lib/gait/dte.ts`)
-- **Scientific Foundation**: Implements Kelly et al. (2010) directional DTE formula and Plummer & Eskes (2015) 4-tier Cognitive-Motor Interference (CMI) taxonomy:
-  - Higher-is-better metrics (Cadence, Symmetry Score): $\text{DTE} = \frac{\text{DualTask} - \text{Baseline}}{\text{Baseline}} \times 100\%$
-  - Lower-is-better metrics (Step Time CV): $\text{DTE} = -\frac{\text{DualTask} - \text{Baseline}}{\text{Baseline}} \times 100\%$
-- **Sign Convention**: All DTE values are signed such that negative values denote performance cost (decline) and positive values denote performance gain (prioritization).
-- **Taxonomy Logic**:
-  - `mutual_interference`: Both `cadenceDTE < -5.0` and `stepTimeCvDTE < -5.0`.
-  - `cognitive_prioritization`: Either `cadenceDTE < -5.0` or `stepTimeCvDTE < -5.0`.
-  - `motor_prioritization`: Currently `cadenceDTE > 5.0`.
-  - `no_interference`: Both $|DTE| \le 5.0\%$.
-- **Edge Case Bug Identified**:
-  - Lines 78–79:
-    ```ts
-    } else if (cadenceDTE > 5.0) {
-      cmiClassification = "motor_prioritization";
-    }
-    ```
-  - **Issue**: If `stepTimeCvDTE > 5.0%` (e.g. step time CV improves by 50% from 0.08 to 0.04) while cadence DTE is $+2\%$, `cmiClassification` evaluates to `"no_interference"` instead of `"motor_prioritization"`.
-  - **Fix**: Update line 78 to `else if (cadenceDTE > 5.0 || stepTimeCvDTE > 5.0)`.
+Keypoint coordinate jitter in raw MediaPipe pose estimations (caused by lighting fluctuations, camera noise, or subtle limb micro-occlusions) corrupts kinematic gait metrics—such as Zeni initial contact (heel strike) detection, vertical ankle acceleration minima, and knee/hip joint angle extremes—**before** down-stream 1D signal filters execute.
 
-### 1.3 3-Point Joint Kinematic Angles & Gait Cycle Normalization (`src/lib/gait/angles.ts`)
-- **Biomechanical Formulas**:
-  - **Knee Flexion**: $180^\circ - \angle(\text{Hip-Knee-Ankle})$. $0^\circ$ represents full extension (collinear leg). Max stance/swing flexion $\sim 60\text{--}70^\circ$.
-  - **Hip Flexion/Extension**: Signed $180^\circ - \angle(\text{Shoulder-Hip-Knee})$ relative to walking direction. $+ = \text{Flexion}$ (anterior swing), $- = \text{Extension}$ (posterior stance).
-  - **Ankle Angle**: $90^\circ - \angle(\text{Knee-Ankle-Toe})$ relative to $90^\circ$ neutral standing. $+ = \text{Dorsiflexion}$, $- = \text{Plantarflexion}$. Includes synthetic toe vector construction by reflecting heel across ankle if toe visibility $< 0.3$.
-- **Signal Filtering & Normalization**:
-  - Trajectories filtered with zero-phase 4th-order Butterworth LPF ($f_c = 6.0\text{ Hz}$) at effective sampling rate.
-  - Stride segmentation driven by same-side heel strike events ($L \to L, R \to R$).
-  - Resamples each stride to 101 uniform percentage points ($0.0\%$ to $100.0\%$) using linear interpolation.
-  - Computes ensemble mean curves across all strides, Peak ROM ($\text{Max} - \text{Min}$), and Peak Flexion / Extension / Dorsiflexion / Plantarflexion values.
-  - Computes ROM Asymmetry %: $\frac{|\text{ROM}_L - \text{ROM}_R|}{\max(\text{ROM}_L, \text{ROM}_R)} \times 100\%$.
-- **Normative Reference Data**:
-  - `getNormativeGaitCurves()` delivers Perry & Burnfield (2010) normative mean, min, and max bounds over 101 points.
-- **View Angle Suppression**:
-  - When `viewAngle === "frontal"`, sets `isSuppressed = true` with explanation: *"Joint kinematic angles in the sagittal plane (flexion/extension) cannot be reliably computed from a frontal camera view."*
+To resolve keypoint instability, we implement a **5-point Savitzky-Golay (SavGol) quadratic 1D temporal coordinate smoothing filter** across all 33 MediaPipe landmarks' $(x, y, z)$ spatial coordinates prior to metric calculation.
 
-### 1.4 Interactive Joint Angles Chart (`src/components/gait/JointAnglesChart.tsx`)
-- **Recharts Integration**: Uses `ComposedChart` rendering:
-  - `<Area dataKey="normativeRange" />`: Shaded Perry & Burnfield normative envelope (gray fill, opacity 0.25).
-  - `<Line dataKey="leftAngle" />`: Solid blue curve ($2.5\text{px}$) for Left joint trajectory.
-  - `<Line dataKey="rightAngle" />`: Dashed red curve ($2.5\text{px}$) for Right joint trajectory.
-- **Interactive UI**: Tab selector buttons for "Knee", "Hip", "Ankle". Stat badges for Left/Right Peak ROM, Peak Flexion/Extension, and ROM Asymmetry %. View suppression warning banner when `isSuppressed` is true.
+### Core Architectural Specifications:
+1. **Convolution Kernel**: $\frac{1}{35} [-3, 12, 17, 12, -3]$ for 2nd/3rd degree local polynomial fitting.
+2. **Boundary Reflection Padding ($N \ge 5$)**:
+   $$\begin{aligned}
+   x_{-1} &= 2 x_0 - x_1, & x_{-2} &= 2 x_0 - x_2 \\
+   x_N &= 2 x_{N-1} - x_{N-2}, & x_{N+1} &= 2 x_{N-1} - x_{N-3}
+   \end{aligned}$$
+3. **Short Sequence Graceful Handling ($N < 5$)**: Returns input frames unaltered without throwing or distorting short clips.
+4. **Metadata Preservation**: Preserves landmark `visibility`, `presence`, timestamp `timeMs`, and frame-level attributes completely untouched while maintaining strict immutability.
+5. **API Export Contract**: Export `savitzkyGolay5` and `smoothPoseFrames` in `src/lib/gait/signal.ts` and add `LandmarkFrame` type alias for `PoseFrame`.
 
 ---
 
-## 2. Critical Integration Disconnect Analysis
+## 2. Current State Audit
 
-### 2.1 The Bug
-In `GaitApp.tsx` (lines 399–522), `runAnalysis()` extracts 30 Hz uniform `PoseFrame[]`, filters them, detects events, and calls:
-```ts
-const metrics = computeGaitMetrics(frames);
-```
-`computeGaitMetrics` does **NOT** call `computeGaitAngleAnalysis(frames, metrics.stepEvents, metrics.viewAngle, walkDir)`.
-`AnalysisResult` in `types.ts` does **NOT** contain an `angleAnalysis` property.
+### 2.1 Existing `src/lib/gait/signal.ts`
+Currently, `signal.ts` contains:
+- `olsDetrend(data: number[]): number[]`: Ordinary Least Squares linear detrending.
+- `butterworthLowPass(data: number[], fps: number, cutoffHz?: number): number[]`: 4th-order causal low-pass biquad filter.
+- `zeroPhaseButterworth(data: number[], fps: number, cutoffHz?: number): number[]`: Zero-phase forward-backward Butterworth low-pass filter.
 
-When `GaitApp.tsx` sets `result`, `analysis` is created as:
-```ts
-const analysis: AnalysisResult = {
-  metrics,
-  guesses,
-  personId: selectedPersonId,
-  analyzedFrames: frames.length,
-  taskMode,
-  dualTaskCost,
-  notes: [...],
+**Gap:** `signal.ts` lacks 1D temporal landmark coordinate filtering capabilities.
+
+### 2.2 Existing Landmark & Frame Types (`src/lib/gait/types.ts`)
+```typescript
+export type Landmark = {
+  x: number;
+  y: number;
+  z: number;
+  visibility?: number;
+  presence?: number;
+};
+
+export type PoseFrame = {
+  timeMs: number;
+  landmarks: Landmark[];
+  worldLandmarks?: Landmark[];
 };
 ```
-Notice `angleAnalysis` is missing!
 
-Consequently:
-1. In `ReportPanel.tsx` (lines 16–22):
-   ```ts
-   const angleAnalysis = useMemo(() => {
-     return computeGaitAngleAnalysis(
-       [], // <--- EMPTY ARRAY PASSED!
-       result.metrics.stepEvents || [],
-       result.metrics.viewAngle || "unknown",
-     );
-   }, [result]);
-   ```
-2. In `CognitiveClusters.tsx` (lines 46–52):
-   ```ts
-   const derivedAngleAnalysis =
-     angleAnalysis ||
-     computeGaitAngleAnalysis(
-       [], // <--- EMPTY ARRAY PASSED!
-       metrics.stepEvents || [],
-       metrics.viewAngle || "unknown",
-     );
-   ```
-3. In `ClinicalReportView.tsx` (lines 58–65):
-   ```ts
-   const derivedAngleAnalysis = useMemo(() => {
-     if (angleAnalysis) return angleAnalysis;
-     return computeGaitAngleAnalysis(
-       [], // <--- EMPTY ARRAY PASSED!
-       result.metrics.stepEvents || [],
-       result.metrics.viewAngle || "unknown",
-     );
-   }, [angleAnalysis, result]);
-   ```
-
-When `computeGaitAngleAnalysis([], ...)` is invoked with an empty array `[]`, `angles.ts` (lines 312–350) returns:
-- `normalizedPoints` containing 101 points where all joint angles (`kneeAngleLeft`, `kneeAngleRight`, `hipAngleLeft`, etc.) are `null`.
-- `metrics` where all ROM metrics (`kneeRomLeft`, `kneeRomRight`, `hipRomLeft`, etc.) are `null`.
-
-### 2.2 Clinical & Visual Impact
-- **`JointAnglesChart` in Stage 3 (`CognitiveClusters.tsx`)**: Renders empty chart canvas with no lines, and stat badges display `Left Peak ROM: —`, `Right Peak ROM: —`, `ROM Asymmetry: —`.
-- **ROM Summary Table & `JointAnglesChart` in Stage 4 (`ClinicalReportView.tsx`)**: Table rows render `—` for all joints across Left Peak ROM, Right Peak ROM, Peak Flexion, Peak Extension, and ROM Asymmetry %.
-- **Printable PDF Export**: Generated PDF reports lack all joint kinematic trajectory curves and ROM data.
+### 2.3 Integration Target (`src/lib/gait/analysis.ts`)
+In `computeGaitMetricsCore(rawFrames: PoseFrame[])`:
+Raw pose frames currently enter `computeGaitMetricsCore` without coordinate smoothing. Post-hoc Butterworth low-pass filtering is applied *only* to derived 1D summary signals (e.g. `midHipX`, `leftWristRel`, `leftKneeAngle`) at lines 279–284. Pre-filtering the raw 3D landmark trajectories with `smoothPoseFrames(rawFrames)` will stabilize all downstream geometry, view detection, joint angles, and event detectors.
 
 ---
 
-## 3. Concrete Fix Recommendations for Implementer Agent
+## 3. Mathematical Foundations of 5-Point Savitzky-Golay Filtering
 
-To completely resolve the integration disconnect and fix the CMI classification edge case, the following changes must be implemented:
+### 3.1 Convolution Kernel Derivation
+The 5-point Savitzky-Golay filter fits a local quadratic polynomial $p(t) = c_0 + c_1 t + c_2 t^2$ to five contiguous data points $t \in \{-2, -1, 0, 1, 2\}$ using unweighted least squares.
 
-### Step 1: Update `AnalysisResult` Interface in `src/lib/gait/types.ts`
-Add `angleAnalysis?: GaitAngleAnalysis;` to `AnalysisResult`:
+Solving the normal equations for the center point estimate $\hat{x}_0 = p(0) = c_0$ yields:
+$$\hat{x}_0 = \frac{1}{35} \left( -3 x_{-2} + 12 x_{-1} + 17 x_0 + 12 x_1 - 3 x_2 \right)$$
+
+#### Weight Vector:
+$$\mathbf{W} = \frac{1}{35} \begin{bmatrix} -3 & 12 & 17 & 12 & -3 \end{bmatrix}$$
+
+#### Conservation of Constant Signals (DC Gain = 1):
+$$\sum_{k=-2}^2 W_k = \frac{-3 + 12 + 17 + 12 - 3}{35} = \frac{35}{35} = 1.0$$
+This guarantees that a constant signal $x[k] = C$ is preserved with zero baseline shift ($\hat{x}[k] = C$).
+
+### 3.2 Linear Boundary Reflection Padding ($N \ge 5$)
+To compute smoothed values at boundary indices $i \in \{0, 1, N-2, N-1\}$ without phase shift or edge attenuation, boundary reflection padding extends the signal by 2 samples on each end:
+
+#### Left Boundary Padding ($k < 0$):
+$$\begin{aligned}
+x_{-1} &= 2 x_0 - x_1 \\
+x_{-2} &= 2 x_0 - x_2
+\end{aligned}$$
+
+#### Right Boundary Padding ($k \ge N$):
+$$\begin{aligned}
+x_N &= 2 x_{N-1} - x_{N-2} \\
+x_{N+1} &= 2 x_{N-1} - x_{N-3}
+\end{aligned}$$
+
+### 3.3 Proof of Linear Trend Preservation at Boundaries
+Consider a linear signal $x[k] = a k + b$.
+
+Evaluating the left reflection padding:
+$$\begin{aligned}
+x_{-1} &= 2 b - (a + b) = -a + b = a(-1) + b \\
+x_{-2} &= 2 b - (2a + b) = -2a + b = a(-2) + b
+\end{aligned}$$
+
+Applying the convolution kernel at index $i = 0$:
+$$\begin{aligned}
+\hat{x}[0] &= \frac{1}{35} \left[ -3(-2a+b) + 12(-a+b) + 17(b) + 12(a+b) - 3(2a+b) \right] \\
+&= \frac{1}{35} \left[ (6 - 12 + 12 - 6)a + (-3 + 12 + 17 + 12 - 3)b \right] \\
+&= \frac{1}{35} \left[ 0 \cdot a + 35 \cdot b \right] = b = x[0]
+\end{aligned}$$
+
+Evaluating the right reflection padding at index $i = N - 1$:
+$$\begin{aligned}
+x_N &= 2 [a(N-1)+b] - [a(N-2)+b] = a N + b = a(N) + b \\
+x_{N+1} &= 2 [a(N-1)+b] - [a(N-3)+b] = a(N+1) + b
+\end{aligned}$$
+Applying the convolution kernel at index $i = N - 1$ similarly yields $\hat{x}[N-1] = x[N-1]$.
+
+**Conclusion:** Linear boundary reflection padding guarantees **zero distortion ($0.000$ error)** for linear trajectories across all boundary indices $i \in \{0, 1, N-2, N-1\}$.
+
+### 3.4 Noise Variance Reduction Derivation
+For uncorrelated zero-mean i.i.d. noise with variance $\sigma^2$:
+$$\text{Var}(\hat{x}_0) = \sum_{k=-2}^2 W_k^2 \, \sigma^2 = \frac{(-3)^2 + 12^2 + 17^2 + 12^2 + (-3)^2}{35^2} \, \sigma^2 = \frac{9 + 144 + 289 + 144 + 9}{1225} \, \sigma^2 = \frac{591}{1225} \, \sigma^2 \approx 0.48245 \, \sigma^2$$
+
+**Noise Attenuation:** High-frequency coordinate jitter variance is reduced by **$51.75\%$** in a single pass while preserving sharp kinematic peak timing and transient velocity zero-crossings.
+
+---
+
+## 4. Proposed Implementation Architecture
+
+### 4.1 `savitzkyGolay5` in `src/lib/gait/signal.ts`
+
 ```typescript
-import type { GaitAngleAnalysis } from "./angles";
-
-export type AnalysisResult = {
-  metrics: GaitMetrics;
-  guesses: EducatedGuess[];
-  personId: number;
-  analyzedFrames: number;
-  notes: string[];
-  taskMode: TaskMode;
-  dualTaskCost?: DualTaskCost;
-  /** Normalized 101-point joint kinematic trajectories & ROM metrics */
-  angleAnalysis?: GaitAngleAnalysis;
-};
-```
-
-### Step 2: Compute and Attach `angleAnalysis` in `src/components/gait/GaitApp.tsx`
-In `GaitApp.tsx` inside `runAnalysis()` (around line 495):
-```typescript
-import { computeGaitAngleAnalysis } from "@/lib/gait/angles";
-
-// ... inside runAnalysis() ...
-const metrics = computeGaitMetrics(frames);
-const angleAnalysis = computeGaitAngleAnalysis(
-  frames,
-  metrics.stepEvents || [],
-  metrics.viewAngle || "unknown",
-);
-
-const analysis: AnalysisResult = {
-  metrics,
-  guesses,
-  personId: selectedPersonId,
-  analyzedFrames: frames.length,
-  taskMode,
-  dualTaskCost,
-  angleAnalysis, // <--- Attach angleAnalysis!
-  notes: [...],
-};
-```
-
-### Step 3: Pass `angleAnalysis` to Components in `GaitApp.tsx`, `ReportPanel.tsx`, `CognitiveClusters.tsx`, and `ClinicalReportView.tsx`
-
-1. **In `GaitApp.tsx` (around line 1163)**:
-   ```tsx
-   <CognitiveClusters
-     metrics={result.metrics}
-     dualTaskCost={result.dualTaskCost}
-     angleAnalysis={result.angleAnalysis}
-   />
-   ```
-
-2. **In `ReportPanel.tsx`**:
-   Remove `computeGaitAngleAnalysis([], ...)` and pass `result.angleAnalysis`:
-   ```tsx
-   export function ReportPanel({ result }: { result: AnalysisResult }) {
-     // ...
-     return (
-       <ClinicalReportView
-         result={result}
-         patientMeta={patientMeta}
-         angleAnalysis={result.angleAnalysis}
-         onUpdateMeta={handleUpdateMeta}
-         onPrint={() => window.print()}
-       />
-     );
-   }
-   ```
-
-3. **In `CognitiveClusters.tsx` and `ClinicalReportView.tsx`**:
-   Ensure `derivedAngleAnalysis` falls back to `result.angleAnalysis` or `angleAnalysis` before checking `computeGaitAngleAnalysis`.
-
-### Step 4: Fix Motor Prioritization Edge Case in `src/lib/gait/dte.ts`
-Update lines 78–79 of `dte.ts`:
-```typescript
-  // Before:
-  // } else if (cadenceDTE > 5.0) {
-
-  // After:
-  } else if (cadenceDTE > 5.0 || stepTimeCvDTE > 5.0) {
-    cmiClassification = "motor_prioritization";
+/**
+ * 5-Point Savitzky-Golay 1D Temporal Smoothing Filter.
+ * Fits a local 2nd/3rd degree polynomial to a moving window of 5 points using kernel 1/35 * [-3, 12, 17, 12, -3].
+ * Uses linear boundary reflection padding for N >= 5 frames.
+ * Gracefully returns input unaltered for N < 5 frames.
+ */
+export function savitzkyGolay5(signal: number[]): number[] {
+  if (!signal || signal.length < 5) {
+    return signal ? signal.map((v) => (Number.isFinite(v) ? v : 0)) : [];
   }
+
+  const clean = signal.map((v) => (Number.isFinite(v) ? v : 0));
+  const n = clean.length;
+
+  // Linear boundary reflection padding (N >= 5)
+  // x_{-1} = 2*x_0 - x_1,   x_{-2} = 2*x_0 - x_2
+  // x_N = 2*x_{N-1} - x_{N-2}, x_{N+1} = 2*x_{N-1} - x_{N-3}
+  const padded = new Array<number>(n + 4);
+  padded[0] = 2 * clean[0] - clean[2];
+  padded[1] = 2 * clean[0] - clean[1];
+  for (let i = 0; i < n; i++) {
+    padded[i + 2] = clean[i];
+  }
+  padded[n + 2] = 2 * clean[n - 1] - clean[n - 2];
+  padded[n + 3] = 2 * clean[n - 1] - clean[n - 3];
+
+  const out = new Array<number>(n);
+  const inv35 = 1 / 35;
+
+  for (let i = 0; i < n; i++) {
+    const idx = i + 2;
+    out[i] = inv35 * (
+      -3 * padded[idx - 2] +
+      12 * padded[idx - 1] +
+      17 * padded[idx] +
+      12 * padded[idx + 1] -
+       3 * padded[idx + 2]
+    );
+  }
+
+  return out;
+}
 ```
 
-### Step 5: Verification & Regression Testing
-1. Run full unit test suite: `npm test`.
-2. Add integration unit tests verifying that `angleAnalysis` is populated with non-null 101-point trajectories when `computeGaitAngleAnalysis` is called with valid frames and attached to `AnalysisResult`.
-3. Verify type checking (`npm run typecheck`), linting (`npm run lint`), and production build (`npm run build`).
+### 4.2 `smoothPoseFrames` in `src/lib/gait/signal.ts`
+
+```typescript
+import type { Landmark, PoseFrame } from "./types";
+
+export type LandmarkFrame = PoseFrame;
+
+/**
+ * Applies 5-point Savitzky-Golay 1D temporal coordinate smoothing across all 33 keypoints'
+ * (x, y, z) spatial coordinates across pose frames.
+ *
+ * Handles landmark visibility, presence, and timestamp metadata untouched.
+ * Returns input frames unaltered when N < 5.
+ */
+export function smoothPoseFrames<T extends PoseFrame>(frames: T[]): T[] {
+  if (!frames || frames.length < 5) {
+    return frames ? frames.slice() : [];
+  }
+
+  const n = frames.length;
+  const numLandmarks = frames[0]?.landmarks?.length ?? 0;
+  if (numLandmarks === 0) {
+    return frames.slice();
+  }
+
+  // 1. Smooth 2D/3D image landmarks (x, y, z)
+  const smoothedX: number[][] = [];
+  const smoothedY: number[][] = [];
+  const smoothedZ: number[][] = [];
+
+  for (let j = 0; j < numLandmarks; j++) {
+    const xSig = new Array<number>(n);
+    const ySig = new Array<number>(n);
+    const zSig = new Array<number>(n);
+
+    for (let i = 0; i < n; i++) {
+      const lm = frames[i].landmarks[j];
+      xSig[i] = lm?.x ?? 0;
+      ySig[i] = lm?.y ?? 0;
+      zSig[i] = lm?.z ?? 0;
+    }
+
+    smoothedX.push(savitzkyGolay5(xSig));
+    smoothedY.push(savitzkyGolay5(ySig));
+    smoothedZ.push(savitzkyGolay5(zSig));
+  }
+
+  // 2. Smooth 3D worldLandmarks if present
+  const hasWorld = Boolean(frames[0]?.worldLandmarks && frames[0].worldLandmarks.length > 0);
+  const numWorldLandmarks = hasWorld ? frames[0].worldLandmarks!.length : 0;
+  const smoothedWorldX: number[][] = [];
+  const smoothedWorldY: number[][] = [];
+  const smoothedWorldZ: number[][] = [];
+
+  if (hasWorld) {
+    for (let j = 0; j < numWorldLandmarks; j++) {
+      const wxSig = new Array<number>(n);
+      const wySig = new Array<number>(n);
+      const wzSig = new Array<number>(n);
+
+      for (let i = 0; i < n; i++) {
+        const wlm = frames[i].worldLandmarks?.[j];
+        wxSig[i] = wlm?.x ?? 0;
+        wySig[i] = wlm?.y ?? 0;
+        wzSig[i] = wlm?.z ?? 0;
+      }
+
+      smoothedWorldX.push(savitzkyGolay5(wxSig));
+      smoothedWorldY.push(savitzkyGolay5(wySig));
+      smoothedWorldZ.push(savitzkyGolay5(wzSig));
+    }
+  }
+
+  // 3. Construct smoothed frames preserving visibility, presence, timeMs, and metadata
+  return frames.map((origFrame, i) => {
+    const newLandmarks: Landmark[] = origFrame.landmarks.map((origLm, j) => ({
+      ...origLm,
+      x: smoothedX[j][i],
+      y: smoothedY[j][i],
+      z: smoothedZ[j][i],
+    }));
+
+    let newWorldLandmarks: Landmark[] | undefined;
+    if (hasWorld && origFrame.worldLandmarks) {
+      newWorldLandmarks = origFrame.worldLandmarks.map((origWlm, j) => ({
+        ...origWlm,
+        x: smoothedWorldX[j][i],
+        y: smoothedWorldY[j][i],
+        z: smoothedWorldZ[j][i],
+      }));
+    }
+
+    return {
+      ...origFrame,
+      landmarks: newLandmarks,
+      ...(newWorldLandmarks ? { worldLandmarks: newWorldLandmarks } : {}),
+    };
+  });
+}
+```
+
+### 4.3 Type Alias in `src/lib/gait/types.ts`
+Add `export type LandmarkFrame = PoseFrame;` to `types.ts` and export it in `signal.ts` so both names remain fully compatible throughout the codebase.
+
+### 4.4 Upstream Integration into `src/lib/gait/analysis.ts`
+Inside `computeGaitMetricsCore(rawFrames: PoseFrame[])`:
+
+```typescript
+import { smoothPoseFrames } from "./signal";
+
+function computeGaitMetricsCore(rawFrames: PoseFrame[]): GaitMetrics {
+  if (rawFrames.length < 5) {
+    return emptyMetrics(rawFrames);
+  }
+
+  // Requirement R1: Apply 1D temporal coordinate smoothing on all keypoints prior to metrics
+  const frames = smoothPoseFrames(rawFrames);
+
+  // Proceed with view detection, Zeni event detection, angles, and metrics using smoothed frames...
+}
+```
 
 ---
 
-## 4. Verification & Audit Trail Summary
+## 5. Specified Unit Test Suite for `src/lib/gait/__tests__/signal.test.ts`
 
-| Check / Domain | Status | Notes |
-|---|---|---|
-| Zifchock SA Formula | VERIFIED | Reference-free, bounded $[0, 50]\%$, zero-phase safe |
-| Plummer & Eskes DTE & CMI | VERIFIED (with 1 edge fix) | Kelly et al. signed DTE formulas correct; line 78 edge case noted |
-| 3-Point Joint Kinematics | VERIFIED | 3-point vectors, signed hip angle, synthetic toe fallback for ankle |
-| 0–100% Stride Normalization | VERIFIED | Resamples each same-side stride to 101 points with linear interpolation |
-| Recharts Joint Angles Chart | VERIFIED | Interactive Knee/Hip/Ankle tabs, Perry & Burnfield normative range band |
-| GaitApp & Report Integration | DISCONNECTED (Fixed in plan) | `frames` lost between analysis and chart; fix strategy detailed above |
-| Test Suite Status | 100% PASS | 37 test files, 296 tests green |
+To guarantee 100% test coverage and verify compliance, add the following test cases to `signal.test.ts`:
+
+```typescript
+describe("savitzkyGolay5 & smoothPoseFrames (1D Coordinate Smoothing)", () => {
+  it("preserves linear trend signals exactly across interior and boundaries", () => {
+    const n = 20;
+    const signal = Array.from({ length: n }, (_, i) => 3 * i + 5);
+    const smoothed = savitzkyGolay5(signal);
+
+    expect(smoothed.length).toBe(n);
+    for (let i = 0; i < n; i++) {
+      expect(smoothed[i]).toBeCloseTo(signal[i], 5);
+    }
+  });
+
+  it("preserves constant DC signals without baseline shift", () => {
+    const signal = new Array(15).fill(42.5);
+    const smoothed = savitzkyGolay5(signal);
+
+    expect(smoothed.length).toBe(15);
+    smoothed.forEach((val) => expect(val).toBeCloseTo(42.5, 5));
+  });
+
+  it("preserves quadratic signals in interior points (k in [2, N-3])", () => {
+    const n = 15;
+    const signal = Array.from({ length: n }, (_, i) => i * i);
+    const smoothed = savitzkyGolay5(signal);
+
+    for (let i = 2; i < n - 2; i++) {
+      expect(smoothed[i]).toBeCloseTo(signal[i], 5);
+    }
+  });
+
+  it("reduces high-frequency noise variance while preserving signal peaks", () => {
+    const n = 50;
+    const clean = Array.from({ length: n }, (_, i) => Math.sin((i / 5) * Math.PI));
+    const noise = Array.from({ length: n }, (_, i) => (i % 2 === 0 ? 0.2 : -0.2));
+    const noisy = clean.map((c, i) => c + noise[i]);
+
+    const smoothed = savitzkyGolay5(noisy);
+
+    const noisyErr = noisy.reduce((sum, v, i) => sum + Math.pow(v - clean[i], 2), 0);
+    const smoothErr = smoothed.reduce((sum, v, i) => sum + Math.pow(v - clean[i], 2), 0);
+
+    expect(smoothErr).toBeLessThan(noisyErr * 0.5);
+  });
+
+  it("gracefully returns input unaltered for short sequences N < 5", () => {
+    expect(savitzkyGolay5([])).toEqual([]);
+    expect(savitzkyGolay5([1.5, 2.5])).toEqual([1.5, 2.5]);
+    expect(savitzkyGolay5([1, 2, 3, 4])).toEqual([1, 2, 3, 4]);
+
+    const shortFrames: PoseFrame[] = Array.from({ length: 3 }, (_, i) => ({
+      timeMs: i * 33,
+      landmarks: [{ x: i, y: i * 2, z: 0, visibility: 0.9, presence: 0.95 }],
+    }));
+    const result = smoothPoseFrames(shortFrames);
+    expect(result).toEqual(shortFrames);
+  });
+
+  it("smooths all 33 keypoints' 3D coordinates while preserving landmark visibility, presence, and timeMs", () => {
+    const n = 10;
+    const rawFrames: PoseFrame[] = Array.from({ length: n }, (_, i) => ({
+      timeMs: 1000 + i * 33.3,
+      landmarks: Array.from({ length: 33 }, (_, j) => ({
+        x: j * 0.01 + (i % 2 === 0 ? 0.05 : -0.05),
+        y: j * 0.02 + Math.sin(i),
+        z: j * 0.005,
+        visibility: 0.85 + j * 0.001,
+        presence: 0.90 + j * 0.001,
+      })),
+      worldLandmarks: Array.from({ length: 33 }, (_, j) => ({
+        x: j * 0.1,
+        y: j * 0.2,
+        z: j * 0.05 + (i % 2 === 0 ? 0.02 : -0.02),
+        visibility: 0.99,
+      })),
+    }));
+
+    const smoothedFrames = smoothPoseFrames(rawFrames);
+
+    expect(smoothedFrames.length).toBe(n);
+    for (let i = 0; i < n; i++) {
+      expect(smoothedFrames[i].timeMs).toBe(rawFrames[i].timeMs);
+      expect(smoothedFrames[i].landmarks.length).toBe(33);
+      expect(smoothedFrames[i].worldLandmarks?.length).toBe(33);
+
+      for (let j = 0; j < 33; j++) {
+        const origLm = rawFrames[i].landmarks[j];
+        const smLm = smoothedFrames[i].landmarks[j];
+
+        expect(smLm.visibility).toBe(origLm.visibility);
+        expect(smLm.presence).toBe(origLm.presence);
+        expect(Number.isFinite(smLm.x)).toBe(true);
+        expect(Number.isFinite(smLm.y)).toBe(true);
+        expect(Number.isFinite(smLm.z)).toBe(true);
+      }
+    }
+  });
+});
+```
+
+---
+
+## 6. Verification Method & Success Criteria
+
+1. **Unit Test Pass Rate**: `npx vitest run src/lib/gait/__tests__/signal.test.ts` passes 100%.
+2. **Regression Verification**: `npm test` passes all 81 existing test suites.
+3. **Typecheck & Lint**: `npm run typecheck` passes with 0 errors; `npm run lint` passes with 0 errors.
+4. **Build Verification**: `npm run build` succeeds cleanly.

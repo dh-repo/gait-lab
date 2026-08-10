@@ -1,29 +1,44 @@
-# Scope: Milestone 1 — Core Engine Integration & Polish (R1) [DONE]
+# Scope: Milestone M1 — Core Tracking & Biometrics
 
 ## Architecture
-Ensure every core engine module in `src/lib/gait/` (DSP filtering in `signal.ts`, Zeni Kinematic Event Detection in `events.ts`, Zifchock Symmetry Angles in `symmetry.ts`, Harmonic Ratio removal record, Standardized Dual-Task Cost in `dte.ts`, 3-Point Joint Kinematic Angles & Normalization in `angles.ts`, Clinical PDF Exporter in `ClinicalReportView.tsx`, PostgreSQL Database Persistence in `persistence.ts`, Reference Video Sample Picker in `SamplePicker.tsx`) is 100% integrated, seamlessly connected, and fully operational in `GaitApp.tsx` without scaffolds, mock data, or TODOs.
+- Target file: `src/lib/gait/analysis.ts`
+- Associated test files: `src/lib/gait/__tests__/analysis.test.ts`, `src/lib/gait/__tests__/person_identification_stress.test.ts`
 
-## Feature Inventory (Milestone 1)
-| # | Feature | Description | Status |
-|---|---------|-------------|--------|
-| 1 | Zero-Phase LPF & Detrending | 4th-order zero-phase Butterworth filter & OLS linear detrending in `signal.ts` | DONE |
-| 2 | Zeni Kinematic Event Engine | Heel strike (IC), toe off (TO), stance/swing/double-support breakdown in `events.ts` | DONE |
-| 3 | Follow-Cam Direction Inference | Median foot orientation vector diff for tracking shots in `events.ts` | DONE |
-| 4 | Peak Prominence & Subframe Refinement | Dynamic threshold $P_{\text{min}}$ and parabolic peak interpolation in `events.ts` | DONE |
-| 5 | Zifchock Symmetry Angle ($SA$) | Reference-free symmetry angle and index in `symmetry.ts` | DONE |
-| 6 | Standardized DTE & CMI Taxonomy | Standardized directional DTE & Plummer & Eskes 4-tier CMI taxonomy in `dte.ts` | DONE |
-| 7 | Joint Kinematic Trajectories | 3-point joint angles, $0\text{--}100\%$ normalization, view suppression in `angles.ts` | DONE |
-| 8 | Joint Angles Recharts Chart | Interactive Left vs Right trajectories with Perry & Burnfield normative bands in `JointAnglesChart.tsx` | DONE |
-| 9 | Clinical PDF & 5-Domain Radar | Printable A4 report view, 5-domain radar chart, patient metadata in `ClinicalReportView.tsx` | DONE |
-| 10 | Session Persistence & Hydration | PostgreSQL DB schema (`0002_gait_sessions.sql`) and server functions in `persistence.ts` | DONE |
-| 11 | Reference Video Sample Picker | 4 reference gait videos (`sagittal`, `frontal`, `follow_cam`, `general`) in `SamplePicker.tsx` | DONE |
-| 12 | Core Engine Seamless Integration | Full integration of all core engine modules into `GaitApp.tsx` and main app workflows | DONE |
+## Feature Inventory
+| # | Feature | Description | Milestone | Source |
+|---|---------|-------------|-----------|--------|
+| 1 | Scale-Invariant Biometric Signature | Replace absolute height weighting with scale-invariant ratios (`aspectRatio`, `torsoLegRatio`, `shoulderHipRatio`) | M1 | Survey Explorer 1 & 2 |
+| 2 | Velocity-Adaptive Spatial Gating | Scale `maxAllowedDist` with velocity magnitude (||v||); fix flawed `&&` logic to strict logical OR / adaptive gating | M1 | Survey Explorer 1 & 2 |
+| 3 | U-Turn & Scale Fragment Merging | Adapt `mergeFragmentedTracks` for direction flips and scale changes | M1 | Survey Explorer 1 |
+
+## Milestones
+| # | Name | Scope | Dependencies | Status |
+|---|------|-------|-------------|--------|
+| M1 | Core Tracking & Biometrics | Refactor BiometricSignature, matchPeople gating & mergeFragmentedTracks in analysis.ts | none | IN_PROGRESS |
 
 ## Interface Contracts
-- `analyzeGait(frames: PoseFrame[], fps: number, viewAngle: ViewAngle, taskMode: TaskMode)` returns complete `AnalysisResult` containing `metrics`, `angleAnalysis`, `phaseBreakdown`, `guesses`, `ratings`.
-- `saveGaitSession(data)` writes session record to database via `persistence.ts`.
-- `ClinicalReportView` accepts `result`, `patientMeta`, renders radar chart and printable report.
+### `src/lib/gait/analysis.ts`
+- `export type BiometricSignature = { aspectRatio: number; torsoLegRatio: number; shoulderHipRatio: number };`
+- `export function computeBiometricSignature(landmarks: Landmark[]): BiometricSignature`
+- `export function biometricDistance(a?: BiometricSignature, b?: BiometricSignature): number`
+- `export function matchPeople(detections: Landmark[][], tracks: PersonTrack[], nextId: { value: number }, frameIndex: number): TrackedPerson[]`
+- `export function mergeFragmentedTracks(tracks: PersonTrack[]): PersonTrack[]`
+- `export function tracksToPeople(tracks: PersonTrack[], sampleIndex: number): TrackedPerson[]`
 
-## Code Layout
-- `src/lib/gait/`: `signal.ts`, `events.ts`, `symmetry.ts`, `dte.ts`, `angles.ts`, `analysis.ts`, `ratings.ts`, `guesses.ts`, `persistence.ts`
-- `src/components/gait/`: `GaitApp.tsx`, `ClinicalReportView.tsx`, `JointAnglesChart.tsx`, `SamplePicker.tsx`, `SkeletonCanvas.tsx`
+## Technical Details & Refactoring Requirements
+1. **`BiometricSignature` & `computeBiometricSignature` / `biometricDistance`**:
+   - Change `BiometricSignature` properties to `aspectRatio` (w/h), `torsoLegRatio` (torso length / leg length), and `shoulderHipRatio` (shoulder width / hip width).
+   - Ensure all ratio calculations handle zero/near-zero denominators gracefully with `Math.max(0.01, ...)`.
+   - Update `biometricDistance` to calculate relative differences for `aspectRatio`, `torsoLegRatio`, and `shoulderHipRatio` using scale-free normalization `Math.abs(a - b) / Math.max(0.1, a, b)`. Weight ratios appropriately (e.g. 0.35 * dAspect + 0.35 * dTorsoLeg + 0.30 * dShoulderHip).
+
+2. **`matchPeople` Velocity-Adaptive Spatial Gating**:
+   - Fix gating condition from `if (p.spatialDist > maxAllowedDist && p.cost > 0.40) continue;` to strict logical OR / adaptive gating:
+     `if (p.spatialDist > maxAllowedDist || p.cost > maxAllowedCost) continue;`
+   - Calculate track velocity magnitude `speed = Math.hypot(vx, vy)` if `velocity` exists on `PersonTrack`.
+   - Scale `maxAllowedDist` adaptively with `speed`:
+     `const maxAllowedDist = 0.22 + 0.15 * Math.min(1.0, speed) + Math.min(0.20, (gap - 1) * 0.08) + (p.bioDist < 0.25 ? 0.08 : 0);`
+   - Handle dual spatial distance check: distance between detection hip and predicted hip (`predHip`) VS distance between detection hip and `lastHip` to ensure sudden direction flips (U-turns) do not explode spatial distance.
+
+3. **`mergeFragmentedTracks` Tracklet Consolidation**:
+   - Handle U-turn direction flips: Compare endpoints (`lastHip` of track A to `firstHip` of track B, AND vice versa, plus direct position proximity).
+   - Scale changes: Use scale-invariant biometric matching (`bioDist < 0.32`) so scale shifts during gap do not prevent tracklet merging.

@@ -1,24 +1,26 @@
-## 2026-08-09T16:41:50Z
+# Dispatch for Explorer M1-2
 
-<USER_REQUEST>
-You are Explorer 2 for Milestone 1 (M1).
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2.
-Create your folder /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2 if needed.
+## 2026-08-09T21:07:02Z
 
-Authoritative source of truth & requirements:
-- /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md
+**Role**: teamwork_preview_explorer (Signal Processing & Temporal Smoothing Specialist)
+**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2
 
-Your scope of exploration:
-1. Examine `src/lib/gait/symmetry.ts` (Zifchock Symmetry Angle SA calculation, reference-free symmetry index).
-2. Examine `src/lib/gait/dte.ts` (Standardized Dual-Task Cost DTE & CMI 4-tier taxonomy).
-3. Examine `src/lib/gait/angles.ts` (3-point joint kinematic angles, 0-100% stance/gait cycle normalization, view suppression).
-4. Examine `src/components/gait/JointAnglesChart.tsx` (Recharts integration, Left vs Right trajectories, Perry & Burnfield normative bands).
-5. Check integration in `analysis.ts` and `GaitApp.tsx`.
-6. Identify any missing implementations, disconnected logic, TODOs, mock data, or mathematical bugs.
+## Task Objective
+Investigate `src/lib/gait/signal.ts` and analyze the implementation for 1D landmark coordinate temporal smoothing:
+1. Implement 5-point Savitzky-Golay 1D temporal coordinate smoothing filter on all 33 keypoints' (x, y, z) coordinates using the convolution kernel 1/35 * [-3, 12, 17, 12, -3].
+2. Handle boundary reflection padding for N >= 5 frames:
+   x_{-1} = 2*x_0 - x_1, x_{-2} = 2*x_0 - x_2
+   x_N = 2*x_{N-1} - x_{N-2}, x_{N+1} = 2*x_{N-1} - x_{N-3}
+3. Handle short sequences N < 5 gracefully (return input frames unaltered).
+4. Preserve landmark visibility, presence, and timestamp metadata untouched.
+5. Export `smoothPoseFrames(frames: LandmarkFrame[]): LandmarkFrame[]` in `src/lib/gait/signal.ts`.
+6. Specify unit test cases for `signal.test.ts`.
 
-Output:
-Write your full findings to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/analysis.md` and write a handoff report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/handoff.md`.
-Include concrete code recommendations and fix strategies.
-Notify the caller via `send_message` when done.
-</USER_REQUEST>
+## Authoritative Reference Inputs
+- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
+- `/Users/damian/GitHub/gait-lab/PROJECT.md`
+- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md`
+
+## Output Requirements
+Write your detailed findings and implementation recommendations to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/analysis.md` and deliver `handoff.md`.

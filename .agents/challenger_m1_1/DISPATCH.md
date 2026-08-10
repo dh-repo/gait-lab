@@ -1,19 +1,20 @@
-## 2026-08-09T16:45:24Z
-You are Challenger 1 for Milestone 1 (M1): Core Engine Integration & Polish (R1).
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/challenger_m1_1.
-Create your folder /Users/damian/GitHub/gait-lab/.agents/challenger_m1_1 if needed.
+# Dispatch for Challenger M1-1
 
-Authoritative source of truth & requirements:
-- /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md
-- Worker Handoff: /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md
+**Role**: teamwork_preview_challenger (Empirical Model Fallback & Stress Testing Specialist)
+**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/challenger_m1_1
 
-Your task:
-1. Perform empirical stress-testing and verification of M1 core engine functionality (`signal.ts`, `events.ts`, `symmetry.ts`, `dte.ts`, `angles.ts`, `analysis.ts`).
-2. Test edge cases: empty frame arrays, single frame, missing/occluded landmarks (visibility < 0.3), noisy spatial trajectories, extreme FPS values (10 FPS, 120 FPS), NaN/Infinite landmark coordinates, frontal vs sagittal vs follow-cam view angles.
-3. Verify that `computeGaitAngleAnalysis` returns safe non-crashing results across all edge conditions and that `olsDetrend` handles degenerate inputs gracefully.
-4. Execute `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
+## Objective
+Empirically stress-test and challenge the MediaPipe Pose Landmarker model candidate hierarchy and delegate fallbacks in `src/lib/gait/pose.ts` and `src/lib/gait/__tests__/pose.test.ts`:
+1. Verify that all 12 candidate fallback branches (3 tiers * 2 paths * 2 delegates) operate cleanly without unhandled promise rejections or memory leaks.
+2. Verify that `resetPoseLandmarkerCache()` guarantees clean test isolation.
+3. Test edge case behavior when all 12 candidates fail and confirm error message propagation.
+4. Run `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` to verify solution correctness.
 
-Output:
-Write your stress-test report and verdict (APPROVE or REJECT) to `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_1/handoff.md`.
-Notify the caller via `send_message` when done.
+## Authoritative Reference Inputs
+- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
+- `/Users/damian/GitHub/gait-lab/PROJECT.md`
+- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
+- `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`
+
+## Output Requirements
+Deliver `handoff.md` with explicit Verdict (`APPROVE` or `REJECT`) and test verification evidence. Communicate completion via `send_message`.

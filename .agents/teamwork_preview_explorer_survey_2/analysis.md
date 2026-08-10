@@ -1,173 +1,194 @@
-# Comprehensive Codebase Survey & Gap Analysis for Gait-Lab
+# Comprehensive Technical Analysis: Requirements 2 & 3 (R2 & R3)
 
-## Executive Summary
-
-`gait-lab` is a browser-based clinical gait analysis platform built with React 19, TypeScript, Vite, TanStack Router/Start, Tailwind CSS v4, and MediaPipe Tasks Vision. The platform extracts 2D human pose landmarks from walking videos, applies digital signal processing (4th-order zero-phase Butterworth low-pass filter at $f_c = 6.0\text{ Hz}$), performs Zeni kinematic gait event detection (Heel Strike & Toe Off), computes Zifchock Symmetry Angles (SA), calculates Plummer & Eskes Dual-Task Effect (DTE) costs, generates Perry & Burnfield normative joint kinematic angle curves (Knee, Hip, Ankle over 101 normalized gait cycle points), and renders clinical report dashboards with printable PDF support.
-
-This survey provides a full-spectrum inspection of module interfaces, data flows, UI components, database persistence, webcam feed handling, and state management gaps across the codebase to guide the upcoming implementation phase.
-
----
-
-## 1. Core Gait Analysis Engine Inspection (`src/lib/gait/`)
-
-### 1.1 Summary of Core Modules
-- **`types.ts`**: Defines `GaitMetrics`, `Landmark`, `PoseFrame`, `EducatedGuess`, `DualTaskCost`, `AnalysisResult`, `ReliabilityBounds`, `TaskMode`, and `ViewAngle`.
-- **`landmarks.ts`**: Defines MediaPipe POSE_CONNECTIONS (33 landmarks), `LM` indices (Hips: 23,24; Knees: 25,26; Ankles: 27,28; Heels: 29,30; Toes: 31,32), geometry utilities (`angleDeg`, `mid`, `dist`, `torsoHeight`, `boundingBox`, `hipCenter`).
-- **`pose.ts`**: Handles MediaPipe `PoseLandmarker` instantiation in `"IMAGE"` mode, video metadata/decoding helpers (`waitForVideoMetadata`, `waitForVideoData`, `seekVideo`, `seekAndDetect`), frame canvas drawing, and `resamplePoseFrames` (Catmull-Rom spline cubic interpolation onto uniform 30 Hz grid).
-- **`signal.ts`**: Implements 4th-order zero-phase low-pass Butterworth filter (`zeroPhaseButterworth`) cascading two 2nd-order Biquad sections ($Q_1 \approx 0.5412, Q_2 \approx 1.3066$) with boundary reflection padding.
-- **`events.ts`**: Implements Zeni kinematic gait event detection algorithm (`detectGaitEventsZeni`). Extracts anterior-posterior (AP) foot displacement relative to mid-hip, computes walking direction via median toe-to-heel vector orientation, identifies extrema with topographic peak prominence ($P_{\text{min}} = \max(0.001, 0.15 \times \text{range})$), and applies parabolic 3-point subframe timestamp refinement (`refinePeakTimestamp`).
-- **`symmetry.ts`**: Implements Zifchock Symmetry Angle (`symmetryAngle`) $SA = \frac{|45^\circ - \arctan(V_L / V_R)|}{90^\circ} \times 100\%$ and Gait Symmetry Index (`gaitSymmetryIndex`).
-- **`angles.ts`**: Implements 2D 3-point joint angle calculations (`calculateKneeFlexion`, `calculateHipFlexion`, `calculateAnkleAngle`), Perry & Burnfield normative reference curves (`getNormativeGaitCurves`), and 101-point stride normalization (`computeGaitAngleAnalysis`).
-- **`dte.ts`**: Implements standardized Dual-Task Effect (`calculateDTE`) and Plummer & Eskes (2015) Cognitive-Motor Interference (CMI) taxonomy (`mutual_interference`, `cognitive_prioritization`, `motor_prioritization`, `no_interference`).
-- **`guesses.ts` & `ratings.ts`**: Constructs non-diagnostic educated hypotheses, determination ladder layers, domain ratings, and structured report metadata.
-- **`analysis.ts`**: Master analysis pipeline (`computeGaitMetrics`, `detectViewAngle`, `matchPeople`, `tracksToPeople`, `computeDualTaskCost`).
-- **`persistence.ts` & `persistence.server.ts`**: Database CRUD operations via TanStack Start `createServerFn` endpoints connected to Neon / PGLite Postgres.
+**Author:** `teamwork_preview_explorer_survey_2`  
+**Date:** 2026-08-09  
+**Target Repository:** `/Users/damian/GitHub/gait-lab`  
+**Focus Scope:** R2 (WebRTC 60 FPS constraints & Floor Marker Calibration) & R3 (Multi-Signal Gait Event Fusion & 2D Floor Planar Homography)
 
 ---
 
-### 1.2 Data Flow & Integration Gaps Identified
+## 1. Observation
 
-#### Gap A: Empty Frame Invocations in `ReportPanel.tsx` and `ClinicalReportView.tsx`
-- **Location**: `src/components/gait/ReportPanel.tsx` (lines 16-22) and `src/components/gait/ClinicalReportView.tsx` (lines 58-65).
-- **Code snippet in `ReportPanel.tsx`**:
-  ```tsx
-  const angleAnalysis = useMemo(() => {
-    return computeGaitAngleAnalysis(
-      [], // <--- EMPTY ARRAY PASSED FOR FRAMES
-      result.metrics.stepEvents || [],
-      result.metrics.viewAngle || "unknown",
-    );
-  }, [result]);
+### 1.1 WebRTC Camera Capture (`src/lib/gait/PoseTracker.ts` & `src/components/gait/GaitApp.tsx`)
+- In `src/lib/gait/PoseTracker.ts` (lines 107–110, 144–156):
+  ```ts
+  constructor(targetFps = 30, maxBufferFrames = 900) {
+    this.targetIntervalMs = 1000 / targetFps;
+    this.maxBufferFrames = maxBufferFrames;
+  }
+
+  const requestedTargetFps = options.targetFps ?? 30;
+  this.targetIntervalMs = 1000 / requestedTargetFps;
+
+  const constraints: MediaStreamConstraints = {
+    video: {
+      deviceId: options.deviceId ? { exact: options.deviceId } : undefined,
+      facingMode: options.facingMode || "user",
+      width: options.width ? { ideal: options.width } : { ideal: 1280 },
+      height: options.height ? { ideal: options.height } : { ideal: 720 },
+      frameRate: { ideal: requestedTargetFps, max: 60 },
+    },
+    audio: false,
+  };
   ```
-- **Problem**: `computeGaitAngleAnalysis` expects raw `PoseFrame[]` frames to calculate raw joint angle series (`rawKneeL`, `rawHipL`, `rawAnkleL`, etc.). When passed an empty array `[]`, `computeGaitAngleAnalysis` falls back to empty trajectories with all `JointAnglePoint` values set to `null`!
-- **Impact**: `JointAnglesChart` in `ReportPanel` and `ClinicalReportView` displays empty lines or fallback curves unless `angleAnalysis` or `PoseFrame[]` / `JointAnglePoint[]` is stored directly inside `AnalysisResult` / `GaitMetrics`.
-- **Remediation**:
-  1. Add `angleAnalysis?: GaitAngleAnalysis` or `normalizedPoints?: JointAnglePoint[]` to `GaitMetrics` / `AnalysisResult`.
-  2. Compute `angleAnalysis` during `runAnalysis` in `GaitApp.tsx` when frames are available and store it in `AnalysisResult`.
-  3. Pass `result.angleAnalysis` to `ReportPanel` and `ClinicalReportView`.
+- In `src/components/gait/GaitApp.tsx` (lines 110–111):
+  ```ts
+  const WEBCAM_TARGET_FPS = 30;
+  const WEBCAM_BUFFER_FRAMES = 900;
+  ```
+- **Observation Summary**: Defaults are currently set to 30 FPS. The MediaStreamConstraints in `PoseTracker.ts` default `requestedTargetFps` to 30 instead of 60.
 
-#### Gap B: Inconsistent Joint ROM Calculations Between `analysis.ts` and `angles.ts`
-- **Location**: `src/lib/gait/analysis.ts` (lines 333-335) vs `src/lib/gait/angles.ts` (lines 517-580).
-- **Problem**: `analysis.ts` computes `kneeFlexLeft` as `range(leftKneeAngle)` over unsegmented video frames, whereas `angles.ts` computes `kneeRomLeft` from 101-point time-normalized stride cycles.
-- **Remediation**: Synchronize `GaitMetrics` ROM values with `computeGaitAngleAnalysis` metrics so peak flexion, extension, dorsiflexion, plantarflexion, and ROM percentages are 100% consistent across all UI tabs.
+### 1.2 Real-World Floor Marker Calibration
+- **Current File Inspection**: Searched `src/lib/gait/` for calibration, marker, pixel scale, or mm/px utilities; no existing implementation exists.
+- **Observation Summary**: Currently, all landmark coordinates in `PoseFrame.landmarks` are stored in normalized $[0, 1]$ image space. Metric calculations (such as stride travel in `analysis.ts:358-361`) rely on relative torso height normalization without physical millimeter ($\text{mm/px}$) spatial mapping.
 
----
+### 1.3 Kinematic Gait Event Detection (`src/lib/gait/events.ts`)
+- In `src/lib/gait/events.ts` (lines 186–307):
+  ```ts
+  // Extract mid-hip AP (x) trajectory and relative foot AP displacement
+  leftHeelXRel[i] = lHeel - hipX;
+  rightHeelXRel[i] = rHeel - hipX;
+  leftToeXRel[i] = lToe - hipX;
+  rightToeXRel[i] = rToe - hipX;
+  ...
+  const rawLHeelStrikes = findExtrema(filtLHeel, heelStrikeMode, minGap);
+  const rawRHeelStrikes = findExtrema(filtRHeel, heelStrikeMode, minGap);
+  ```
+- **Observation Summary**: The current Zeni 2008 algorithm detects events purely from 1D relative AP foot displacement ($x_{heel} - x_{hip}$). It does not incorporate vertical ankle acceleration minima or Zero-Velocity Updates (ZUPT).
 
-## 2. Database Persistence & Session Comparison View (R2 Inspection)
-
-### 2.1 Existing Database Architecture
-- **Schema**: `migrations/0002_gait_sessions.sql` defines `gait_sessions` table:
-  - `id`: TEXT PRIMARY KEY
-  - `user_id`: TEXT REFERENCES "user"("id") ON DELETE CASCADE
-  - `session_name`: TEXT
-  - `task_mode`: TEXT ('single' | 'dual')
-  - `overall_score`, `stability_score`, `rhythm_score`, `symmetry_score`, `mobility_score`, `automaticity_score`, `cadence_spm`, `step_count`, `duration_sec`, `view_angle`, `symmetry_angle`, `harmonic_ratio`
-  - `metrics_json`: JSONB
-  - `guesses_json`: JSONB
-  - `dual_task_json`: JSONB
-  - `created_at`, `updated_at`
-- **Server endpoints in `persistence.ts`**:
-  - `saveGaitSession`: Inserts or updates session record via `ON CONFLICT (id) DO UPDATE`.
-  - `listGaitSessions`: Retrieves all sessions for authenticated user ordered by `created_at DESC`.
-  - `getGaitSession`: Retrieves single session by `id`.
-  - `deleteGaitSession`: Deletes session by `id`.
-
-### 2.2 Missing Component: `SessionComparisonView.tsx`
-- **Current State**: `SessionComparisonView.tsx` DOES NOT EXIST in the codebase. Currently `SessionHistoryDrawer.tsx` only allows loading a single historical session.
-- **Required Architecture for `SessionComparisonView.tsx`**:
-  1. **Session Picker / Selector Header**: Dropdown selectors for Session A (e.g. Baseline / Pre-Op) and Session B (e.g. Follow-Up / Post-Op / Dual-Task).
-  2. **Side-by-Side Metric Comparison Table / Cards**:
-     - Metric Name (Overall Score, Cadence, Symmetry Angle, Step Time CV, Stance Phase %, Double Support %, Mobility Score, Stability Score, Automaticity Score).
-     - Session A Value vs Session B Value.
-     - Percentage Delta ($\Delta \% = \frac{\text{Val}_B - \text{Val}_A}{\text{Val}_A} \times 100\%$).
-     - Color-coded status badges: Green for positive improvement, Amber/Red for decline or increased asymmetry/variability.
-  3. **Overlaid Joint Kinematic Trajectory Chart**:
-     - Render overlaid Knee, Hip, and Ankle trajectories comparing Session A (solid line) vs Session B (dashed line) over the 0-100% normalized gait cycle using Recharts `ComposedChart` / `LineChart`.
-  4. **Integration**:
-     - Wire `SessionComparisonView.tsx` into `GaitApp.tsx` and `SessionHistoryDrawer.tsx` (add a "Compare Sessions" button in `SessionHistoryDrawer` or `WorkflowHeader`).
+### 1.4 Planar Homography & Step Width Estimation (`src/lib/gait/analysis.ts`)
+- In `src/lib/gait/analysis.ts` (lines 274, 385, 402):
+  ```ts
+  stepWidth: Math.abs(lm[LM.L_ANKLE].x - lm[LM.R_ANKLE].x) / th
+  ...
+  const rawStepWidthVariability = std(series.map((s) => s.stepWidth));
+  ```
+- **Observation Summary**: Step width is measured directly as 1D $x$-coordinate distance in camera image space normalized by torso height. In oblique or elevated camera angles, perspective foreshortening distorts step width and step width variability.
 
 ---
 
-## 3. Live Webcam Streaming Mode & `PoseTracker.ts` (R3 Inspection)
+## 2. Logic Chain
 
-### 3.1 Missing Module: `PoseTracker.ts`
-- **Current State**: `PoseTracker.ts` DOES NOT EXIST. Currently pose landmarker initialization is in `src/lib/gait/pose.ts` configured for offline video file analysis with `runningMode: "IMAGE"`.
-- **Required Architecture for `PoseTracker.ts`**:
-  - Class or singleton module managing real-time camera stream capturing:
-    ```typescript
-    export class PoseTracker {
-      private landmarker: PoseLandmarkerLike | null = null;
-      private stream: MediaStream | null = null;
-      private isRunning = false;
-      private animFrameId: number | null = null;
+### 2.1 R2.1: WebRTC 60 FPS Video Capture Constraints
+1. **From Observation 1.1**: `PoseTracker.ts` constructor defaults to `targetFps = 30`, and `GaitApp.tsx` defines `WEBCAM_TARGET_FPS = 30`.
+2. **Reasoning**: Higher frame rate (60 FPS) provides double temporal sampling resolution ($16.67\text{ ms}$ interval vs $33.33\text{ ms}$ interval), reducing timing discretization error in gait phase detection and subframe timestamp refinement.
+3. **Actionable Spec**:
+   - Update `PoseTracker.ts` constructor default: `targetFps = 60`, `maxBufferFrames = 1800` (preserving 30 seconds rolling window at 60 Hz).
+   - In `startWebcam`: `const requestedTargetFps = options.targetFps ?? 60;`
+   - Set video frameRate constraint: `frameRate: { ideal: 60, max: 60 }` (or `{ ideal: requestedTargetFps, max: 60 }`).
+   - Update `GaitApp.tsx`: `WEBCAM_TARGET_FPS = 60`, `WEBCAM_BUFFER_FRAMES = 1800`.
+   - Update unit tests in `PoseTracker.test.ts` to assert 60 FPS defaults.
 
-      async startWebcam(videoEl: HTMLVideoElement, onFrame: (poseFrame: PoseFrame) => void): Promise<void>;
-      stopWebcam(): void;
-      processFrame(timestamp: number): void;
-    }
-    ```
-  - Initializes MediaPipe `PoseLandmarker` with `runningMode: "VIDEO"`.
-  - Uses `navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: "user" } })`.
-  - Binds stream to `HTMLVideoElement` (`videoEl.srcObject = stream; videoEl.play();`).
-  - Runs continuous detection loop via `requestAnimationFrame` using `landmarker.detectForVideo(videoEl, nextVideoTimestamp())`.
+### 2.2 R2.2: Real-World Floor Marker Calibration
+1. **From Observation 1.2**: No absolute spatial scale ($\text{mm/px}$) currently exists in the codebase.
+2. **Reasoning**: Spatio-temporal metrics (gait speed in m/s, step length in mm, step width in mm) require a mapping between 2D image coordinates (pixels or normalized $[0,1]$) and physical millimeters.
+3. **Actionable Spec**:
+   - Create `src/lib/gait/calibration.ts`.
+   - Support planar marker types:
+     - Standard Reference Card (ISO/IEC 7810 ID-1: $85.6\text{ mm} \times 53.98\text{ mm}$).
+     - QR Code target (user-defined physical width $W_{real}$, e.g. $100\text{ mm}$ or $200\text{ mm}$).
+     - AprilTag target.
+     - Manual 2-point reference calibration.
+   - Scale derivation formula:
+     $$\text{mmPerPixel} = \frac{\text{physicalWidthMm}}{\text{pixelWidth}}$$
+     $$\text{mmPerNormUnit} = \text{mmPerPixel} \times \text{imageWidthPx}$$
+   - Function signatures:
+     ```ts
+     export interface FloorCalibration {
+       type: "reference_card" | "qr" | "apriltag" | "manual";
+       physicalWidthMm: number;
+       pixelWidth: number;
+       mmPerPixel: number;
+       mmPerNormUnit: number;
+       homographyMatrix?: number[][];
+     }
+     export function computeFloorCalibrationFromMarker(
+       markerWidthPx: number,
+       physicalWidthMm: number,
+       imageWidthPx: number,
+     ): FloorCalibration;
+     export function convertDistanceToMm(
+       distNorm: number,
+       calibration: FloorCalibration,
+     ): number;
+     ```
+   - Integrate into `GaitMetrics`: expose `gaitSpeedMps = (totalDistanceMm / 1000) / durationSec`.
 
-### 3.2 Required `GaitApp.tsx` Wire-up for Live Webcam Mode
-1. **Mode Switcher in Stage 1**:
-   - Add a toggle button in `GaitApp.tsx` Stage 1: "Upload Video", "Reference Samples", or "Live Webcam Mode".
-2. **Live Preview & Skeleton Overlay**:
-   - Render live video canvas with real-time pose skeleton (`SkeletonCanvas`) showing live frame rate, landmark tracking status, and live step detection.
-3. **Capture Session Control**:
-   - Add "Start Live Capture" / "Stop Capture" button.
-   - Accumulate live `PoseFrame[]` buffer for 5-15 seconds.
-   - Upon capture stop, pass collected frames through `resamplePoseFrames(rawFrames, 30.0)` and run `computeGaitMetrics(frames)` and `computeGaitAngleAnalysis(...)`.
+### 2.3 R3.1: Multi-Signal Heel-Strike Fusion & ZUPT Algorithm
+1. **From Observation 1.3**: Zeni AP relative foot displacement alone can miss heel strikes or produce false positives during shuffling or atypical gait.
+2. **Reasoning**: Foot contact with the floor is characterized by 3 distinct physical phenomena:
+   - Max/Min relative AP displacement (Zeni kinematic peak).
+   - Impact deceleration minimum in vertical ankle acceleration $a_{y, ankle}(t)$ as downward velocity turns around.
+   - Zero-Velocity Updates (ZUPT): During stance phase, foot velocity $\|\vec{v}_{foot}(t)\| \approx 0$.
+3. **Actionable Spec**:
+   - In `events.ts`:
+     - Extract $y_{ankle}(t)$ trajectory, low-pass filter at $f_c = 6.0\text{ Hz}$, compute vertical velocity $v_{y, ankle}(t)$ and vertical acceleration $a_{y, ankle}(t) = \frac{d^2 y_{ankle}}{dt^2}$.
+     - Compute 2D foot velocity magnitude $v_{foot}(t) = \sqrt{v_{x, ankle}^2 + v_{y, ankle}^2}$.
+     - Define ZUPT indicator: $ZUPT(t) = 1$ when $v_{foot}(t) < \text{threshold}_{zupt}$ (or local velocity minimum).
+     - Fusion Scoring Function for Heel Strike candidates:
+       $$S_{fused}(t) = w_1 S_{AP, norm}(t) + w_2 (-a_{y, ankle, norm}(t)) + w_3 (1 - v_{foot, norm}(t))$$
+     - Refine candidate AP peaks by searching a temporal window $\pm \Delta t$ ($\approx 0.12\text{ s}$) for $S_{fused}(t)$ local maximum.
+     - Apply parabolic subframe timestamp refinement `refinePeakTimestamp` to the fused signal peak to maintain $< 3\text{ ms}$ precision.
+     - For Toe-Off: detect exit from ZUPT state ($v_{foot}$ increasing) combined with AP toe displacement extrema.
+
+### 2.4 R3.2: 2D Floor Planar Homography Transformation
+1. **From Observation 1.4**: Step width measured directly in 2D image space suffers from perspective distortion under oblique camera angles.
+2. **Reasoning**: A 2D planar homography matrix $H \in \mathbb{R}^{3 \times 3}$ maps image plane coordinates $(u, v)$ to top-down floor plane coordinates $(X, Y)$, eliminating perspective foreshortening.
+3. **Actionable Spec**:
+   - Create `src/lib/gait/homography.ts`.
+   - Implement Direct Linear Transform (DLT) solver:
+     - Input: 4 point correspondences $(u_i, v_i) \leftrightarrow (X_i, Y_i)$ ($i=1..4$) on the floor plane.
+     - Set up $8 \times 9$ matrix equation $A h = 0$ (or $8 \times 8$ with $h_{33} = 1$).
+     - Solve for $H$:
+       $$H = \begin{bmatrix} h_{11} & h_{12} & h_{13} \\ h_{21} & h_{22} & h_{23} \\ h_{31} & h_{32} & h_{33} \end{bmatrix}$$
+   - Function signatures:
+     ```ts
+     export function computeHomographyMatrix(
+       srcPoints: { x: number; y: number }[],
+       dstPoints: { x: number; y: number }[],
+     ): number[][];
+     export function transformPointHomography(
+       pt: { x: number; y: number },
+       H: number[][],
+     ): { x: number; y: number };
+     ```
+   - In `analysis.ts`:
+     - Transform left and right ankle landmarks $(u_L, v_L)$ and $(u_R, v_R)$ into floor plane $(X_L, Y_L)$ and $(X_R, Y_R)$.
+     - Compute walking progression vector $\vec{d}_{walk} = (\Delta X, \Delta Y)$ and normal vector $\vec{n}_{walk} = (-\Delta Y, \Delta X) / \|\vec{d}_{walk}\|$.
+     - Calculate floor step width: $\text{StepWidth}_{floor} = |(X_L - X_R) n_x + (Y_L - Y_R) n_y|$.
 
 ---
 
-## 4. UI Components, State Management & Canvas Rendering Audit (R4 Inspection)
-
-### 4.1 UI Component Status
-| Component | Status | Operational Notes / Gaps |
-| flex | flex | flex |
-| `GaitApp.tsx` | Complete scaffold | Missing Live Webcam Mode state and Session Comparison View entry point. |
-| `WorkflowHeader.tsx` | Complete | 4-stage progression bar (Input, Processing, Insights, Export). |
-| `SkeletonCanvas.tsx` | Complete | Renders skeleton, joint arcs, sway vector. During static preview, only last scan pose is drawn. |
-| `JointAnglesChart.tsx` | Complete | Recharts chart for Knee, Hip, Ankle with Perry & Burnfield shaded normative bands. |
-| `ClinicalReportView.tsx` | Complete | Printable clinical PDF layout, 5-domain radar chart, patient metadata inputs, clinician sign-off block. |
-| `ReportPanel.tsx` | Partial | Recomputes `angleAnalysis` with empty frames `[]`. |
-| `CognitiveClusters.tsx` | Complete | 4 expandable accordions for Spatiotemporal, Symmetry, Stability, and Dual-Task. |
-| `GuessesPanel.tsx` | Complete | Educated guess cards with confidence badges and alternative explanations. |
-| `MetricsPanel.tsx` | Complete | Grid of individual metric cards with 95% CIs and trajectory charts. |
-| `SamplePicker.tsx` | Complete | Loads 4 sample videos (`sagittal-gait.mp4`, `frontal-gait.mp4`, `follow-cam-gait.mp4`, `general-gait.mp4`). |
-| `SessionHistoryDrawer.tsx` | Complete | Lists, loads, and deletes saved DB sessions. Needs "Compare" action. |
-| `SessionComparisonView.tsx` | **Missing** | Needs to be created. |
-| `PoseTracker.ts` | **Missing** | Needs to be created. |
-
-### 4.2 State Management & Video-Canvas Sync Gaps
-- `GaitApp.tsx` stores `scanPoses` as the list of detected poses from the scanning pass.
-- When scrubbing or playing the video in Stage 3, `SkeletonCanvas` uses `scanPoses`. If `scanPoses` only contains one frame, the skeleton does not animate smoothly during video playback.
-- **Fix**: Store full frame-by-frame pose landmark map `Map<number, PoseFrame>` or `PoseFrame[]` indexed by time so `SkeletonCanvas` displays the exact pose corresponding to `currentTime`.
+## 3. Caveats
+- **WebRTC Camera Hardware Limits**: Requesting `ideal: 60` FPS on cameras that physically only support 30 FPS will result in the browser returning 30 FPS streams. `PoseTracker.ts` already includes `OverconstrainedError` fallback logic to gracefully handle hardware constraints.
+- **Floor Marker Visibility**: When no calibration marker is visible in the frame, the system must gracefully fall back to torso-height normalization or default pinhole perspective estimation without throwing exceptions.
 
 ---
 
-## 5. Actionable Implementation Plan
-
-### Priority 1: Data Flow & Angle Analysis Fix
-1. Update `GaitMetrics` / `AnalysisResult` in `src/lib/gait/types.ts` to include `angleAnalysis?: GaitAngleAnalysis`.
-2. Compute `angleAnalysis = computeGaitAngleAnalysis(frames, metrics.stepEvents, metrics.viewAngle)` in `GaitApp.tsx` `runAnalysis` and include it in `AnalysisResult`.
-3. Update `ReportPanel.tsx` and `ClinicalReportView.tsx` to use `result.angleAnalysis` so `JointAnglesChart` displays accurate trajectory curves.
-
-### Priority 2: Create `PoseTracker.ts` & Live Webcam Mode
-1. Create `src/lib/gait/PoseTracker.ts` supporting `runningMode: "VIDEO"`, `getUserMedia`, and `detectForVideo`.
-2. Update `GaitApp.tsx` Stage 1 to support "Live Webcam Streaming Mode".
-3. Provide live webcam preview canvas, record button, frame buffer collection, and transition to analysis.
-
-### Priority 3: Create `SessionComparisonView.tsx`
-1. Create `src/components/gait/SessionComparisonView.tsx`.
-2. Implement Session A vs Session B selection, side-by-side metric comparison cards with $\Delta\%$ badges, and overlaid joint angle trajectory curves.
-3. Wire `SessionComparisonView.tsx` into `GaitApp.tsx` and `SessionHistoryDrawer.tsx`.
-
-### Priority 4: Test Suite Verification & Clean Build
-1. Update test suite (`npm test`) covering `PoseTracker.ts`, `SessionComparisonView.tsx`, and joint angle data flow.
-2. Verify 0 TypeScript errors (`npm run typecheck`), 0 ESLint warnings (`npm run lint`), and clean production build (`npm run build`).
+## 4. Conclusion
+The proposed architecture for Requirements 2 and 3 provides a mathematically rigorous, backwards-compatible, and fully testable upgrade path:
+1. **PoseTracker.ts**: Updating default constraints to 60 FPS doubles temporal sampling resolution.
+2. **calibration.ts**: Introducing floor marker spatial calibration enables absolute physical millimeter metrics ($\text{mm/px}$) and true gait speed ($\text{m/s}$).
+3. **events.ts**: Fusing relative AP displacement with vertical ankle acceleration minima and ZUPT velocity indicators eliminates phase detection artifacts across diverse gait patterns.
+4. **homography.ts**: Implementing 2D floor planar homography delivers accurate, perspective-corrected top-down step width estimation across oblique camera views.
 
 ---
+
+## 5. Verification Method
+
+### 5.1 Test Execution Commands
+Run the full suite using vitest:
+```bash
+npx vitest run src/lib/gait/__tests__/PoseTracker.test.ts
+npx vitest run src/lib/gait/__tests__/events.test.ts
+```
+When new modules are added, run:
+```bash
+npx vitest run src/lib/gait/__tests__/calibration.test.ts
+npx vitest run src/lib/gait/__tests__/homography.test.ts
+```
+
+### 5.2 Quality Assurance Gates
+- `npm run typecheck` (0 errors)
+- `npm run lint` (0 errors)
+- `npm run build` (successful production build)

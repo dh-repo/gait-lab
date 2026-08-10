@@ -1,27 +1,12 @@
-## 2026-08-08T23:29:22Z
-<USER_REQUEST>
-You are Reviewer 2 for Milestone 1 of gait-lab.
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/reviewer_m1_r1_2.
-Your parent conversation ID is 9fa0c177-add2-4b10-b1ff-21a45d75ca2c.
+## 2026-08-09T21:22:37Z
 
-MANDATORY READINGS:
-- /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
-- /Users/damian/GitHub/gait-lab/PROJECT.md
-- /Users/damian/GitHub/gait-lab/.agents/teamwork_sub_orch_m1/SCOPE.md
-- Worker Handoff: /Users/damian/GitHub/gait-lab/.agents/worker_m1_r1_1/handoff.md
-
-Tasks:
-1. Review code changes for Features 1-8 independently:
-   - `tsconfig.json` & `eslint.config.mjs`
-   - `migrations/0002_gait_sessions.sql` & `src/lib/gait/persistence.server.ts`
-   - `src/lib/gait/signal.ts`
-   - `src/lib/gait/events.ts`
-   - `src/lib/gait/symmetry.ts`
-   - `src/lib/gait/smoothness.ts`
-   - `src/lib/gait/dte.ts`
-2. Run build and test commands to verify output (`npx vitest run src/lib/gait/__tests__`, `npm run typecheck`, `npm run lint`, `npm run build`).
-3. Check scientific accuracy, numerical stability, edge cases, and adherence to interface contracts in `PROJECT.md`.
-4. State your explicit verdict (APPROVE or REQUEST_CHANGES) with rationale.
-
-Write a handoff report in `/Users/damian/GitHub/gait-lab/.agents/reviewer_m1_r1_2/handoff.md` and send a completion message when done.
-</USER_REQUEST>
+Perform an independent technical & mathematical code review for Milestone M1:
+1. Read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`, `/Users/damian/GitHub/gait-lab/PROJECT.md`, `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`, and `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`.
+2. Inspect code changes with focus on:
+   - Mathematical validity of 5-point Savitzky-Golay filter (`savitzkyGolay5` kernel `[-3, 12, 17, 12, -3] / 35` and reflection boundary padding).
+   - 1D Kalman filter state transition equations, state update, error covariance updates, and NaN/Infinity occlusion handling in `kalmanFilter1D`.
+   - Frame sequence landmark trajectory extraction and reconstruction without input object mutation in `smoothPoseFrames`.
+   - MediaPipe candidate fallback hierarchy logic (`heavy` -> `full` -> `lite`, GPU -> CPU delegates, local -> CDN paths).
+3. Execute verification commands (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`).
+4. Write your handoff report in `/Users/damian/GitHub/gait-lab/.agents/reviewer_m1_r1_2/handoff.md` with explicit Verdict: `APPROVE` or `REQUEST_CHANGES`.
+5. Send a completion message back to parent with verdict summary.

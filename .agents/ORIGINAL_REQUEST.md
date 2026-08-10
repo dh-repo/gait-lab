@@ -1,65 +1,59 @@
 # Original User Request
 
-## 2026-08-09T15:59:08Z
+## Initial Request — 2026-08-09T21:04:14Z
 
-<USER_REQUEST>
-Launch an agent swarm to debate, design, and implement an optimized UI layout for `gait-lab` focused on minimizing cognitive load, enhancing scannability, and adhering to clinical UX best practices.
+Enhance the accuracy, precision, and reliability of the `gait-lab` spatio-temporal gait analysis engine across 4 key technical tiers:
 
-Working directory: /Users/damian/GitHub/gait-lab
-Integrity mode: development
+Working directory: `/Users/damian/GitHub/gait-lab`
+Your orchestrator directory: `/Users/damian/GitHub/gait-lab/.agents/orchestrator`
 
-## Requirements
+### Requirements:
+1. R1. Computer Vision & Model Fidelity Upgrades:
+   - Upgrade MediaPipe Pose landmarker loading in `src/lib/gait/pose.ts` to support `pose_landmarker_heavy.task` with fallback to `pose_landmarker_full.task` and `pose_landmarker_lite.task`.
+   - Implement 1D landmark coordinate temporal smoothing (Kalman or 5-point Savitzky-Golay filtering) on raw keypoints prior to kinematic metric computation.
 
-### R1. Multi-Agent Design Debate & Cognitive Load Optimization
-- Deploy a team of UX/UI specialist agents to debate layout paradigms and design an optimal clinical interface.
-- Eliminate visual clutter, decorative effects, and unnecessary noise.
-- Implement progressive disclosure: headline clinical indicators above the fold, detailed diagnostic waveforms and symmetry angles available on demand.
+2. R2. Video Capture Constraints & Real-World Floor Calibration:
+   - Update `src/lib/gait/PoseTracker.ts` WebRTC options to request ideal 60 FPS video capture constraints (`ideal: 60`).
+   - Implement real-world floor-plane marker calibration (QR / AprilTag / reference card) to map image pixels to absolute millimeters (mm/px) for distance and speed calculations.
 
-### R2. Clinical UX Best Practices & Information Architecture
-- Structure the workflow into a clear 4-stage linear progression: **1. Input/Sample Selection** $\rightarrow$ **2. Video Processing & Pose Tracking** $\rightarrow$ **3. Clinical Insights & Domain Scores** $\rightarrow$ **4. Export / Share Report**.
-- Group complex metrics into intuitive cognitive clusters (Spatiotemporal Pace, Inter-limb Symmetry, Trunk Stability, Dual-Task Cost).
-- Use clear typography hierarchy, status badges, and scannable data displays so clinicians can make rapid assessment decisions.
+3. R3. Multi-Signal Heel-Strike Fusion & Planar Homography:
+   - Enhance event detection in `src/lib/gait/events.ts` by fusing relative AP foot displacement with vertical ankle acceleration minima and zero-velocity updates (ZUPT).
+   - Implement 2D floor planar homography transformation to project 2D image coordinates into top-down floor coordinates for accurate step width estimation across oblique camera angles.
 
-### R3. Accessibility & Layout Performance
-- Enforce strict WCAG 2.1 AA contrast ratios, semantic HTML layout, full keyboard navigation, and ARIA landmarks.
-- Ensure smooth 60 FPS video overlay rendering and zero layout shift across screen sizes.
+4. R4. Steady-State Stride Filtering & Quality Control:
+   - Automatically detect and exclude initial acceleration and terminal deceleration strides so spatio-temporal variability (`stepTimeCV`) is computed strictly across steady-state strides.
 
-## Acceptance Criteria
+5. Acceptance Criteria:
+   - `npm test` passes 100% of all unit, integration, and synthetic ground-truth regression tests without regressions.
+   - `npm run typecheck` passes with 0 TypeScript compilation errors.
+   - `npm run lint` passes with 0 ESLint errors.
+   - `npm run build` succeeds and produces a valid production build.
 
-### Verification & Testing
-- [ ] Agent debate and design rationale is documented in `ux_design_rationale.md`.
-- [ ] UI layout updated to the debated low-cognitive-load structure across all components.
-- [ ] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass with 0 errors.
-</USER_REQUEST>
+## Follow-up — 2026-08-10T01:13:18Z
 
-## 2026-08-09T16:40:29Z
-
-<USER_REQUEST>
-Perform a complete, full-spectrum end-to-end implementation and polish pass on `gait-lab` — integrating Side-by-Side Session Comparison, Live Webcam Streaming Mode, complete database persistence, 100% test suite pass rate, and publication-grade clinical usability.
+Maximize person identification accuracy and minimize false positives/negatives in gait video analysis and live webcam streaming within `gait-lab`.
 
 Working directory: /Users/damian/GitHub/gait-lab
 Integrity mode: development
 
 ## Requirements
 
-### R1. Full-Spectrum End-to-End Polish & Integration
-Ensure every core engine module (DSP filtering, Kinematic Event Detection, Symmetry Angles, Harmonic Ratio, Dual-Task Cost, Joint Kinematic Angles, Clinical PDF Exporter, Database Persistence, Sample Video Picker) is 100% integrated, seamlessly connected, and fully operational without scaffolds.
+### R1. Person Tracking Accuracy & Re-Identification
+Enhance MediaPipe pose landmark person tracking, re-identification, and velocity motion projection in `src/lib/gait/analysis.ts` and `src/lib/gait/PoseTracker.ts`. Optimize morphological biometric distance gating and velocity extrapolation to maintain a single unified identity across U-turns, scale changes, and temporary occlusions without creating false duplicate person tracks.
 
-### R2. Side-by-Side Dual Session Comparison View
-Build `SessionComparisonView.tsx` enabling clinicians to select any two historical gait sessions from the database (e.g., Baseline vs. Follow-up or Single-Task vs. Dual-Task) and view a side-by-side metric comparison with delta percentage badges and overlaid joint angle trajectory curves.
+### R2. Transient Background Suppression & Candidate Filtering
+Refine pose candidate confidence thresholds and spatial continuity checks in `PoseTracker.ts` and `matchPeople` to suppress transient background people, passersby, and low-confidence noise in multi-person scenes.
 
-### R3. Live WebCam Real-Time Gait Capture Mode
-Integrate live browser webcam video streaming into `GaitApp.tsx` and `PoseTracker.ts` allowing real-time pose extraction, live landmark visualization, and instantaneous gait event detection directly from the camera feed.
-
-### R4. Complete Test Suite & Deployment Verification
-Ensure 100% test pass rate across unit, UI, and adversarial test suites (`npm test`), with 0 TypeScript errors (`tsc --noEmit`), 0 ESLint warnings (`eslint .`), and a clean production build (`npm run build`).
+### R3. Empirical Benchmarks & Adversarial Stress Test Expansion
+Expand synthetic and adversarial test suites (`src/lib/gait/__tests__/person_identification_stress.test.ts` and new test modules) with realistic multi-person noise models, scale variations, and camera movement to objectively quantify detection accuracy and verify zero false duplicate tracks.
 
 ## Acceptance Criteria
 
-### Verification & Testing
-- [ ] `SessionComparisonView.tsx` allows selecting and comparing two historical sessions side-by-side with metric deltas and joint angle overlays.
-- [ ] Live Webcam Streaming Mode accurately captures live camera frames, extracts landmarks, and computes gait metrics in real-time.
-- [ ] Unit and integration test suite remains 100% green (`npm test` passes all tests).
-- [ ] `npm run typecheck`, `npm run lint`, and `npm run build` execute cleanly with 0 errors.
-</USER_REQUEST>
+### Detection & Tracking Accuracy
+- [ ] 0 false duplicate person tracks generated on single-subject gait walk clips (including U-turns, scale shifts, and 2-10 frame occlusions).
+- [ ] Primary target lock reliably maintained during live webcam streaming when candidate background poses enter the frame.
+- [ ] Fast-walking subjects correctly tracked across sample steps without exceeding velocity motion gates.
 
+### Code Quality & Test Suite Integrity
+- [ ] 100% green pass rate across all Vitest test suites (`npx vitest run`).
+- [ ] 0 TypeScript compilation errors (`npx tsc --noEmit`).

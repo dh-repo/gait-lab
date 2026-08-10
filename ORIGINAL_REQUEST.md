@@ -1,131 +1,59 @@
 # Original User Request
 
-## 2026-08-09T03:21:23Z
+## Initial Request — 2026-08-09T21:04:14Z
 
-<USER_REQUEST>
-Perform a deep, end-to-end analysis of the `gait-lab` repository to understand its functionality and significantly improve its accuracy and value. The agent team should extensively research online literature, including PubMed and science databases, to propose and integrate state-of-the-art enhancements to this life-changing tool.
+Enhance the accuracy, precision, and reliability of the `gait-lab` spatio-temporal gait analysis engine across 4 key technical tiers:
 
-Working directory: /Users/damian/GitHub/gait-lab
-Integrity mode: development
+Working directory: `/Users/damian/GitHub/gait-lab`
+Your orchestrator directory: `/Users/damian/GitHub/gait-lab/.agents/orchestrator`
 
-## Requirements
+### Requirements:
+1. R1. Computer Vision & Model Fidelity Upgrades:
+   - Upgrade MediaPipe Pose landmarker loading in `src/lib/gait/pose.ts` to support `pose_landmarker_heavy.task` with fallback to `pose_landmarker_full.task` and `pose_landmarker_lite.task`.
+   - Implement 1D landmark coordinate temporal smoothing (Kalman or 5-point Savitzky-Golay filtering) on raw keypoints prior to kinematic metric computation.
 
-### R1. Scientific Enhancement
-Research and integrate state-of-the-art gait analysis methodologies using PubMed and science databases to improve the algorithmic accuracy of the tool. 
+2. R2. Video Capture Constraints & Real-World Floor Calibration:
+   - Update `src/lib/gait/PoseTracker.ts` WebRTC options to request ideal 60 FPS video capture constraints (`ideal: 60`).
+   - Implement real-world floor-plane marker calibration (QR / AprilTag / reference card) to map image pixels to absolute millimeters (mm/px) for distance and speed calculations.
 
-### R2. Codebase Implementation
-Implement the proposed improvements directly into the codebase. Ensure the changes also elevate the overall software engineering quality, focusing on performance, code structure, and maintainability.
+3. R3. Multi-Signal Heel-Strike Fusion & Planar Homography:
+   - Enhance event detection in `src/lib/gait/events.ts` by fusing relative AP foot displacement with vertical ankle acceleration minima and zero-velocity updates (ZUPT).
+   - Implement 2D floor planar homography transformation to project 2D image coordinates into top-down floor coordinates for accurate step width estimation across oblique camera angles.
 
-### R3. Research Documentation
-Generate a summary report (`scientific_justifications.md`) in the workspace that clearly documents the scientific basis, literature review, and rationale for the implemented algorithmic changes.
+4. R4. Steady-State Stride Filtering & Quality Control:
+   - Automatically detect and exclude initial acceleration and terminal deceleration strides so spatio-temporal variability (`stepTimeCV`) is computed strictly across steady-state strides.
 
-## Acceptance Criteria
+5. Acceptance Criteria:
+   - `npm test` passes 100% of all unit, integration, and synthetic ground-truth regression tests without regressions.
+   - `npm run typecheck` passes with 0 TypeScript compilation errors.
+   - `npm run lint` passes with 0 ESLint errors.
+   - `npm run build` succeeds and produces a valid production build.
 
-### Scientific Verification
-- [ ] A `scientific_justifications.md` report is created in the working directory and includes citations to relevant scientific literature or databases.
-- [ ] The algorithmic changes implemented in the code accurately reflect the methodologies proposed in the research report.
+## Follow-up — 2026-08-10T01:13:18Z
 
-### Code Quality & Implementation
-- [ ] The updated codebase is syntactically correct and runs without regression errors.
-- [ ] Automated tests are either added or updated to cover the new scientific algorithms, and the full test suite passes successfully.
-
-## 2026-08-09T06:52:24Z
-
-<USER_REQUEST>
-Execute an exhaustive multi-agent peer review swarm on the `gait-lab` platform to evaluate scientific accuracy, mathematical derivations, test suite coverage (including adversarial edge cases), code maintainability, scientific documentation alignment, and reference video dataset acquisition.
-
-Working directory: /Users/damian/GitHub/gait-lab
-Integrity mode: development
-
-## Requirements
-
-### R1. Scientific & Mathematical Rigor Review
-Audit all signal processing, kinematic event detection, Zifchock symmetry, FFT harmonic ratios, and dual-task effect equations against published literature. Ensure zero mathematical discrepancies or unhandled edge cases in digital signal processing.
-
-### R2. Codebase Architecture & Code Quality Audit
-Audit TypeScript type safety, module decoupling, error boundaries, performance bottlenecks, and frontend UI metric rendering across all components (`src/lib/gait/` and `src/components/gait/`).
-
-### R3. Adversarial & Edge-Case Test Suite Expansion
-Stress-test the pipeline against extreme synthetic gait scenarios (e.g., severe landmark jitter/occlusion, variable frame drop rates, extreme gait asymmetry, micro-steps, high-frequency camera shake) to ensure robust fallback behavior and zero uncaught runtime exceptions.
-
-### R4. Documentation-to-Code Traceability Verification
-Verify line-by-line that every citation, equation, and claim in `scientific_justifications.md` perfectly matches the actual TypeScript code implementation.
-
-### R5. Reference Video Dataset Acquisition & Integration
-Search for, download, or synthesize open-access/royalty-free sample reference gait videos (covering sagittal, frontal, and follow-cam views) into `public/samples/` and wire them into the UI sample picker for instant clinical/demo testing.
-
-## Acceptance Criteria
-
-### Peer Review & Audit Verification
-- [ ] Multi-agent peer review report is generated documenting findings, verification scores, and recommendations.
-- [ ] Any identified edge cases or mathematical inconsistencies are remediated with corresponding code updates.
-- [ ] Adversarial stress tests are added to the test suite and pass 100%.
-- [ ] Sample reference gait videos are available in `public/samples/` and accessible in the UI.
-- [ ] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` execute cleanly with 0 errors.
-</USER_REQUEST>
-
-## 2026-08-09T15:00:00Z
-
-<USER_REQUEST>
-Implement Interactive Joint Kinematic Angle Charts (Knee, Hip, Ankle trajectories over normalized gait cycle) and a Clinical PDF / Printable Summary Report with Radar Charts and patient metadata in `gait-lab`.
+Maximize person identification accuracy and minimize false positives/negatives in gait video analysis and live webcam streaming within `gait-lab`.
 
 Working directory: /Users/damian/GitHub/gait-lab
 Integrity mode: development
 
 ## Requirements
 
-### R1. Joint Kinematic Angle Trajectory Analytics & Recharts Visualization
-- Calculate 2D joint angles across frames using MediaPipe landmarks:
-  - Knee Flexion/Extension angle ($\angle \text{Hip-Knee-Ankle}$)
-  - Hip Flexion/Extension angle ($\angle \text{Shoulder-Hip-Knee}$)
-  - Ankle Flexion/Dorsiflexion angle ($\angle \text{Knee-Ankle-Toe}$)
-- Time-normalize joint trajectories to $0\text{--}100\%$ of the gait cycle across detected strides (`angles.ts`).
-- Create `JointAnglesChart.tsx` using Recharts to render interactive Left vs. Right joint angle curves with normative reference shaded bands and peak joint range of motion (ROM) metrics.
+### R1. Person Tracking Accuracy & Re-Identification
+Enhance MediaPipe pose landmark person tracking, re-identification, and velocity motion projection in `src/lib/gait/analysis.ts` and `src/lib/gait/PoseTracker.ts`. Optimize morphological biometric distance gating and velocity extrapolation to maintain a single unified identity across U-turns, scale changes, and temporary occlusions without creating false duplicate person tracks.
 
-### R2. Clinical Printable & PDF Export System with Domain Radar Chart
-- Create a dedicated clinical report view (`ClinicalReportView.tsx`) with `@media print` styling optimized for 1-click PDF/print export.
-- Include patient/session metadata inputs (Patient ID, Clinician Notes, Assessment Date, Assessment Condition).
-- Render a 5-Domain Gait Health Radar Chart (Pace, Symmetry, Smoothness, Rhythmicity, Stability) using Recharts `RadarChart`.
-- Integrate a "Print / Export PDF" button in `ReportPanel.tsx` that triggers the print view.
+### R2. Transient Background Suppression & Candidate Filtering
+Refine pose candidate confidence thresholds and spatial continuity checks in `PoseTracker.ts` and `matchPeople` to suppress transient background people, passersby, and low-confidence noise in multi-person scenes.
+
+### R3. Empirical Benchmarks & Adversarial Stress Test Expansion
+Expand synthetic and adversarial test suites (`src/lib/gait/__tests__/person_identification_stress.test.ts` and new test modules) with realistic multi-person noise models, scale variations, and camera movement to objectively quantify detection accuracy and verify zero false duplicate tracks.
 
 ## Acceptance Criteria
 
-### Verification & Testing
-- [ ] `angles.ts` accurately computes 3-point joint angles and time-normalizes them across strides.
-- [ ] `JointAnglesChart.tsx` renders continuous joint angle curves and ROM metrics without rendering errors.
-- [ ] `ClinicalReportView.tsx` provides a print-optimized layout with the 5-domain radar chart and patient metadata.
-- [ ] Unit test suite expanded with tests for joint angle calculations and ROM metrics.
-- [ ] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass with 0 errors.
-</USER_REQUEST>
+### Detection & Tracking Accuracy
+- [ ] 0 false duplicate person tracks generated on single-subject gait walk clips (including U-turns, scale shifts, and 2-10 frame occlusions).
+- [ ] Primary target lock reliably maintained during live webcam streaming when candidate background poses enter the frame.
+- [ ] Fast-walking subjects correctly tracked across sample steps without exceeding velocity motion gates.
 
-## 2026-08-09T16:40:29Z
-
-<USER_REQUEST>
-Perform a complete, full-spectrum end-to-end implementation and polish pass on `gait-lab` — integrating Side-by-Side Session Comparison, Live Webcam Streaming Mode, complete database persistence, 100% test suite pass rate, and publication-grade clinical usability.
-
-Working directory: /Users/damian/GitHub/gait-lab
-Integrity mode: development
-
-## Requirements
-
-### R1. Full-Spectrum End-to-End Polish & Integration
-Ensure every core engine module (DSP filtering, Kinematic Event Detection, Symmetry Angles, Harmonic Ratio, Dual-Task Cost, Joint Kinematic Angles, Clinical PDF Exporter, Database Persistence, Sample Video Picker) is 100% integrated, seamlessly connected, and fully operational without scaffolds.
-
-### R2. Side-by-Side Dual Session Comparison View
-Build `SessionComparisonView.tsx` enabling clinicians to select any two historical gait sessions from the database (e.g., Baseline vs. Follow-up or Single-Task vs. Dual-Task) and view a side-by-side metric comparison with delta percentage badges and overlaid joint angle trajectory curves.
-
-### R3. Live WebCam Real-Time Gait Capture Mode
-Integrate live browser webcam video streaming into `GaitApp.tsx` and `PoseTracker.ts` allowing real-time pose extraction, live landmark visualization, and instantaneous gait event detection directly from the camera feed.
-
-### R4. Complete Test Suite & Deployment Verification
-Ensure 100% test pass rate across unit, UI, and adversarial test suites (`npm test`), with 0 TypeScript errors (`tsc --noEmit`), 0 ESLint warnings (`eslint .`), and a clean production build (`npm run build`).
-
-## Acceptance Criteria
-
-### Verification & Testing
-- [ ] `SessionComparisonView.tsx` allows selecting and comparing two historical sessions side-by-side with metric deltas and joint angle overlays.
-- [ ] Live Webcam Streaming Mode accurately captures live camera frames, extracts landmarks, and computes gait metrics in real-time.
-- [ ] Unit and integration test suite remains 100% green (`npm test` passes all tests).
-- [ ] `npm run typecheck`, `npm run lint`, and `npm run build` execute cleanly with 0 errors.
-</USER_REQUEST>
-
+### Code Quality & Test Suite Integrity
+- [ ] 100% green pass rate across all Vitest test suites (`npx vitest run`).
+- [ ] 0 TypeScript compilation errors (`npx tsc --noEmit`).

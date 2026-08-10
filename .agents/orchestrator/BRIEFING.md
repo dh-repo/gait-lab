@@ -1,77 +1,67 @@
-# BRIEFING — 2026-08-09T17:04:50Z
+# BRIEFING — 2026-08-09T21:14:08Z
 
 ## Mission
-Execute full-spectrum end-to-end implementation and polish pass on `gait-lab`: core engine integration, side-by-side session comparison view, live webcam real-time capture mode, complete test suite & deployment verification.
+Lead gait-lab project execution to solve tracking accuracy, re-identification, background suppression, and stress testing per ORIGINAL_REQUEST.md.
 
 ## 🔒 My Identity
-- Archetype: teamwork_preview_orchestrator
+- Archetype: Project Orchestrator
 - Roles: orchestrator, user_liaison, human_reporter, successor
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/orchestrator
-- Original parent: top-level
-- Original parent conversation ID: top-level
+- Original parent: Project Sentinel
+- Original parent conversation ID: 0b5a771d-29db-4a50-928c-9de04b4501d0
 
 ## 🔒 My Workflow
-- **Pattern**: Project
+- **Pattern**: Project Pattern
 - **Scope document**: /Users/damian/GitHub/gait-lab/PROJECT.md
-1. **Decompose**: Survey completed. PROJECT.md initialized with 26 features across 4 Milestones.
+1. **Decompose**: Survey codebase via 3 parallel Explorers, extract feature inventory, design milestones and contracts.
 2. **Dispatch & Execute**:
-   - Milestone 1 (M1) completed & verified (c4f51a02-7aa3-4f8b-85a7-f91521482274).
-   - Milestone 2 (M2) completed & verified (46c38289-fbe0-412f-a22b-6f817241b0a6).
-   - Milestone 3 (M3) completed & verified (7f68613b-b2a9-47d7-8560-81a78f0fea82).
-   - Milestone 4 (M4) sub-orchestrator (94e95a73-9eb4-49d3-8cd1-57371d44cd61) dispatched.
+   - Dual track: Implementation track + E2E Testing track.
+   - Per milestone: Explorer -> Worker -> Reviewer -> Challenger -> Forensic Auditor -> Gate.
 3. **On failure**: Retry -> Replace -> Skip -> Redistribute -> Redesign -> Escalate.
 4. **Succession**: Self-succeed at 20 spawns.
 - **Work items**:
-  1. Survey & Architecture Mapping [done]
-  2. Milestone 1: Core Engine Integration & Polish (R1) [done]
-  3. Milestone 2: Side-by-Side Dual Session Comparison View (R2) [done]
-  4. Milestone 3: Live WebCam Real-Time Gait Capture Mode (R3) [done]
-  5. Milestone 4: E2E Test Suite & Deployment Verification (R4) [in-progress]
-- **Current phase**: 2A (Decompose & Delegate)
-- **Current focus**: Monitoring Milestone 4 final verification and deployment pass
+  1. Phase 0: Codebase & Specification Survey [in-progress]
+  2. Phase 1: PROJECT.md & TEST_INFRA.md Decomposition [pending]
+  3. Phase 2: Implementation & E2E Test Execution [pending]
+- **Current phase**: 0 (Survey)
+- **Current focus**: Parallel Exploration via 3 Explorers
 
 ## 🔒 Key Constraints
 - NEVER write, modify, or create source code files directly.
-- NEVER run build/test commands yourself — require workers/explorers/reviewers/challengers to do so.
-- NEVER investigate or explore the problem at code level — dispatch Explorers.
-- Forensic Auditor INTEGRITY VIOLATION is a BINARY VETO.
+- NEVER run build/test commands yourself.
+- NEVER investigate code directly - dispatch Explorers.
+- Binary veto on Forensic Audit failure.
 - Never reuse a subagent after handoff.
-- Pass ORIGINAL_REQUEST.md path to all subagents.
 
 ## Current Parent
-- Conversation ID: top-level
-- Updated: 2026-08-09T16:40:43Z
+- Conversation ID: 0b5a771d-29db-4a50-928c-9de04b4501d0
+- Updated: not yet
 
 ## Key Decisions Made
-- Milestone 1 completed cleanly (347 tests passed, CLEAN audit).
-- Milestone 2 completed cleanly (406 tests passed, CLEAN audit).
-- Milestone 3 completed cleanly (401 tests passed, CLEAN audit).
-- Dispatched Sub-Orchestrator for Milestone 4 (`94e95a73`).
+- Initiated Project Pattern orchestration.
+- Phase 0 Survey dispatch planned (3 parallel Explorers).
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
-| teamwork_preview_explorer_survey_1 | teamwork_preview_explorer | Survey codebase & repo health | completed | 1f810c2c-c5b6-4591-84d6-6f25d271a07d |
-| teamwork_preview_explorer_survey_2 | teamwork_preview_explorer | Survey module interfaces & integration gaps | completed | 7ee6fe1d-32b6-433d-854f-bb3ba3d2fdd4 |
-| teamwork_preview_spec_miner_survey_3 | teamwork_preview_spec_miner | Mine ORIGINAL_REQUEST.md specs & feature inventory | completed | d71145c0-d0d8-442d-af32-2db0c0006175 |
-| sub_orch_m1 | self | Sub-Orchestrator for Milestone 1 (R1 Integration) | completed | c4f51a02-7aa3-4f8b-85a7-f91521482274 |
-| sub_orch_m2 | self | Sub-Orchestrator for Milestone 2 (R2 Session Comparison) | completed | 46c38289-fbe0-412f-a22b-6f817241b0a6 |
-| sub_orch_m3 | self | Sub-Orchestrator for Milestone 3 (R3 Live Webcam) | completed | 7f68613b-b2a9-47d7-8560-81a78f0fea82 |
-| sub_orch_m4 | self | Sub-Orchestrator for Milestone 4 (R4 Verification) | in-progress | 94e95a73-9eb4-49d3-8cd1-57371d44cd61 |
+| explorer_survey_1 | teamwork_preview_explorer | R1 Survey (Tracking & ReID) | completed | de9e0aa2-d8e3-415e-a6eb-bd013c404ea3 |
+| explorer_survey_2 | teamwork_preview_explorer | R2 Survey (Background Suppression) | completed | 633334f0-cff3-4583-be88-7dcac4962e44 |
+| explorer_survey_3 | teamwork_preview_explorer | R3 Survey (Testing Infra & Benchmarks) | completed | a509f614-ec4a-4301-8a02-ae3147d1c1c5 |
+| sub_orch_m1 | self | Milestone M1 Sub-Orchestrator | running | 6f4ed619-9a76-4336-8ff7-4083809494f7 |
+| sub_orch_e2e | self | E2E Testing Track Sub-Orchestrator | running | 23a12e01-ea60-428d-89e4-5f5e31d8d8bb |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 7 / 20
-- Pending subagents: 94e95a73-9eb4-49d3-8cd1-57371d44cd61
+- Spawn count: 5 / 20
+- Pending subagents: 2
 - Predecessor: none
 - Successor: not yet spawned
 
 ## Active Timers
-- Heartbeat cron: task-11 (Cron: */10 * * * *)
+- Heartbeat cron: task-11 (*/10 * * * *)
 - Safety timer: none
 
 ## Artifact Index
-- /Users/damian/GitHub/gait-lab/PROJECT.md — Global project index
-- /Users/damian/GitHub/gait-lab/.agents/orchestrator/progress.md — Progress log
-- /Users/damian/GitHub/gait-lab/.agents/orchestrator/BRIEFING.md — Briefing state
-- /Users/damian/GitHub/gait-lab/.agents/orchestrator/DISPATCH.md — Received requests
+- /Users/damian/GitHub/gait-lab/.agents/orchestrator/DISPATCH.md — User dispatch record
+- /Users/damian/GitHub/gait-lab/.agents/orchestrator/BRIEFING.md — Persistent briefing index
+- /Users/damian/GitHub/gait-lab/.agents/orchestrator/progress.md — Liveness & status tracking

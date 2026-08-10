@@ -1,111 +1,82 @@
-# Handoff Report: Worker 1 (Milestone 1 — Core Engine Integration & Polish)
+# Handoff Report: Milestone M1 — Computer Vision & Model Fidelity Upgrades
 
-**Agent ID:** Worker 1 (M1)  
-**Date:** 2026-08-09  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/`  
-**Target Files Modified:**  
-- `src/lib/gait/types.ts`
-- `src/lib/gait/dte.ts`
-- `src/lib/gait/signal.ts`
-- `src/lib/gait/events.ts`
-- `src/lib/gait/analysis.ts`
-- `src/lib/gait/persistence.ts`
-- `migrations/0002_gait_sessions.sql`
-- `src/components/gait/GaitApp.tsx`
-- `src/components/gait/ReportPanel.tsx`
-- `src/components/gait/ClinicalReportView.tsx`
-- `src/components/gait/CognitiveClusters.tsx`
-- `src/components/gait/SessionHistoryDrawer.tsx`
-- `src/lib/gait/__tests__/dte.test.ts`
-- `src/lib/gait/__tests__/analysis.test.ts`
-- `src/lib/gait/__tests__/persistence.test.ts`
-- `src/lib/gait/__tests__/signal.test.ts`
+**Agent**: `worker_m1_1`  
+**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1`  
+**Parent Conversation ID**: `75715ff9-9d80-47ae-bd6a-226d8bd44d8a`  
+**Date**: 2026-08-09  
 
 ---
 
 ## 1. Observation
 
-Direct observations from source inspection, tool execution, and verification commands:
+### Modified and Created Files
+1. **`src/lib/gait/pose.ts`**:
+   - Implemented `MODEL_CANDIDATES` hierarchy: `heavy` (`/models/pose_landmarker_heavy.task` & Google Storage CDN URL) -> `full` (`/models/pose_landmarker_full.task` & Google Storage CDN URL) -> `lite` (`/models/pose_landmarker_lite.task` & Google Storage CDN URL).
+   - Refactored `getPoseLandmarker()` to execute triply-nested candidate tier x asset path x GPU/CPU delegate fallback loops.
+   - Augment `PoseLandmarkerLike` interface with `loadedModelTier?: "heavy" | "full" | "lite"` and `loadedDelegate?: "GPU" | "CPU"`.
+   - Added test-aware timeout protection (`createLandmarkerWithTimeout`) to prevent socket timeouts when CDN paths are evaluated in offline or mock-isolated test runners.
 
-1. **Kinematic Angle Pipeline Fix:**
-   - In `src/lib/gait/types.ts`: Added `angleAnalysis?: GaitAngleAnalysis;` and `patientMeta?: PatientMetadata;` to `AnalysisResult`. Exported `PatientMetadata` interface.
-   - In `src/lib/gait/analysis.ts`: Exported `analyzeGait(frames, personId, taskMode, dualTaskCost, patientMeta)` which computes `computeGaitAngleAnalysis(frames, metrics.stepEvents || [], metrics.viewAngle || "unknown")` on resampled 30 Hz frames and includes `angleAnalysis` on `AnalysisResult`.
-   - In `src/components/gait/GaitApp.tsx`: In `runAnalysis()`, computes `angleAnalysis` with resampled 30 Hz `frames` and attaches `angleAnalysis` and `patientMeta` to `AnalysisResult`.
-   - In `src/components/gait/ReportPanel.tsx`, `src/components/gait/ClinicalReportView.tsx`, and `src/components/gait/CognitiveClusters.tsx`: Updated to use `result.angleAnalysis` (and `angleAnalysis` prop) instead of evaluating empty frames `computeGaitAngleAnalysis([], ...)`.
+2. **`src/lib/gait/signal.ts`**:
+   - Implemented `savitzkyGolay5(signal: number[]): number[]` using 5-point quadratic convolution kernel `[-3, 12, 17, 12, -3] / 35` with 2-element linear boundary reflection padding and `< 5` sample length guard.
+   - Implemented `kalmanFilter1D(signal: number[], processNoise = 1e-4, measurementNoise = 1e-2): number[]` using 1D scalar state-space model ($x_k, P_k$) with default process noise $Q=10^{-4}$, measurement noise $R=10^{-2}$, and occlusion coasting over `NaN`/`Infinity` measurements.
+   - Updated `smoothPoseFrames<T extends PoseFrame>(frames: T[], method: 'savitzky-golay' | 'kalman' | 'none' = 'savitzky-golay', options?: { processNoise?: number; measurementNoise?: number }): T[]` to filter both 2D `landmarks` and 3D `worldLandmarks` across frame sequences without mutating original input frames.
 
-2. **DTE Classification Edge Case Fix:**
-   - In `src/lib/gait/dte.ts`: Updated line 78 to check `(cadenceDTE > 5.0 || stepTimeCvDTE > 5.0)` for `motor_prioritization`. Added unit test in `dte.test.ts` for `stepTimeCvDTE > 5.0` triggering `motor_prioritization`.
+3. **`src/lib/gait/types.ts`**:
+   - Exported `SmoothingMethod = 'savitzky-golay' | 'kalman' | 'none'`.
+   - Exported `GaitAnalysisOptions = { smoothingMethod?: SmoothingMethod }`.
 
-3. **DSP Filtering & Landmark Occlusion Polish:**
-   - In `src/lib/gait/signal.ts`: Exported `olsDetrend(data: number[])`. Initialized biquad filter state registers (`x1, x2, y1, y2`) to `data[0]` instead of `0`. Increased reflection padding length (`padLen`) to `Math.min(24, n - 1)` in `zeroPhaseButterworth`. Added unit tests for `olsDetrend`.
-   - In `src/lib/gait/analysis.ts`: Imported `olsDetrend` from `signal.ts` and updated `detrend()` to delegate to `olsDetrend`.
-   - In `src/lib/gait/events.ts`: Updated `getLandmarkX` to accept optional `defaultX` and fall back to `hipX` or available hip landmark coordinates instead of returning `0` on landmark occlusion.
+4. **`src/lib/gait/analysis.ts`**:
+   - Updated `computeGaitMetricsCore` to apply `smoothPoseFrames(rawFrames, smoothingMethod)` right after the frame length check (`if (rawFrames.length < 5)`), ensuring clean landmark trajectories enter all downstream metrics (`detectViewAngle`, `series` extraction, `detectGaitEventsZeni`, joint angle calculations).
+   - Updated `computeGaitMetrics` and `analyzeGait` to accept optional `smoothingMethod` or `GaitAnalysisOptions` parameter (defaulting to `'savitzky-golay'`).
 
-4. **Patient Metadata & PostgreSQL Persistence / Hydration:**
-   - In `migrations/0002_gait_sessions.sql`: Added `angle_analysis_json JSONB,` and `patient_meta_json JSONB,` columns to `gait_sessions` schema, with `ALTER TABLE` fallback statements.
-   - In `src/lib/gait/persistence.ts`: Updated `GaitSessionRecord` interface to include `angleAnalysisJson` and `patientMetaJson`. Updated `saveGaitSession`, `listGaitSessions`, and `getGaitSession` to serialize and return `angleAnalysisJson` and `patientMetaJson`.
-   - In `src/components/gait/GaitApp.tsx` & `src/components/gait/SessionHistoryDrawer.tsx`: Bound `patientMeta` state and hydrated both `angleAnalysis` and `patientMeta` when loading a session via `onLoadSession`.
+5. **`src/lib/gait/__tests__/pose.test.ts` (New File)**:
+   - Added unit test suite covering candidate hierarchy (`heavy` -> `full` -> `lite`), GPU -> CPU delegate fallbacks, local -> CDN URL fallbacks, instance metadata tagging (`loadedModelTier`, `loadedDelegate`), and failure error throwing.
 
-5. **Verification Command Results:**
-   - `npm test`: Output: `Test Files 37 passed (37), Tests 301 passed (301)`.
-   - `npm run typecheck`: Output: `tsc --noEmit` exited with code 0 (0 errors).
-   - `npm run lint`: Output: `eslint .` exited with code 0 (0 errors, 0 warnings).
-   - `npm run build`: Output: Nitro / Vite build succeeded cleanly with code 0.
+6. **`src/lib/gait/__tests__/signal.test.ts`**:
+   - Added unit tests for `savitzkyGolay5` (reflection padding, length < 5 guard), `kalmanFilter1D` (noise reduction, occlusion coasting over `NaN`/`Infinity`), and `smoothPoseFrames` (options, non-mutation, metadata preservation).
+
+7. **`src/lib/gait/__tests__/analysis.test.ts`**:
+   - Added unit tests verifying integration of `smoothingMethod` in `computeGaitMetricsCore` under landmark coordinate jitter.
 
 ---
 
 ## 2. Logic Chain
 
-1. **From Observation 1:** UI components (`JointAnglesChart`, `ClinicalReportView`, `ReportPanel`) were previously receiving empty `frames: []` because `GaitApp.tsx` never computed `angleAnalysis` or stored it on `AnalysisResult`. By computing `angleAnalysis` on the resampled 30 Hz `frames` array in `GaitApp.tsx` / `analyzeGait` and propagating `result.angleAnalysis` down to `CognitiveClusters`, `ReportPanel`, and `ClinicalReportView`, joint angle trajectories and ROM tables now render real biomechanical data.
-2. **From Observation 2:** When dual-task step time CV improved by > 5% (`stepTimeCvDTE > 5.0%`) while cadence DTE remained <= 5%, `dte.ts` previously fell through to `no_interference`. Adding `stepTimeCvDTE > 5.0` to the motor prioritization branch ensures proper Plummer & Eskes (2015) classification.
-3. **From Observation 3:** Initializing biquad filter registers to `0` caused initial step response transients on non-zero signals. Setting filter registers to `data[0]` and increasing `padLen` to 24 eliminates start-of-signal filter ringing. Replacing hardcoded `0` returns in `getLandmarkX` with `hipX` prevents large negative step spikes (`0 - hipX`) when foot landmarks are occluded.
-4. **From Observation 4:** `gait_sessions` schema and `persistence.ts` now persist `angle_analysis_json` and `patient_meta_json`. Hydrating these fields in `SessionHistoryDrawer.tsx` and `GaitApp.tsx` guarantees clinician notes, patient IDs, and joint angle curves survive database save/load cycles.
-5. **Synthesized Conclusion:** All Milestone 1 objectives are fully implemented, verified, and backed by a 100% passing test suite, typecheck, linting, and production build.
+1. **Model Fidelity & Fallback Hierarchy**: Clinical spatio-temporal accuracy requires tracking subtle lower-extremity landmark displacements. MediaPipe's `heavy` task (~25 MB) offers higher landmark precision than `lite` (~5.7 MB). Implementing `MODEL_CANDIDATES` with local paths and CDN fallbacks across GPU and CPU delegates guarantees that the engine loads the highest fidelity model supported by the client hardware and asset availability.
+2. **Coordinate Temporal Smoothing**: High-frequency landmark tracking jitter or single-frame coordinate pops degrade heel-strike peak detection, step width variance, and joint angle kinetics. 
+   - 5-point Savitzky-Golay quadratic convolution (`[-3, 12, 17, 12, -3] / 35`) with 2-element boundary reflection padding suppresses coordinate jitter while preserving movement amplitude and timing without phase delay.
+   - 1D scalar state-space Kalman filtering ($x_k, P_k$) provides low-latency causal smoothing with occlusion coasting during missing keypoints (`NaN`/`Infinity`).
+3. **Engine Pipeline Integration**: Placing `smoothPoseFrames` at the entry of `computeGaitMetricsCore` guarantees that all downstream consumers receive clean landmark trajectories, directly improving gait variability metrics (`stepTimeCV`, `stepWidthVariability`) and symmetry assessments.
 
 ---
 
 ## 3. Caveats
 
-- **No caveats.** All tasks for Milestone 1 were completed and verified without regressions.
+- In Vitest unit testing without network connectivity, local model assets not on disk (e.g. `pose_landmarker_heavy.task`) quickly fall through to `pose_landmarker_lite.task` which is checked into `public/models/`.
+- Signal smoothing filters 2D `landmarks` and 3D `worldLandmarks` trajectories independently for each landmark coordinate ($x, y, z$).
 
 ---
 
 ## 4. Conclusion
 
-- Milestone 1 Core Engine Integration & Polish is complete.
-- Kinematic angle pipeline disconnect, DTE classification edge case, DSP filter initialization/occlusion handling, and PostgreSQL persistence/hydration are fully resolved.
-- Zero type errors, zero lint warnings, zero test failures, and clean production build.
+Milestone M1 is fully implemented, verified, and integrated into the `gait-lab` engine per specifications in `PROJECT.md`, `SCOPE.md`, and Explorer handoff reports.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify all implementations and results:
+Independent verification can be executed via the standard project quality commands:
 
-1. **Run Full Test Suite:**
-   ```bash
-   npm test
-   ```
-   Expect: 37 test files passed, 301 tests passed.
+```bash
+# 1. Vitest Unit & Integration Test Suite (100% Pass)
+npm test
 
-2. **Run TypeScript Typecheck:**
-   ```bash
-   npm run typecheck
-   ```
-   Expect: Exit code 0 with 0 type errors.
+# 2. TypeScript Typecheck (0 Errors)
+npm run typecheck
 
-3. **Run ESLint:**
-   ```bash
-   npm run lint
-   ```
-   Expect: Exit code 0 with 0 errors and 0 warnings.
+# 3. ESLint Compliance Check (0 Errors)
+npm run lint
 
-4. **Run Production Build:**
-   ```bash
-   npm run build
-   ```
-   Expect: Exit code 0 with clean Vercel/Nitro build output.
-
-5. **Invalidation Conditions:**
-   - Any failure in `npm test`, `npm run typecheck`, `npm run lint`, or `npm run build`.
-   - `result.angleAnalysis` returning `undefined` or null ROM values when valid pose frames are provided.
+# 4. Production Build (Success)
+npm run build
+```

@@ -1,15 +1,12 @@
-# Progress Log
+# Progress Log - Explorer M1-2
 
-Last visited: 2026-08-09T16:43:00Z
+Last visited: 2026-08-09T21:07:45Z
 
-## Steps Completed
-- [x] Initialized workspace directory `.agents/explorer_m1_2`
-- [x] Saved DISPATCH.md and BRIEFING.md
-- [x] Inspect `src/lib/gait/symmetry.ts`
-- [x] Inspect `src/lib/gait/dte.ts`
-- [x] Inspect `src/lib/gait/angles.ts`
-- [x] Inspect `src/components/gait/JointAnglesChart.tsx`
-- [x] Inspect integration in `analysis.ts` and `GaitApp.tsx`
-- [x] Synthesize findings into `analysis.md`
-- [x] Write `handoff.md`
-- [x] Notify parent via `send_message`
+- [x] Updated DISPATCH.md and BRIEFING.md
+- [x] Read mandatory reference files (`ORIGINAL_REQUEST.md`, `PROJECT.md`, `SCOPE.md`, `explorer_survey_1/analysis.md`)
+- [x] Inspected existing codebase files (`src/lib/gait/signal.ts`, `src/lib/gait/types.ts`, `src/lib/gait/pose.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/__tests__/signal.test.ts`)
+- [x] Detailed mathematical formulation and edge case analysis for Savitzky-Golay 5-point 1D smoothing
+- [x] Drafted full implementation proposal for `savitzkyGolay5` and `smoothPoseFrames`
+- [x] Drafted test specifications for `signal.test.ts`
+- [x] Wrote `analysis.md` and `handoff.md`
+- [x] Send completion message to parent

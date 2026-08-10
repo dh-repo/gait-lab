@@ -1,14 +1,7 @@
-## 2026-08-08T23:21:44Z
-
-<USER_REQUEST>
-You are teamwork_preview_explorer_survey_3.
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_3.
-Read /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md before starting work.
-
-Your task:
-1. Investigate the tooling, sample data, dependencies, documentation, error handling, and test infrastructure in gait-lab.
-2. Identify missing features, API design flaws, performance bottlenecks, edge case test gaps, and opportunities for scientific enhancement.
-3. Propose structural engineering improvements and high-impact areas for state-of-the-art scientific gait analysis research.
-4. Write your complete analysis and findings to /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_3/handoff.md following the Handoff Protocol.
-5. When done, update your progress.md and send a completion message to parent.
-</USER_REQUEST>
+## 2026-08-09T21:04:44Z
+Investigate Requirement 4 (R4) and Test/Build Infrastructure:
+- Read ORIGINAL_REQUEST.md
+- Inspect stride calculation logic and spatio-temporal variability (stepTimeCV). Analyze how strides are currently identified and processed, and how to automatically detect and exclude initial acceleration and terminal deceleration strides so variability is computed strictly across steady-state strides.
+- Inspect test suite (npm test), TypeScript config (npm run typecheck), ESLint (npm run lint), and build system (npm run build). Check existing tests and ground-truth synthetic data generators.
+- Identify all affected files, existing types, structures, interfaces, and missing functionality.
+- Produce report in analysis.md and send message back to orchestrator.

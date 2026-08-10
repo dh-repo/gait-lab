@@ -33,7 +33,15 @@ import { CognitiveClusters } from "./CognitiveClusters";
 import { SamplePicker } from "./SamplePicker";
 import { WorkflowHeader, type WorkflowStage } from "./WorkflowHeader";
 import { SideNavRail } from "./SideNavRail";
-import { computeDualTaskCost, computeGaitMetrics, matchPeople, tracksToPeople } from "@/lib/gait/analysis";
+import { FallRiskPanel } from "./FallRiskPanel";
+import {
+  computeDualTaskCost,
+  computeGaitMetrics,
+  matchPeople,
+  tracksToPeople,
+  computeBiometricSignature,
+  biometricDistance,
+} from "@/lib/gait/analysis";
 import { computeGaitAngleAnalysis, calculateKneeFlexion } from "@/lib/gait/angles";
 import { detectGaitEventsZeni } from "@/lib/gait/events";
 import { buildEducatedGuesses, resolveDteValues } from "@/lib/gait/guesses";
@@ -73,7 +81,7 @@ type Phase =
   | "results"
   | "error";
 
-type Tab = "clusters" | "report" | "guesses" | "metrics" | "guide";
+type Tab = "clusters" | "report" | "guesses" | "metrics" | "guide" | "fallrisk";
 
 /**
  * The webcam station renders exactly one tracked subject. Hoisted to module scope so
@@ -774,7 +782,7 @@ export function GaitApp() {
           const dets = (res.landmarks || []).map(toLandmarks);
           if (dets.length) {
             totalDetections += dets.length;
-            const ids = matchPeople(dets, tracks, nextId);
+            const ids = matchPeople(dets, tracks, nextId, i);
             lastPoses = dets.map((landmarks, di) => ({
               id: ids[di],
               landmarks,
@@ -876,6 +884,8 @@ export function GaitApp() {
             z: 0,
           }
         : null;
+      let lastVelocity = { vx: 0, vy: 0 };
+      let lastBiometric = selectedMeta?.biometrics;
 
       for (let i = 0; i < sampleCount; i++) {
         if (runId !== abortRef.current) return;
@@ -890,24 +900,38 @@ export function GaitApp() {
         let best = -1;
         let bestScore = -Infinity;
         for (let di = 0; di < dets.length; di++) {
+          const lm = dets[di];
           const hip = {
-            x: (dets[di][23].x + dets[di][24].x) / 2,
-            y: (dets[di][23].y + dets[di][24].y) / 2,
+            x: (lm[23].x + lm[24].x) / 2,
+            y: (lm[23].y + lm[24].y) / 2,
             z: 0,
           };
-          const b = boundingBox(dets[di]);
+          const b = boundingBox(lm);
           const area = b.w * b.h;
+          const bio = computeBiometricSignature(lm);
+
           if (lastHip) {
-            const d = Math.hypot(hip.x - lastHip.x, hip.y - lastHip.y);
-            if (d > 0.2) continue;
-            const score = area * 2 - d * 3;
+            const predHip = {
+              x: lastHip.x + lastVelocity.vx,
+              y: lastHip.y + lastVelocity.vy,
+            };
+            const spatialDist = Math.hypot(hip.x - predHip.x, hip.y - predHip.y);
+            const rawDist = Math.hypot(hip.x - lastHip.x, hip.y - lastHip.y);
+            const minDist = Math.min(spatialDist, rawDist);
+            const bioDist = lastBiometric ? biometricDistance(bio, lastBiometric) : 0;
+
+            const maxAllowedDist = 0.35 + (bioDist < 0.25 ? 0.10 : 0);
+            if (minDist > maxAllowedDist) continue;
+
+            const score = area * 2 - minDist * 3 - bioDist * 4;
             if (score > bestScore) {
               bestScore = score;
               best = di;
             }
           } else {
-            if (area > bestScore) {
-              bestScore = area;
+            const score = area * 2;
+            if (score > bestScore) {
+              bestScore = score;
               best = di;
             }
           }
@@ -919,11 +943,28 @@ export function GaitApp() {
         }
 
         const lm = dets[best];
-        lastHip = {
+        const newHip = {
           x: (lm[23].x + lm[24].x) / 2,
           y: (lm[23].y + lm[24].y) / 2,
           z: 0,
         };
+        const newBio = computeBiometricSignature(lm);
+
+        if (lastHip) {
+          lastVelocity = {
+            vx: 0.5 * lastVelocity.vx + 0.5 * (newHip.x - lastHip.x),
+            vy: 0.5 * lastVelocity.vy + 0.5 * (newHip.y - lastHip.y),
+          };
+        }
+        lastHip = newHip;
+        lastBiometric = lastBiometric
+          ? {
+              aspectRatio: 0.7 * lastBiometric.aspectRatio + 0.3 * newBio.aspectRatio,
+              torsoLegRatio: 0.7 * lastBiometric.torsoLegRatio + 0.3 * newBio.torsoLegRatio,
+              shoulderHipRatio: 0.7 * lastBiometric.shoulderHipRatio + 0.3 * newBio.shoulderHipRatio,
+            }
+          : newBio;
+
         rawFrames.push({ timeMs: t * 1000, landmarks: lm });
         setScanPoses([{ id: selectedPersonId, landmarks: lm }]);
         setProgress(55 + Math.round((i / sampleCount) * 35));
@@ -1083,7 +1124,7 @@ export function GaitApp() {
           }}
         />
 
-        <main className="relative mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-7 overflow-y-auto px-5 pb-20 pt-[calc(var(--grok-banner-h,0px)+1.25rem)] sm:px-8">
+        <main className="relative mx-auto flex w-full max-w-[960px] flex-1 flex-col gap-4 overflow-y-auto px-5 pb-20 pt-[calc(var(--grok-banner-h,0px)+1.25rem)] sm:px-8">
         {/* Hidden / active video element */}
         <video
           ref={videoRef}
@@ -1185,11 +1226,12 @@ export function GaitApp() {
                 {/* Hero dropzone — the only primary surface */}
                 <Card
                   className={cn(
-                    "border-dashed border-2 shadow-none transition-colors",
+                    "border-dashed border-2 shadow-none transition-colors duration-150",
                     dragOver
-                      ? "border-[var(--color-fg)] bg-[var(--color-surface)]"
-                      : "border-[var(--color-border-strong)] bg-[var(--color-surface)]",
+                      ? "border-[#1A73E8] bg-[#E8F0FE]"
+                      : "border-[#DADCE0] bg-[var(--color-surface)]",
                   )}
+                  style={{ borderDasharray: '8px 4px' } as React.CSSProperties}
                   onDragOver={(e) => {
                     e.preventDefault();
                     setDragOver(true);
@@ -1198,8 +1240,8 @@ export function GaitApp() {
                   onDrop={onDrop}
                 >
                   <CardContent className="flex flex-col items-center gap-6 px-6 py-14 text-center sm:py-16">
-                    <div className="flex size-12 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-[var(--color-fg)]">
-                      <Upload className="size-5" strokeWidth={1.75} />
+                    <div className="flex size-16 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-[#5F6368]">
+                      <Upload className="size-[48px]" strokeWidth={1.5} />
                     </div>
                     <div className="space-y-2">
                       <h2 className="text-[17px] font-semibold tracking-tight">Drop walking video here</h2>
@@ -1208,7 +1250,7 @@ export function GaitApp() {
                         improves reliability of variability measures.
                       </p>
                     </div>
-                    <Button size="lg" onClick={() => fileRef.current?.click()} className="min-w-[11rem]">
+                    <Button size="lg" onClick={() => fileRef.current?.click()} className="min-w-[11rem] rounded-full bg-[#1A73E8] hover:bg-[#1765CC] text-white text-[14px] font-medium">
                       <Film className="size-4" />
                       Choose video file
                     </Button>
@@ -1816,6 +1858,9 @@ export function GaitApp() {
               <TabBtn active={tab === "guide"} onClick={() => setTab("guide")}>
                 Guide
               </TabBtn>
+              <TabBtn active={tab === "fallrisk"} onClick={() => setTab("fallrisk")}>
+                Fall Risk
+              </TabBtn>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start">
@@ -1989,6 +2034,8 @@ export function GaitApp() {
                   <GuessesPanel guesses={result.guesses} dualTaskCost={result.dualTaskCost} />
                 ) : tab === "metrics" ? (
                   <MetricsPanel metrics={result.metrics} />
+                ) : tab === "fallrisk" ? (
+                  <FallRiskPanel result={result} />
                 ) : (
                   <GuidePanel />
                 )}

@@ -1,24 +1,11 @@
-## 2026-08-08T23:29:22Z
-<USER_REQUEST>
-You are Challenger 1 for Milestone 1 of gait-lab.
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/challenger_m1_r1_1.
-Your parent conversation ID is 9fa0c177-add2-4b10-b1ff-21a45d75ca2c.
-
-MANDATORY READINGS:
-- /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
-- /Users/damian/GitHub/gait-lab/PROJECT.md
-- /Users/damian/GitHub/gait-lab/.agents/teamwork_sub_orch_m1/SCOPE.md
-- Worker Handoff: /Users/damian/GitHub/gait-lab/.agents/worker_m1_r1_1/handoff.md
-
-Tasks:
-1. Empirically verify correctness and robustness of implemented scientific algorithms in `src/lib/gait/`:
-   - Test signal filtering under extreme noise, short arrays, zero vectors, NaNs.
-   - Test Zeni event detection under walking direction flips, variable stride lengths, missing landmarks.
-   - Test Zifchock Symmetry Angle under equal values, zero values, extreme asymmetry ($X_L \gg X_R$).
-   - Test Harmonic Ratio under pure sinusoids vs noisy signals.
-   - Test DTE under zero baselines, negative values, extreme degradation.
-2. Run tests and execution validation.
-3. State your explicit verdict (APPROVE or REJECT) with empirical evidence.
-
-Write a handoff report in `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_r1_1/handoff.md` and send a completion message when done.
-</USER_REQUEST>
+## 2026-08-09T21:22:37Z
+Perform empirical adversarial testing and stress testing of Milestone M1 implementation:
+1. Read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`, `/Users/damian/GitHub/gait-lab/PROJECT.md`, `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`, and `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`.
+2. Test signal smoothing functions (`savitzkyGolay5`, `kalmanFilter1D`, `smoothPoseFrames`) under extreme boundary conditions:
+   - Array lengths 0, 1, 2, 3, 4, 5, 1000.
+   - Signal inputs with NaN, Infinity, -Infinity, extreme spikes, flat zero signals, constant signals.
+   - Pose frames with missing/partial keypoint structures.
+3. Verify that `smoothPoseFrames` preserves landmark metadata and does NOT mutate original input objects or array references.
+4. Execute `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
+5. Write your handoff report in `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_r1_1/handoff.md` with explicit Verdict: `APPROVE` or `REQUEST_CHANGES`.
+6. Send a completion message back to parent with verdict summary.

@@ -123,6 +123,32 @@ export const listGaitSessions = createServerFn({ method: "GET" })
     return rows as unknown as GaitSessionRecord[];
   });
 
+/** List all gait sessions for a specific patient ID ordered by date. */
+export const listPatientSessions = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator((data: { patientId: string } | string) => data)
+  .handler(async ({ context, data }) => {
+    const patientId = typeof data === "string" ? data : data.patientId;
+    const sql = await getSql();
+    const rows = await sql`
+      SELECT
+        id, user_id as "userId", session_name as "sessionName", task_mode as "taskMode",
+        overall_score as "overallScore", stability_score as "stabilityScore",
+        rhythm_score as "rhythmScore", symmetry_score as "symmetryScore",
+        mobility_score as "mobilityScore", automaticity_score as "automaticityScore",
+        cadence_spm as "cadenceSpm", step_count as "stepCount", duration_sec as "durationSec",
+        view_angle as "viewAngle", symmetry_angle as "symmetryAngle", harmonic_ratio as "harmonicRatio",
+        metrics_json as "metricsJson", guesses_json as "guessesJson", dual_task_json as "dualTaskJson",
+        angle_analysis_json as "angleAnalysisJson", patient_meta_json as "patientMetaJson",
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM gait_sessions
+      WHERE user_id = ${context.userId}
+        AND patient_meta_json->>'patientId' = ${patientId}
+      ORDER BY created_at ASC
+    `;
+    return rows as unknown as GaitSessionRecord[];
+  });
+
 /** Fetch a single gait session by ID for the authenticated user. */
 export const getGaitSession = createServerFn({ method: "GET" })
   .middleware([authMiddleware])

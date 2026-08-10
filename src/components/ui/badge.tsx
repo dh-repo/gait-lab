@@ -10,24 +10,24 @@ export function Badge({
 }) {
   const tones = {
     neutral:
-      "bg-[var(--color-surface-2)] text-[var(--color-muted)] border-[var(--color-border)]",
+      "bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]",
     primary:
-      "bg-[color-mix(in_oklab,var(--color-primary)_10%,white)] text-[var(--color-primary)] border-[color-mix(in_oklab,var(--color-primary)_28%,var(--color-border))]",
+      "bg-[#E8F0FE] text-[#1967D2] border-[#D2E3FC]",
     accent:
-      "bg-[color-mix(in_oklab,var(--color-accent)_10%,white)] text-[var(--color-accent)] border-[color-mix(in_oklab,var(--color-accent)_28%,var(--color-border))]",
+      "bg-[#E8F0FE] text-[#1967D2] border-[#D2E3FC]",
     warn:
-      "bg-[#fffbeb] text-[var(--color-warn)] border-[#fde68a]",
+      "bg-[#FEF7E0] text-[#B06000] border-[#FCE8E6]",
     danger:
-      "bg-[#fef2f2] text-[var(--color-danger)] border-[#fecaca]",
+      "bg-[#FCE8E6] text-[#C5221F] border-[#FAD2CF]",
     success:
-      "bg-[#ecfdf5] text-[var(--color-success)] border-[#a7f3d0]",
+      "bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]",
     info:
-      "bg-[#f0f9ff] text-[var(--color-info)] border-[#bae6fd]",
+      "bg-[#E8F0FE] text-[#1967D2] border-[#D2E3FC]",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-[var(--radius-sm)] border px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium tracking-tight",
         tones[tone],
         className,
       )}

@@ -1,42 +1,41 @@
-# BRIEFING — 2026-08-09T16:42:45Z
+# BRIEFING — 2026-08-09T21:07:01Z
 
 ## Mission
-Investigate signal processing (DSP Butterworth, OLS detrending) and event detection (Zeni kinematic engine) in `src/lib/gait/signal.ts`, `events.ts`, `analysis.ts`, and UI components for Milestone 1 (M1).
+Investigate `src/lib/gait/pose.ts` and analyze the required implementation for the MediaPipe Pose Landmarker model hierarchy upgrade: tier fallback (heavy -> full -> lite), delegate fallback (GPU -> CPU), path fallback (local -> CDN), interface updates (PoseLandmarkerLike), and unit test specifications.
 
 ## 🔒 My Identity
 - Archetype: Explorer
-- Roles: Explorer 1 for Milestone 1 (M1)
+- Roles: CV Model Hierarchy Specialist, Codebase investigation, MediaPipe Pose Landmarker technical specification
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1
-- Original parent: c4f51a02-7aa3-4f8b-85a7-f91521482274
-- Milestone: M1
+- Original parent: e4978e50-e48c-4d54-93a2-5d05726d31e6
+- Milestone: M1 (Pose Landmarker Hierarchy Upgrade)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code fixes in `src/` (only write analysis/handoff in `.agents/explorer_m1_1/`)
-- Verify mathematical correctness, edge conditions, call chains, missing logic, TODOs, mock data, and edge case bugs
-- Deliver `analysis.md` and 5-component `handoff.md`
+- Read-only investigation — do NOT edit codebase files (source/tests)
+- Follow 5-component handoff report standard in `handoff.md`
+- Communicate results back to parent via `send_message`
 
 ## Current Parent
-- Conversation ID: c4f51a02-7aa3-4f8b-85a7-f91521482274
-- Updated: 2026-08-09T16:42:45Z
+- Conversation ID: e4978e50-e48c-4d54-93a2-5d05726d31e6
+- Updated: 2026-08-09T21:07:01Z
 
 ## Investigation State
-- **Explored paths**: `src/lib/gait/signal.ts`, `src/lib/gait/events.ts`, `src/lib/gait/analysis.ts`, `src/components/gait/GaitApp.tsx`, `src/components/gait/SkeletonCanvas.tsx`, `src/lib/gait/__tests__/signal.test.ts`, `src/lib/gait/__tests__/events.test.ts`
+- **Explored paths**: ORIGINAL_REQUEST.md, PROJECT.md, SCOPE.md, explorer_survey_1/analysis.md, src/lib/gait/pose.ts, src/lib/gait/PoseTracker.ts, src/lib/gait/__tests__/
 - **Key findings**:
-  - Filter order in `zeroPhaseButterworth`: 4th-order forward + 4th-order backward = 8th-order effective zero-phase filter (shifts -3dB cutoff to -6dB at fc=6Hz).
-  - OLS detrending missing from `signal.ts` (currently an unexported local helper in `analysis.ts`).
-  - Zero-state initial biquad registers (`y1=0, y2=0`) cause step transients; `padLen = 12` is short for 30 FPS.
-  - Landmark fallback in `getLandmarkX` returns 0 on missing landmarks, creating artificial step spikes (-0.5).
-  - Parabolic subframe peak refinement (`refinePeakTimestamp`) math is exact (< 3 ms precision).
-  - Test suite executes cleanly (37 test files, 296 tests passed).
-- **Unexplored areas**: None in M1 scope.
+  - Model hierarchy: `heavy` (~25MB) -> `full` (~12MB) -> `lite` (~5.7MB).
+  - Delegate fallback: `GPU` -> `CPU` for each path and tier.
+  - Path fallback: `/models/pose_landmarker_${tier}.task` -> `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${tier}/float16/1/pose_landmarker_${tier}.task`.
+  - Interface update: Add `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate` to `PoseLandmarkerLike`.
+  - Cache helper: Add `resetPoseLandmarkerCache()` for test isolation.
+  - Unit test specification created for `src/lib/gait/__tests__/pose.test.ts`.
+- **Unexplored areas**: None for F1 scope.
 
 ## Key Decisions Made
-- Completed full line-by-line inspection of DSP, events, analysis integration, and UI canvas overlay components.
-- Generated `analysis.md` and 5-component `handoff.md` with concrete fix recommendations.
+- Formulated complete technical report in `analysis.md` and 5-component handoff in `handoff.md`.
 
 ## Artifact Index
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/DISPATCH.md` — Log of received dispatch instructions
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/BRIEFING.md` — Situational awareness index
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/progress.md` — Liveness heartbeat progress log
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/analysis.md` — Comprehensive technical analysis report
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/handoff.md` — 5-component handoff report
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/DISPATCH.md — Dispatch log
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/BRIEFING.md — Working memory index
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/progress.md — Progress log
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/analysis.md — Technical analysis report
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/handoff.md — 5-component handoff report

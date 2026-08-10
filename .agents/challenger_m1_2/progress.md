@@ -1,12 +1,12 @@
-# Progress - Challenger M1 2
+# Progress Log — Challenger M1-2
 
-Last visited: 2026-08-09T12:47:00Z
+Last visited: 2026-08-09T21:11:36Z
 
-- [x] Initialized DISPATCH.md and BRIEFING.md
-- [x] Read SCOPE.md and Worker handoff.md
-- [x] Inspect implementation files and existing test suite
-- [x] Run standard build checks: npm test, npm run typecheck, npm run lint, npm run build
-- [x] Create empirical stress test harness for persistence and hydration edge cases (`src/lib/gait/__tests__/m1_challenger_2_stress.test.tsx`)
-- [x] Execute empirical stress test harness and analyze findings (11/11 stress tests passed, 347 total tests passed)
-- [x] Compile adversarial review report in handoff.md
-- [x] Send handoff message to parent orchestrator
+- [x] Received dispatch for Challenger M1-2
+- [x] Updated BRIEFING.md
+- [ ] Inspect implementation files `src/lib/gait/signal.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/pose.ts`
+- [ ] Run standard quality gates (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`)
+- [ ] Design and execute empirical stress tests and edge case harnesses on 1D landmark coordinate temporal smoothing (`savitzkyGolay5`, `smoothPoseFrames`, `kalmanFilter1D` if any)
+- [ ] Stress-test edge cases: empty signals, short signals ($N=1,2,3,4$), extreme high-frequency Gaussian noise, impulse spikes, linear trends ($y=ax+b$), constant signals, quadratic signals, missing landmarks/undefined, zero coordinates, NaN/Infinity inputs, performance on $N \ge 1000$ frames, integration with `analysis.ts`
+- [ ] Compile findings and issue explicit Verdict (`APPROVE` or `REJECT`) in `handoff.md`
+- [ ] Notify parent agent via `send_message`

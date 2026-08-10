@@ -23,4 +23,22 @@ Specific Focus Areas for Explorer 2:
    - Transitioning from rolling live buffer to complete kinematic analysis report when clinician clicks "Freeze & Analyze".
 
 Deliverable:
-Write a comprehensive technical report in `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_2/handoff.md`. Communicate via send_message to parent when complete.
+Write your deliverable in `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_2/handoff.md`. Communicate via send_message to parent when complete.
+
+## 2026-08-09T17:37:31Z
+You are Explorer 2 for Milestone 3: Session Comparison & A4 Clinical PDF Export.
+Working directory for your metadata: /Users/damian/GitHub/gait-lab/.agents/explorer_m3_2
+Please read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md` and `/Users/damian/GitHub/gait-lab/PROJECT.md`.
+
+Task:
+Formulate an exact technical blueprint for `src/components/gait/SessionComparisonView.tsx` and `src/components/gait/ClinicalReportView.tsx`:
+1. `src/components/gait/SessionComparisonView.tsx`:
+   - Restyle session comparison view into Google Workspace workstation card layout with `#1A73E8` accent header.
+   - Delta tables: High-density `.clinical-table` tables comparing Session A vs Session B with Material delta chips (`#E6F4EA` green improvement, `#FCE8E6` red regression, `#F1F3F4` neutral).
+2. `src/components/gait/ClinicalReportView.tsx`:
+   - Restyle A4 clinical report view into a Google Workspace branded document layout.
+   - Top banner: `#1A73E8` Google Workspace header bar with document title, patient ID, date, and clinician metadata.
+   - High-density clinical tables, Recharts trajectory charts, and pattern findings styled cleanly for print and PDF export (`@media print` rules).
+3. Preserve all data-testids, print triggers, export handlers, and props.
+
+Write your blueprint report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_2/handoff.md` and send a message to parent.

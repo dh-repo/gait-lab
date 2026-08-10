@@ -1,21 +1,13 @@
-## 2026-08-09T17:08:25Z
-You are Reviewer M4-1 (teamwork_preview_reviewer).
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/reviewer_m4_1.
+## 2026-08-09T21:42:02Z
+<USER_REQUEST>
+You are Reviewer 1 for Milestone 4: Dual Track E2E Verification & Forensic Integrity Sign-off.
+Working directory for your metadata: /Users/damian/GitHub/gait-lab/.agents/reviewer_m4_1
+Please read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md` and `/Users/damian/GitHub/gait-lab/PROJECT.md`.
 
-You MUST read:
-1. /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-2. /Users/damian/GitHub/gait-lab/.agents/sub_orch_m4/SCOPE.md
-3. /Users/damian/GitHub/gait-lab/.agents/worker_m4_1/handoff.md
+Task:
+Perform final global code review across the entire codebase (`src/routes/__root.tsx`, `src/styles.css`, `src/components/ui/*`, `GoogleTopAppBar.tsx`, `SideNavRail.tsx`, `WorkflowHeader.tsx`, `GaitApp.tsx`, `JointAnglesChart.tsx`, `MetricsPanel.tsx`, `CognitiveClusters.tsx`, `GuessesPanel.tsx`, `GuidePanel.tsx`, `SkeletonCanvas.tsx`, `SessionComparisonView.tsx`, `ClinicalReportView.tsx`):
+1. Verify Google Workspace / Cloud Console design tokens (`#1A73E8`, `#F8F9FA`, `#DADCE0`, `#202124`, `#5F6368`), Google Sans typography, high-density clinical tables, Google AR/CV style pose canvas, tabbed panels, and A4 PDF export layout.
+2. Run `npm run typecheck`, `npm run lint`, and `npm test`.
 
-Objective:
-Independently verify all verification commands and code quality for Milestone 4:
-- Run `npm test` and verify 100% green pass.
-- Run `npm run typecheck` and verify 0 TypeScript errors (`tsc --noEmit`).
-- Run `npm run lint` and verify 0 ESLint errors and 0 warnings (`eslint .`).
-- Run `npm run build` and verify clean exit code 0 and Vercel Nitro bundle creation.
-- Check code layout, component architecture, and adherence to project requirements in ORIGINAL_REQUEST.md.
-
-Output:
-Write your full review report to `/Users/damian/GitHub/gait-lab/.agents/reviewer_m4_1/handoff.md`.
-You MUST state your explicit verdict clearly in your handoff report: `APPROVE` or `REQUEST_CHANGES`.
-Send a completion message back with the path to your handoff report.
+Write your report to `/Users/damian/GitHub/gait-lab/.agents/reviewer_m4_1/handoff.md` with explicit verdict: `APPROVE` or `REQUEST_CHANGES`. Update progress.md in your directory and notify parent.
+</USER_REQUEST>

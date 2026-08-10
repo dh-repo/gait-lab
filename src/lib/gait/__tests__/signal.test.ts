@@ -3,7 +3,11 @@ import {
   butterworthLowPass,
   zeroPhaseButterworth,
   olsDetrend,
+  savitzkyGolay5,
+  kalmanFilter1D,
+  smoothPoseFrames,
 } from "../signal";
+import type { PoseFrame } from "../types";
 
 describe("Signal Processing Module (signal.ts)", () => {
   describe("olsDetrend (OLS Linear Detrending)", () => {
@@ -156,4 +160,153 @@ describe("Signal Processing Module (signal.ts)", () => {
     });
   });
 
+  describe("savitzkyGolay5 & smoothPoseFrames (1D Coordinate Smoothing)", () => {
+    it("preserves linear trend signals exactly across interior and boundaries", () => {
+      const n = 20;
+      const signal = Array.from({ length: n }, (_, i) => 3 * i + 5);
+      const smoothed = savitzkyGolay5(signal);
+
+      expect(smoothed.length).toBe(n);
+      for (let i = 0; i < n; i++) {
+        expect(smoothed[i]).toBeCloseTo(signal[i], 5);
+      }
     });
+
+    it("preserves constant DC signals without baseline shift", () => {
+      const signal = new Array(15).fill(42.5);
+      const smoothed = savitzkyGolay5(signal);
+
+      expect(smoothed.length).toBe(15);
+      smoothed.forEach((val) => expect(val).toBeCloseTo(42.5, 5));
+    });
+
+    it("preserves quadratic signals in interior points (k in [2, N-3])", () => {
+      const n = 15;
+      const signal = Array.from({ length: n }, (_, i) => i * i);
+      const smoothed = savitzkyGolay5(signal);
+
+      for (let i = 2; i < n - 2; i++) {
+        expect(smoothed[i]).toBeCloseTo(signal[i], 5);
+      }
+    });
+
+    it("reduces high-frequency noise variance while preserving signal peaks", () => {
+      const n = 50;
+      const clean = Array.from({ length: n }, (_, i) => Math.sin((i / 5) * Math.PI));
+      const noise = Array.from({ length: n }, (_, i) => (i % 2 === 0 ? 0.2 : -0.2));
+      const noisy = clean.map((c, i) => c + noise[i]);
+
+      const smoothed = savitzkyGolay5(noisy);
+
+      const noisyErr = noisy.reduce((sum, v, i) => sum + Math.pow(v - clean[i], 2), 0);
+      const smoothErr = smoothed.reduce((sum, v, i) => sum + Math.pow(v - clean[i], 2), 0);
+
+      expect(smoothErr).toBeLessThan(noisyErr * 0.5);
+    });
+
+    it("gracefully returns input unaltered for short sequences N < 5", () => {
+      expect(savitzkyGolay5([])).toEqual([]);
+      expect(savitzkyGolay5([1.5, 2.5])).toEqual([1.5, 2.5]);
+      expect(savitzkyGolay5([1, 2, 3, 4])).toEqual([1, 2, 3, 4]);
+
+      const shortFrames: PoseFrame[] = Array.from({ length: 3 }, (_, i) => ({
+        timeMs: i * 33,
+        landmarks: [{ x: i, y: i * 2, z: 0, visibility: 0.9 }],
+      }));
+      const result = smoothPoseFrames(shortFrames);
+      expect(result).toEqual(shortFrames);
+    });
+
+    it("smooths all 33 keypoints' 3D coordinates while preserving landmark visibility, presence, and timeMs", () => {
+      const n = 10;
+      const rawFrames: PoseFrame[] = Array.from({ length: n }, (_, i) => ({
+        timeMs: 1000 + i * 33.3,
+        landmarks: Array.from({ length: 33 }, (_, j) => ({
+          x: j * 0.01 + (i % 2 === 0 ? 0.05 : -0.05),
+          y: j * 0.02 + Math.sin(i),
+          z: j * 0.005,
+          visibility: 0.85 + j * 0.001,
+        })),
+        worldLandmarks: Array.from({ length: 33 }, (_, j) => ({
+          x: j * 0.1,
+          y: j * 0.2,
+          z: j * 0.05 + (i % 2 === 0 ? 0.02 : -0.02),
+          visibility: 0.99,
+        })),
+      }));
+
+      const smoothedFrames = smoothPoseFrames(rawFrames);
+
+      expect(smoothedFrames.length).toBe(n);
+      for (let i = 0; i < n; i++) {
+        expect(smoothedFrames[i].timeMs).toBe(rawFrames[i].timeMs);
+        expect(smoothedFrames[i].landmarks.length).toBe(33);
+        expect(smoothedFrames[i].worldLandmarks?.length).toBe(33);
+
+        for (let j = 0; j < 33; j++) {
+          const origLm = rawFrames[i].landmarks[j];
+          const smLm = smoothedFrames[i].landmarks[j];
+
+          expect(smLm.visibility).toBe(origLm.visibility);
+          expect(Number.isFinite(smLm.x)).toBe(true);
+          expect(Number.isFinite(smLm.y)).toBe(true);
+          expect(Number.isFinite(smLm.z)).toBe(true);
+        }
+      }
+    });
+
+    it("supports method 'kalman' and method 'none'", () => {
+      const rawFrames: PoseFrame[] = Array.from({ length: 10 }, (_, i) => ({
+        timeMs: i * 33,
+        landmarks: [{ x: Math.sin(i) + (i === 5 ? 10 : 0), y: i, z: 0 }],
+      }));
+
+      const kalmanSmoothed = smoothPoseFrames(rawFrames, "kalman");
+      expect(kalmanSmoothed.length).toBe(10);
+      expect(kalmanSmoothed[5].landmarks[0].x).toBeLessThan(rawFrames[5].landmarks[0].x);
+
+      const unsmoothed = smoothPoseFrames(rawFrames, "none");
+      expect(unsmoothed).toEqual(rawFrames);
+    });
+
+    it("does not mutate original PoseFrame input array or landmarks", () => {
+      const originalX = 100;
+      const rawFrames: PoseFrame[] = Array.from({ length: 6 }, (_, i) => ({
+        timeMs: i * 33,
+        landmarks: [{ x: i === 3 ? originalX : i, y: 0, z: 0 }],
+      }));
+
+      const copyBefore = JSON.parse(JSON.stringify(rawFrames));
+      smoothPoseFrames(rawFrames, "savitzky-golay");
+      expect(rawFrames).toEqual(copyBefore);
+    });
+  });
+
+  describe("kalmanFilter1D (1D Scalar State-Space Kalman Filter)", () => {
+    it("tracks state and attenuates measurement noise", () => {
+      const n = 60;
+      const trueState = Array.from({ length: n }, (_, i) => Math.sin((2 * Math.PI * i) / 30));
+      const noisySignal = trueState.map((v, i) => v + (i % 2 === 0 ? 0.15 : -0.15));
+
+      const filtered = kalmanFilter1D(noisySignal, 0.01, 0.05);
+      expect(filtered.length).toBe(n);
+      expect(filtered.every(Number.isFinite)).toBe(true);
+    });
+
+    it("handles occlusion coasting over NaN and Infinity values", () => {
+      const signal = [1.0, 1.1, 1.2, NaN, NaN, Infinity, 1.6, 1.7];
+      const filtered = kalmanFilter1D(signal);
+
+      expect(filtered.length).toBe(signal.length);
+      expect(filtered.every((v) => Number.isFinite(v))).toBe(true);
+      // Occlusion coasting should hold valid finite state during NaNs
+      expect(filtered[3]).toBeCloseTo(filtered[2], 1);
+      expect(filtered[4]).toBeCloseTo(filtered[2], 1);
+      expect(filtered[5]).toBeCloseTo(filtered[2], 1);
+    });
+
+    it("returns empty array for empty inputs", () => {
+      expect(kalmanFilter1D([])).toEqual([]);
+    });
+  });
+});

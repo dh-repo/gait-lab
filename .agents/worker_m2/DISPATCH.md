@@ -1,19 +1,34 @@
-## 2026-08-09T10:59:55Z
-You are teamwork_preview_worker for gait-lab executing Milestone M2.
-Your working directory is `/Users/damian/GitHub/gait-lab/.agents/worker_m2`.
+## 2026-08-09T21:28:33Z
+You are Worker 1 for Milestone 2: High-Density Tabbed Clinical Analytics & Recharts Trajectory Charts.
+Working directory for your metadata: /Users/damian/GitHub/gait-lab/.agents/worker_m2
 
 MANDATORY INTEGRITY WARNING:
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
 
-Context & Instructions:
-1. Read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md` and the survey findings in `/Users/damian/GitHub/gait-lab/.agents/explorer_test_assets_survey/analysis.md`.
-2. Expand the automated test suite by creating comprehensive adversarial and edge-case stress test files under `src/lib/gait/__tests__/` or `tests/` covering 6 major synthetic gait categories:
-   - Category 1: Severe Landmark Jitter & Salt-and-Pepper Noise (single-frame coordinate spikes, joint-correlated noise, coordinate clipping).
-   - Category 2: Variable Frame Rates & Frame Drop Rates (burst drops, MediaPipe UI thread lag, duplicate timestamps, unordered timestamps).
-   - Category 3: Severe Landmark Occlusion (multi-frame total pose loss, unilateral leg landmark missingness, torso landmark loss).
-   - Category 4: Extreme Gait Asymmetry (hemiparetic gait 80/20 stance/swing split, prosthetic stiff-knee gait, extreme step length disparity).
-   - Category 5: Micro-Steps & Parkinsonian Gait (shuffling gait <0.015 step length, festinating gait with accelerating cadence & decaying stride, freezing of gait FOG episodes).
-   - Category 6: High-Frequency Camera Shake (frame-wide 2D translational jitter, rotational camera tilt +/- 15 deg, rapid scale/zoom shifts).
-3. If any test uncovers edge cases causing uncaught runtime exceptions, NaNs, or infinite loops in `src/lib/gait/` (signal processing, event detection, symmetry, smoothness, DTE, analysis), update the underlying TypeScript implementation to handle the edge case safely with robust fallbacks.
-4. Execute `npm test`, `npm run typecheck`, and `npm run lint`. Ensure all existing 277 tests + all newly added adversarial stress tests pass 100% with 0 errors.
-5. Deliver handoff report to `/Users/damian/GitHub/gait-lab/.agents/worker_m2/handoff.md` and send message to parent with summary.
+Please read:
+- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
+- `/Users/damian/GitHub/gait-lab/PROJECT.md`
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/handoff.md` (Blueprint for JointAnglesChart.tsx)
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_2/handoff.md` (Blueprint for MetricsPanel.tsx, CognitiveClusters.tsx, GuessesPanel.tsx, GuidePanel.tsx)
+
+Task Instructions:
+1. Implement `src/components/gait/JointAnglesChart.tsx`:
+   - Apply the exact drop-in implementation from `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/handoff.md`.
+2. Implement `src/components/gait/MetricsPanel.tsx`:
+   - Restyle spatio-temporal parameter cards/grids into high-density `.clinical-table` tables with 32px row height, `#F8F9FA` headers, `#DADCE0` gridlines, tabular numbers, and Material status chips (`#E8F0FE`, `#E6F4EA`, `#FEF7E0`, `#FCE8E6`).
+   - Preserve all four band headings ("Directly measured", "Uncalibrated indices", "Composite research indices (unvalidated weighting)", "Recording context (not scored)"), captions, ScoreRings, stride count basis text, and data-testids.
+3. Implement `src/components/gait/CognitiveClusters.tsx`:
+   - Restyle finding cluster cards into Google Workspace card containers with Material status badges (`#E6F4EA`, `#FEF7E0`, `#FCE8E6`, `#E8F0FE`).
+   - Preserve all cluster headers (`cluster-spatiotemporal`, `cluster-symmetry`, `cluster-stability`, `cluster-dualtask`), status badges (`status-badge-pace`, `status-badge-symmetry`, `status-badge-stability`, `status-badge-dualtask`), ARIA roles/controls, and text fallbacks.
+4. Implement `src/components/gait/GuessesPanel.tsx`:
+   - Restyle hypothesis cards into Google Workspace recommendation cards with Material severity badges and DTE stat tiles.
+5. Implement `src/components/gait/GuidePanel.tsx`:
+   - Restyle clinician guide into Google Workspace documentation cards.
+
+6. Execute full verification suite:
+   - Run `npm run typecheck`
+   - Run `npm run lint`
+   - Run `npm test`
+   - Run `npm run build`
+
+Document command outputs, diffs, and test results in `/Users/damian/GitHub/gait-lab/.agents/worker_m2/handoff.md`. Update progress.md in your directory and send a completion message to parent.

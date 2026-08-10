@@ -1,23 +1,28 @@
-## 2026-08-09T12:45:25Z
+# Dispatch for Forensic Auditor M1-1
 
-You are Forensic Auditor 1 for Milestone 1 (M1): Core Engine Integration & Polish (R1).
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/auditor_m1_1.
-Create your folder /Users/damian/GitHub/gait-lab/.agents/auditor_m1_1 if needed.
+**Role**: teamwork_preview_auditor (Forensic Integrity Auditor)
+**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/auditor_m1_1
 
-Authoritative source of truth & requirements:
-- /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md
-- Worker Handoff: /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md
+## Objective
+Perform independent forensic integrity audit on Milestone M1 implementations across `src/lib/gait/pose.ts`, `src/lib/gait/signal.ts`, `src/lib/gait/types.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/__tests__/pose.test.ts`, and `src/lib/gait/__tests__/signal.test.ts`:
+1. Verify genuine implementation of MediaPipe model hierarchy (`heavy` -> `full` -> `lite`), GPU/CPU delegates, and local/CDN paths in `pose.ts`. Check that test cases do not hardcode mock return values bypassing actual candidate loops.
+2. Verify genuine implementation of 5-point Savitzky-Golay convolution kernel (`1/35 * [-3, 12, 17, 12, -3]`) and boundary reflection padding equations in `signal.ts`.
+3. Verify that `smoothPoseFrames` is genuinely integrated at the top of `computeGaitMetricsCore` in `analysis.ts` and actually operates on keypoint trajectories.
+4. Execute `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+5. Check for any cheating, dummy/facade implementations, or hardcoded test expected values.
 
-Your task:
-1. Perform forensic integrity audit on all changes made for M1 (`src/lib/gait/types.ts`, `src/lib/gait/signal.ts`, `src/lib/gait/events.ts`, `src/lib/gait/dte.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/persistence.ts`, `migrations/0002_gait_sessions.sql`, `src/components/gait/GaitApp.tsx`, `src/components/gait/ReportPanel.tsx`, `src/components/gait/ClinicalReportView.tsx`, `src/components/gait/CognitiveClusters.tsx`, `src/components/gait/SessionHistoryDrawer.tsx`).
-2. Perform systematic checks:
-   - Check for hardcoded test results, expected output mocks, or shortcut return values.
-   - Check for dummy/facade implementations that simulate calculation without doing real math/DSP.
-   - Check for bypassed validation, suppressed errors, or mock persistence calls.
-   - Check for genuine DSP filtering (`olsDetrend`, `zeroPhaseButterworth`), genuine Zeni event detection, genuine Zifchock symmetry angle calculation, genuine Plummer & Eskes DTE taxonomy, genuine joint angle normalization & Perry & Burnfield bounds, and genuine PostgreSQL query execution.
-3. Run verification commands (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`).
+## Authoritative Reference Inputs
+- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
+- `/Users/damian/GitHub/gait-lab/PROJECT.md`
+- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
+- `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`
 
-Output:
-Write your forensic audit report and verdict (CLEAN or INTEGRITY VIOLATION) to `/Users/damian/GitHub/gait-lab/.agents/auditor_m1_1/handoff.md`.
-Notify the caller via `send_message` when done.
+## Output Requirements
+Deliver `handoff.md` with explicit Audit Verdict (`CLEAN` or `INTEGRITY_VIOLATION`). Communicate completion via `send_message`.
+
+## 2026-08-09T21:11:28Z
+Perform independent forensic integrity audit on Milestone M1 implementations across `src/lib/gait/pose.ts`, `src/lib/gait/signal.ts`, `src/lib/gait/types.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/__tests__/pose.test.ts`, and `src/lib/gait/__tests__/signal.test.ts`.
+Check for genuine logic implementation, absence of hardcoded test results, facade implementations, or integrity violations.
+Run `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
+Deliver `handoff.md` with explicit Audit Verdict (`CLEAN` or `INTEGRITY_VIOLATION`) and send a message to parent upon completion.
+

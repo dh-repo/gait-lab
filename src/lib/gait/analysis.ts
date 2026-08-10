@@ -1,4 +1,4 @@
-import { olsDetrend, zeroPhaseButterworth } from "./signal";
+import { olsDetrend, zeroPhaseButterworth, smoothPoseFrames } from "./signal";
 import { detectGaitEventsZeni, refinePeakTimestamp, type GaitEvent } from "./events";
 import { symmetryAngle } from "./symmetry";
 import { calculateDTE } from "./dte";
@@ -20,11 +20,13 @@ import {
 import type {
   AnalysisResult,
   DualTaskCost,
+  GaitAnalysisOptions,
   GaitMetrics,
   Landmark,
   PatientMetadata,
   PoseFrame,
   ReliabilityBounds,
+  SmoothingMethod,
   TaskMode,
   TrackedPerson,
   ViewAngle,
@@ -239,10 +241,18 @@ function buildReliabilityBounds(
   };
 }
 
-function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
-  if (frames.length < 5) {
-    return emptyMetrics(frames);
+function computeGaitMetricsCore(
+  rawFrames: PoseFrame[],
+  smoothingMethod: SmoothingMethod = "savitzky-golay",
+): GaitMetrics {
+  if (rawFrames.length < 5) {
+    return emptyMetrics(rawFrames);
   }
+
+  const frames =
+    smoothingMethod === "none"
+      ? rawFrames
+      : smoothPoseFrames(rawFrames, smoothingMethod);
 
   const { angle, confidence } = detectViewAngle(frames);
   const t0 = frames[0].timeMs;
@@ -315,8 +325,10 @@ function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
   for (let i = 1; i < heelStrikes.length; i++) {
     stepIntervals.push(heelStrikes[i].timeSec - heelStrikes[i - 1].timeSec);
   }
+  const { steadyStrides } = filterSteadyStateStrides(stepIntervals);
+  const cvIntervals = steadyStrides.length >= 2 ? steadyStrides : stepIntervals;
   const avgStepTimeSec = mean(stepIntervals) || 0;
-  const stepTimeCV = avgStepTimeSec > 1e-6 ? std(stepIntervals) / avgStepTimeSec : 0;
+  const stepTimeCV = avgStepTimeSec > 1e-6 ? std(cvIntervals) / avgStepTimeSec : 0;
 
   // Separate left and right step time intervals for Zifchock's Symmetry Angle (SA)
   const leftIntervals: number[] = [];
@@ -518,8 +530,16 @@ function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
   return res;
 }
 
-export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
-  const full = computeGaitMetricsCore(frames);
+export function computeGaitMetrics(
+  frames: PoseFrame[],
+  options?: GaitAnalysisOptions | SmoothingMethod,
+): GaitMetrics {
+  const smoothingMethod: SmoothingMethod =
+    typeof options === "string"
+      ? options
+      : options?.smoothingMethod ?? "savitzky-golay";
+
+  const full = computeGaitMetricsCore(frames, smoothingMethod);
   if (frames.length < 10) {
     return full;
   }
@@ -528,8 +548,8 @@ export function computeGaitMetrics(frames: PoseFrame[]): GaitMetrics {
   const half1Frames = frames.slice(0, halfN);
   const half2Frames = frames.slice(halfN);
 
-  const m1 = computeGaitMetricsCore(half1Frames);
-  const m2 = computeGaitMetricsCore(half2Frames);
+  const m1 = computeGaitMetricsCore(half1Frames, "none");
+  const m2 = computeGaitMetricsCore(half2Frames, "none");
 
   const ci: Record<string, ReliabilityBounds> = {
     cadenceSpm: buildReliabilityBounds(full.cadenceSpm, m1.cadenceSpm, m2.cadenceSpm),
@@ -618,8 +638,15 @@ function nearestIndex(ts: number[], t: number): number {
 
 
 
+export type BiometricSignature = {
+  aspectRatio: number;
+  torsoLegRatio: number;
+  shoulderHipRatio: number;
+};
+
 export type PersonTrack = {
   id: number;
+  firstHip?: Landmark;
   lastHip: Landmark;
   frames: number;
   box: ReturnType<typeof boundingBox>;
@@ -627,38 +654,160 @@ export type PersonTrack = {
   areaSum: number;
   /** Sum of hip y (image coords) — lower/more bottom of frame often = nearer subject */
   hipYSum: number;
+  /** Velocity vector for motion extrapolation (dx, dy per sample frame step) */
+  velocity?: { vx: number; vy: number };
+  /** Biometric signature derived from pose landmarks */
+  biometrics?: BiometricSignature;
+  /** Tracked sample frame indices */
+  frameIndices?: number[];
+  firstFrameIndex?: number;
+  lastFrameIndex?: number;
 };
 
-/** Multi-person tracking via hip-center nearest neighbor + size-aware ranking. */
+export function computeBiometricSignature(landmarks: Landmark[]): BiometricSignature {
+  const box = boundingBox(landmarks);
+  const h = Math.max(0.01, box.h);
+  const w = Math.max(0.01, box.w);
+  const aspectRatio = w / h;
+
+  const leftShoulder = landmarks[11];
+  const rightShoulder = landmarks[12];
+  const leftHip = landmarks[23];
+  const rightHip = landmarks[24];
+  const leftAnkle = landmarks[27];
+  const rightAnkle = landmarks[28];
+
+  let torsoLegRatio = 0.7;
+  let shoulderHipRatio = 1.2;
+
+  if (leftShoulder && rightShoulder && leftHip && rightHip) {
+    const sMidX = (leftShoulder.x + rightShoulder.x) / 2;
+    const sMidY = (leftShoulder.y + rightShoulder.y) / 2;
+    const hMidX = (leftHip.x + rightHip.x) / 2;
+    const hMidY = (leftHip.y + rightHip.y) / 2;
+
+    const torsoLen = Math.hypot(sMidX - hMidX, sMidY - hMidY);
+
+    let legLen = h - torsoLen;
+    if (leftAnkle && rightAnkle) {
+      const aMidX = (leftAnkle.x + rightAnkle.x) / 2;
+      const aMidY = (leftAnkle.y + rightAnkle.y) / 2;
+      legLen = Math.hypot(hMidX - aMidX, hMidY - aMidY);
+    }
+    legLen = Math.max(0.01, legLen);
+    torsoLegRatio = torsoLen / legLen;
+
+    const shoulderW = Math.hypot(leftShoulder.x - rightShoulder.x, leftShoulder.y - rightShoulder.y);
+    const hipW = Math.hypot(leftHip.x - rightHip.x, leftHip.y - rightHip.y);
+    shoulderHipRatio = shoulderW / Math.max(0.01, hipW);
+  }
+
+  return { aspectRatio, torsoLegRatio, shoulderHipRatio };
+}
+
+export function biometricDistance(a?: BiometricSignature, b?: BiometricSignature): number {
+  if (!a || !b) return 0;
+  const dAspect = Math.abs(a.aspectRatio - b.aspectRatio) / Math.max(0.1, a.aspectRatio, b.aspectRatio);
+  const dTorsoLeg = Math.abs(a.torsoLegRatio - b.torsoLegRatio) / Math.max(0.1, a.torsoLegRatio, b.torsoLegRatio);
+  const dShoulderHip = Math.abs(a.shoulderHipRatio - b.shoulderHipRatio) / Math.max(0.1, a.shoulderHipRatio, b.shoulderHipRatio);
+
+  return dAspect * 0.35 + dTorsoLeg * 0.35 + dShoulderHip * 0.30;
+}
+
+/** Multi-person tracking via velocity motion extrapolation, biometric signature matching, and spatial gating. */
 export function matchPeople(
   detections: Landmark[][],
   tracks: PersonTrack[],
   nextId: { value: number },
+  frameIndex?: number,
 ): number[] {
   const assigned = new Array(detections.length).fill(-1);
   const usedTracks = new Set<number>();
+  const currentFrame = frameIndex ?? (tracks.length > 0 ? Math.max(...tracks.map(t => t.lastFrameIndex ?? 0)) + 1 : 0);
 
-  const pairs: { di: number; ti: number; d: number }[] = [];
+  const pairs: { di: number; ti: number; cost: number; spatialDist: number; bioDist: number; isDirectionFlip: boolean }[] = [];
   for (let di = 0; di < detections.length; di++) {
     const hip = hipCenter(detections[di]);
+    const bio = computeBiometricSignature(detections[di]);
+
     for (let ti = 0; ti < tracks.length; ti++) {
-      const d = dist(hip, tracks[ti].lastHip);
-      pairs.push({ di, ti, d });
+      const trk = tracks[ti];
+      const gap = Math.max(1, currentFrame - (trk.lastFrameIndex ?? (currentFrame - 1)));
+      const vx = trk.velocity?.vx ?? 0;
+      const vy = trk.velocity?.vy ?? 0;
+      const predHip = {
+        x: trk.lastHip.x + vx * gap,
+        y: trk.lastHip.y + vy * gap,
+        z: 0,
+      };
+
+      const distPred = dist(hip, predHip);
+      const distLast = dist(hip, trk.lastHip);
+      const minDist = Math.min(distPred, distLast);
+      const isDirectionFlip = distLast < distPred * 0.8;
+      const bioDist = trk.biometrics ? biometricDistance(bio, trk.biometrics) : 0;
+
+      const cost = minDist + bioDist * 0.25;
+      pairs.push({ di, ti, cost, spatialDist: minDist, bioDist, isDirectionFlip });
     }
   }
-  pairs.sort((a, b) => a.d - b.d);
+
+  pairs.sort((a, b) => a.cost - b.cost);
+
   for (const p of pairs) {
     if (assigned[p.di] !== -1 || usedTracks.has(p.ti)) continue;
-    if (p.d > 0.22) continue;
-    assigned[p.di] = tracks[p.ti].id;
+    const trk = tracks[p.ti];
+    const gap = Math.max(1, currentFrame - (trk.lastFrameIndex ?? (currentFrame - 1)));
+
+    const vx = trk.velocity?.vx ?? 0;
+    const vy = trk.velocity?.vy ?? 0;
+    const speed = Math.hypot(vx, vy);
+
+    const maxAllowedDist = 0.22 + 0.15 * Math.min(1.0, speed) + Math.min(0.20, (gap - 1) * 0.08) + (p.bioDist < 0.25 ? 0.08 : 0);
+    const maxAllowedCost = Math.max(0.45, maxAllowedDist + 0.10);
+
+    if (p.spatialDist > maxAllowedDist || p.cost > maxAllowedCost) continue;
+
+    assigned[p.di] = trk.id;
     usedTracks.add(p.ti);
+
     const box = boundingBox(detections[p.di]);
     const hip = hipCenter(detections[p.di]);
-    tracks[p.ti].lastHip = hip;
-    tracks[p.ti].frames += 1;
-    tracks[p.ti].box = box;
-    tracks[p.ti].areaSum += box.w * box.h;
-    tracks[p.ti].hipYSum += hip.y;
+    const bio = computeBiometricSignature(detections[p.di]);
+
+    const stepVx = (hip.x - trk.lastHip.x) / gap;
+    const stepVy = (hip.y - trk.lastHip.y) / gap;
+    const oldVx = trk.velocity?.vx ?? 0;
+    const oldVy = trk.velocity?.vy ?? 0;
+
+    const dotProduct = oldVx * stepVx + oldVy * stepVy;
+    const isReversal = dotProduct < 0 || p.isDirectionFlip;
+    const oldWeight = isReversal ? 0.2 : 0.5;
+    const stepWeight = 1.0 - oldWeight;
+
+    trk.velocity = {
+      vx: oldWeight * oldVx + stepWeight * stepVx,
+      vy: oldWeight * oldVy + stepWeight * stepVy,
+    };
+
+    if (trk.biometrics) {
+      trk.biometrics = {
+        aspectRatio: 0.7 * trk.biometrics.aspectRatio + 0.3 * bio.aspectRatio,
+        torsoLegRatio: 0.7 * trk.biometrics.torsoLegRatio + 0.3 * bio.torsoLegRatio,
+        shoulderHipRatio: 0.7 * trk.biometrics.shoulderHipRatio + 0.3 * bio.shoulderHipRatio,
+      };
+    } else {
+      trk.biometrics = bio;
+    }
+
+    trk.lastHip = hip;
+    trk.frames += 1;
+    trk.box = box;
+    trk.areaSum += box.w * box.h;
+    trk.hipYSum += hip.y;
+    trk.lastFrameIndex = currentFrame;
+    if (!trk.frameIndices) trk.frameIndices = [];
+    trk.frameIndices.push(currentFrame);
   }
 
   for (let di = 0; di < detections.length; di++) {
@@ -667,34 +816,172 @@ export function matchPeople(
     assigned[di] = id;
     const box = boundingBox(detections[di]);
     const hip = hipCenter(detections[di]);
+    const bio = computeBiometricSignature(detections[di]);
     tracks.push({
       id,
+      firstHip: hip,
       lastHip: hip,
       frames: 1,
       box,
       areaSum: box.w * box.h,
       hipYSum: hip.y,
+      biometrics: bio,
+      firstFrameIndex: currentFrame,
+      lastFrameIndex: currentFrame,
+      frameIndices: [currentFrame],
+      velocity: { vx: 0, vy: 0 },
     });
   }
   return assigned;
+}
+
+/**
+ * Merges fragmented tracklets belonging to the same subject (e.g. when walking across
+ * frame causes track loss across sample steps, or momentary occlusion).
+ */
+export function mergeFragmentedTracks(tracks: PersonTrack[]): PersonTrack[] {
+  if (tracks.length <= 1) return tracks;
+
+  const result: PersonTrack[] = tracks.map((t) => ({
+    ...t,
+    frameIndices: [...(t.frameIndices || [])],
+  }));
+
+  let mergedAny = true;
+  while (mergedAny) {
+    mergedAny = false;
+
+    for (let i = 0; i < result.length; i++) {
+      for (let j = i + 1; j < result.length; j++) {
+        const t1 = result[i];
+        const t2 = result[j];
+
+        const first1 = t1.firstFrameIndex ?? 0;
+        const first2 = t2.firstFrameIndex ?? 0;
+
+        const [earlier, later] = first1 <= first2 ? [t1, t2] : [t2, t1];
+        const eLast = earlier.lastFrameIndex ?? 0;
+        const lFirst = later.firstFrameIndex ?? 0;
+
+        // Check frame index overlap (allow max 1 overlapping frame)
+        const set1 = new Set(earlier.frameIndices || []);
+        let overlap = 0;
+        for (const idx of later.frameIndices || []) {
+          if (set1.has(idx)) overlap++;
+        }
+        if (overlap > 1) continue;
+
+        // Scale-invariant biometric distance gating
+        const bioDist = biometricDistance(earlier.biometrics, later.biometrics);
+        if (bioDist > 0.35) continue;
+
+        const frameGap = Math.max(1, lFirst - eLast);
+
+        // Forward and backward velocity projections
+        const eVx = earlier.velocity?.vx ?? 0;
+        const eVy = earlier.velocity?.vy ?? 0;
+        const predHipForward = {
+          x: earlier.lastHip.x + eVx * frameGap,
+          y: earlier.lastHip.y + eVy * frameGap,
+        };
+
+        const lVx = later.velocity?.vx ?? 0;
+        const lVy = later.velocity?.vy ?? 0;
+        const predHipBackward = {
+          x: later.firstHip ? later.firstHip.x - lVx * frameGap : later.lastHip.x - lVx * frameGap,
+          y: later.firstHip ? later.firstHip.y - lVy * frameGap : later.lastHip.y - lVy * frameGap,
+        };
+
+        // Bidirectional endpoint spatial distance checks for U-turns / direction flips
+        const eLastHip = earlier.lastHip;
+        const eFirstHip = earlier.firstHip ?? earlier.lastHip;
+        const lFirstHip = later.firstHip ?? later.lastHip;
+        const lLastHip = later.lastHip;
+
+        const dLastFirst = Math.hypot(eLastHip.x - lFirstHip.x, eLastHip.y - lFirstHip.y);
+        const dFirstLast = Math.hypot(eFirstHip.x - lLastHip.x, eFirstHip.y - lLastHip.y);
+        const dLastLast = Math.hypot(eLastHip.x - lLastHip.x, eLastHip.y - lLastHip.y);
+        const dFirstFirst = Math.hypot(eFirstHip.x - lFirstHip.x, eFirstHip.y - lFirstHip.y);
+
+        const directEndpointDist = Math.min(dLastFirst, dFirstLast, dLastLast, dFirstFirst);
+
+        const gapDistForward = Math.hypot(lFirstHip.x - predHipForward.x, lFirstHip.y - predHipForward.y);
+        const gapDistBackward = Math.hypot(eLastHip.x - predHipBackward.x, eLastHip.y - predHipBackward.y);
+
+        const minDist = Math.min(gapDistForward, gapDistBackward, directEndpointDist);
+
+        // Maximum allowed spatial distance based on gap duration
+        const maxDist = 0.28 + Math.min(0.25, frameGap * 0.05);
+
+        if (minDist <= maxDist && (bioDist < 0.32 || minDist <= 0.25)) {
+          // Store frame counts before mutation for correct weighted averaging
+          const w1 = earlier.frames;
+          const w2 = later.frames;
+
+          earlier.frames += later.frames;
+          earlier.areaSum += later.areaSum;
+          earlier.hipYSum += later.hipYSum;
+
+          if ((later.lastFrameIndex ?? 0) >= (earlier.lastFrameIndex ?? 0)) {
+            earlier.lastHip = later.lastHip;
+            earlier.box = later.box;
+            earlier.velocity = later.velocity;
+            earlier.lastFrameIndex = later.lastFrameIndex;
+          }
+          if ((later.firstFrameIndex ?? 0) < (earlier.firstFrameIndex ?? 0)) {
+            earlier.firstHip = later.firstHip ?? later.lastHip;
+            earlier.firstFrameIndex = later.firstFrameIndex;
+          }
+
+          // Weighted average of scale-invariant biometric ratios
+          if (earlier.biometrics && later.biometrics) {
+            const totalW = w1 + w2;
+            const eb = earlier.biometrics as any;
+            const lb = later.biometrics as any;
+
+            earlier.biometrics = {
+              aspectRatio: (eb.aspectRatio * w1 + lb.aspectRatio * w2) / totalW,
+              torsoLegRatio: ((eb.torsoLegRatio ?? eb.torsoRatio ?? 0.35) * w1 + (lb.torsoLegRatio ?? lb.torsoRatio ?? 0.35) * w2) / totalW,
+              shoulderHipRatio: ((eb.shoulderHipRatio ?? eb.shoulderWidthRatio ?? 0.25) * w1 + (lb.shoulderHipRatio ?? lb.shoulderWidthRatio ?? 0.25) * w2) / totalW,
+            };
+          }
+
+          earlier.frameIndices = Array.from(
+            new Set([...(earlier.frameIndices || []), ...(later.frameIndices || [])])
+          ).sort((a, b) => a - b);
+
+          result.splice(result.indexOf(later), 1);
+          mergedAny = true;
+          break;
+        }
+      }
+      if (mergedAny) break;
+    }
+  }
+
+  return result;
 }
 
 /** Score tracks: prefer persistent, large, nearer (lower in frame) subjects — typical handheld follow shot. */
 export function trackPriorityScore(t: PersonTrack): number {
   const meanArea = t.areaSum / Math.max(1, t.frames);
   const meanHipY = t.hipYSum / Math.max(1, t.frames);
-  return t.frames * 3 + meanArea * 80 + meanHipY * 8;
+  const speed = Math.hypot(t.velocity?.vx ?? 0, t.velocity?.vy ?? 0);
+  return t.frames * 3 + meanArea * 80 + meanHipY * 8 + Math.min(1.0, speed * 10) * 20;
 }
 
 export function tracksToPeople(
   tracks: PersonTrack[],
   sampleIndex: number,
 ): TrackedPerson[] {
-  return tracks
-    .filter((t) => t.frames >= 1)
+  const consolidated = mergeFragmentedTracks(tracks);
+  const maxFrames = Math.max(1, ...consolidated.map((t) => t.frames));
+
+  return consolidated
+    .filter((t) => t.frames >= 2 || (maxFrames <= 2 && t.frames >= 1))
     .sort((a, b) => trackPriorityScore(b) - trackPriorityScore(a))
     .map((t, i) => ({
-      id: t.id,
+      id: i + 1,
       color: PERSON_COLORS[i % PERSON_COLORS.length],
       sampleBox: t.box,
       sampleFrameIndex: sampleIndex,
@@ -744,8 +1031,9 @@ export function analyzeGait(
   taskMode: TaskMode = "single",
   dualTaskCost?: DualTaskCost,
   patientMeta?: PatientMetadata,
+  options?: GaitAnalysisOptions | SmoothingMethod,
 ): AnalysisResult {
-  const metrics = computeGaitMetrics(frames);
+  const metrics = computeGaitMetrics(frames, options);
   const angleAnalysis = computeGaitAngleAnalysis(
     frames,
     metrics.stepEvents || [],
@@ -774,3 +1062,56 @@ export function analyzeGait(
     ],
   };
 }
+
+export type Stride = {
+  durationSec: number;
+  [key: string]: unknown;
+};
+
+export function filterSteadyStateStrides<T extends number | Stride>(
+  strideIntervals: T[]
+): {
+  steadyStrides: T[];
+  excludedCount: number;
+} {
+  if (!strideIntervals || strideIntervals.length === 0) {
+    return { steadyStrides: [], excludedCount: 0 };
+  }
+  if (strideIntervals.length < 3) {
+    return { steadyStrides: [...strideIntervals], excludedCount: 0 };
+  }
+
+  const getDuration = (item: T): number =>
+    typeof item === "number" ? item : (item as Stride).durationSec ?? 0;
+
+  const durations = strideIntervals.map(getDuration);
+  const sorted = [...durations].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+
+  let startIndex = 0;
+  let endIndex = strideIntervals.length - 1;
+
+  while (
+    startIndex < endIndex &&
+    median > 0 &&
+    Math.abs(durations[startIndex] - median) / median > 0.25
+  ) {
+    startIndex++;
+  }
+
+  while (
+    endIndex > startIndex &&
+    median > 0 &&
+    Math.abs(durations[endIndex] - median) / median > 0.25
+  ) {
+    endIndex--;
+  }
+
+  const steadyStrides = strideIntervals.slice(startIndex, endIndex + 1);
+  const excludedCount = strideIntervals.length - steadyStrides.length;
+
+  return { steadyStrides, excludedCount };
+}
+
+
+

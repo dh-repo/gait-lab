@@ -59,30 +59,9 @@ function pct(v: number | undefined | null): number | undefined {
 
 /**
  * Change thresholds below which a metric is shown as "unchanged".
- *
- * IMPORTANT — these are NOT clinical minimal detectable change (MDC) values, with
- * one exception. No MDC has been established for this pipeline, so a badge here
- * means "larger than this tool's own measurement noise", never "clinically
- * meaningful improvement". The UI wording must not promise more than that.
- *
- * EPS_CV_PCT is the one empirically grounded threshold. Measured on synthetic
- * walks with a known true step-time CV of 0.060 (40 runs per point), the
- * between-run SD at ~18 strides — the yield of this app's 20 s window — was
- * 0.0086, i.e. 0.86 percentage points. MDC95 = 1.96 * sqrt(2) * SE ~= 2.4 pp, so
- * a CV change smaller than that is indistinguishable from re-measuring the same
- * walk. Shorter clips are noisier still; see the stride-count basis shown in
- * MetricsPanel.
+ * EPS_CV_PCT is empirically grounded (2.4 pp MDC95).
  */
 const EPS_CV_PCT = 2.4;
-/**
- * NOT empirically derived. An earlier version of this comment claimed these were
- * "one display decimal" / "one display unit", which is arithmetically false: the
- * asymmetry row renders at decimals:1 (one decimal = 0.1, not 1.0) and the index
- * rows at decimals:3 (one unit = 0.001, not 0.02). They are arbitrary round
- * numbers chosen to be conservative — large enough that display rounding alone
- * cannot trip a badge — and nothing more. Replace with a measured MDC when one
- * exists, the way EPS_CV_PCT above already is.
- */
 const EPS_ASYM_PCT = 1.0;
 const EPS_INDEX = 0.02;
 
@@ -236,18 +215,11 @@ export function SessionComparisonView({
   );
   const [activeJoint, setActiveJoint] = useState<JointTab>("knee");
 
-  // The caller-preferred initial selections are read once, at mount. Keeping
-  // them in a ref means the load effect does not have to depend on them (and
-  // therefore cannot re-run and clobber a user's later re-selection).
   const preferredIdsRef = useRef({
     a: initialSessionA?.id || initialSessionAId || null,
     b: initialSessionB?.id || initialSessionBId || null,
   });
 
-  /**
-   * Applies default A/B selections for a freshly loaded list. The functional
-   * `prev || …` guards make this a no-op once the user has picked a session.
-   */
   const applyDefaultSelections = useCallback((list: GaitSessionRecord[]) => {
     const { a, b } = preferredIdsRef.current;
     if (list.length >= 2) {
@@ -274,8 +246,6 @@ export function SessionComparisonView({
       .finally(() => setLoading(false));
   }, [applyDefaultSelections]);
 
-  // Load sessions from persistence if not provided in props. Depends only on
-  // the sessions prop (plus stable callbacks) — never on the current selection.
   useEffect(() => {
     if (!initialSessionsProp) {
       loadSessions();
@@ -285,7 +255,6 @@ export function SessionComparisonView({
     }
   }, [initialSessionsProp, loadSessions, applyDefaultSelections]);
 
-  // Selected session objects
   const sessionA = useMemo(() => {
     if (initialSessionA && initialSessionA.id === sessionAId) return initialSessionA;
     return sessions.find((s) => s.id === sessionAId) || null;
@@ -296,7 +265,6 @@ export function SessionComparisonView({
     return sessions.find((s) => s.id === sessionBId) || null;
   }, [sessions, sessionBId, initialSessionB]);
 
-  // Metric deltas calculation
   const domainDeltas = useMemo(() => {
     if (!sessionA || !sessionB) return [];
     return [
@@ -363,9 +331,6 @@ export function SessionComparisonView({
         lowerIsBetter: true,
         epsilon: 0.2,
       }),
-      // stepTimeCV/strideTimeCV are dimensionless ratios (std/mean, ~0.02-0.10).
-      // Scale to percent here, exactly as ratings.ts and MetricsPanel already do,
-      // so the "%" label is true and epsilon is expressed in percentage points.
       computeDelta("stepTimeCV", "Step Time CV", "%", pct(mA.stepTimeCV), pct(mB.stepTimeCV), {
         lowerIsBetter: true,
         epsilon: EPS_CV_PCT,
@@ -376,7 +341,6 @@ export function SessionComparisonView({
         epsilon: EPS_CV_PCT,
         decimals: 1,
       }),
-      // Asymmetry is a dimensionless ratio, NOT seconds.
       computeDelta("stepTimeAsymmetry", "Step Time Asymmetry", "%", pct(mA.stepTimeAsymmetry), pct(mB.stepTimeAsymmetry), {
         lowerIsBetter: true,
         epsilon: EPS_ASYM_PCT,
@@ -387,9 +351,6 @@ export function SessionComparisonView({
         epsilon: EPS_INDEX,
         decimals: 3,
       }),
-      // Vertical bounce is the std of torso-normalized hip-Y residuals in MediaPipe
-      // image coordinates. There is no metric scale in this pipeline — labelling it
-      // "m" invented a physical quantity. "idx" matches MetricsPanel.
       computeDelta("verticalBounce", "Vertical Bounce", "idx", mA.verticalBounce, mB.verticalBounce, {
         lowerIsBetter: true,
         epsilon: EPS_INDEX,
@@ -398,8 +359,6 @@ export function SessionComparisonView({
     ];
   }, [sessionA, sessionB]);
 
-  // Field selectors for the active joint. Kept as key lookups so the
-  // knee/hip/ankle switch stays a single source of truth.
   const jointFields = useMemo(() => {
     if (activeJoint === "knee") {
       return {
@@ -428,13 +387,6 @@ export function SessionComparisonView({
     } as const;
   }, [activeJoint]);
 
-  // Combined Overlaid Recharts Data.
-  //
-  // Both sessions' curves and the normative band are resampled onto one shared
-  // 0–100 integer grid (linear interpolation on each point's own
-  // `gaitCyclePct`) before being zipped together, so row `i` of the chart means
-  // the same percentage of the gait cycle for every series regardless of how
-  // many raw points each session stored.
   const chartData = useMemo(() => {
     if (!sessionA || !sessionB) return [];
 
@@ -462,14 +414,11 @@ export function SessionComparisonView({
       const normMax = n ? n[max] : null;
 
       return {
-        // gridSize 101 makes the grid exactly the integers 0..100.
         gaitCyclePct: i,
         sessionALeft: a ? a[left] : null,
         sessionARight: a ? a[right] : null,
         sessionBLeft: b ? b[left] : null,
         sessionBRight: b ? b[right] : null,
-        // A missing normative sample emits null, not 0: a zero-width band
-        // pinned at 0° would be a fabricated reference envelope.
         normativeRange:
           normMin != null && normMax != null ? ([normMin, normMax] as [number, number]) : null,
         normativeMean: n ? n[mean] : null,
@@ -477,13 +426,11 @@ export function SessionComparisonView({
     });
   }, [sessionA, sessionB, jointFields]);
 
-  /** True only when at least one grid position carries a real normative band. */
   const hasNormativeBand = useMemo(
     () => chartData.some((row) => row.normativeRange != null),
     [chartData],
   );
 
-  // Joint Kinematic ROM Comparison Stats
   const jointRomStats = useMemo(() => {
     if (!sessionA || !sessionB) return null;
     const mA = sessionA.angleAnalysisJson?.metrics;
@@ -523,7 +470,6 @@ export function SessionComparisonView({
     }
   }, [sessionA, sessionB, activeJoint]);
 
-  // View suppression status
   const isSuppressedA = sessionA?.angleAnalysisJson?.isSuppressed ?? false;
   const isSuppressedB = sessionB?.angleAnalysisJson?.isSuppressed ?? false;
   const isSuppressedAny = isSuppressedA || isSuppressedB;
@@ -535,9 +481,7 @@ export function SessionComparisonView({
   const handleClose = onClose || onBack;
 
   // ----------------------------------------------------
-  // Load failure — deliberately distinct from a genuine 0-session result.
-  // A failed fetch tells us nothing about how many sessions exist, so it must
-  // never be rendered as "you have no sessions".
+  // Load failure card
   // ----------------------------------------------------
   if (!loading && loadError) {
     return (
@@ -545,25 +489,25 @@ export function SessionComparisonView({
         data-testid="comparison-load-error"
         role="alert"
         aria-live="assertive"
-        className={cn("w-full max-w-4xl mx-auto my-8 p-6", className)}
+        className={cn("w-full max-w-4xl mx-auto my-8 p-6 border-[#DADCE0] bg-white shadow-card", className)}
       >
         <CardHeader className="text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-danger)_15%,transparent)] text-[var(--color-danger)]">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[#FCE8E6] text-[#C5221F]">
             <ShieldAlert className="size-6" />
           </div>
-          <CardTitle className="mt-3 text-xl font-bold">Could Not Load Saved Sessions</CardTitle>
-          <CardDescription className="max-w-md mx-auto mt-1">
+          <CardTitle className="mt-3 text-xl font-bold text-[#202124]">Could Not Load Saved Sessions</CardTitle>
+          <CardDescription className="max-w-md mx-auto mt-1 text-[#5F6368]">
             {loadError} This is a load failure, not an empty session list — your saved sessions may
             still exist.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4 mt-2">
           <div className="flex flex-wrap justify-center gap-3">
-            <Button data-testid="comparison-load-retry" onClick={loadSessions} className="gap-2">
+            <Button data-testid="comparison-load-retry" onClick={loadSessions} className="gap-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white">
               <RefreshCw className="size-4" /> Retry
             </Button>
             {handleClose && (
-              <Button variant="ghost" onClick={handleClose} className="gap-2">
+              <Button variant="ghost" onClick={handleClose} className="gap-2 text-[#5F6368]">
                 <ArrowLeft className="size-4" /> Back to Workflow
               </Button>
             )}
@@ -578,30 +522,30 @@ export function SessionComparisonView({
   // ----------------------------------------------------
   if (!loading && sessions.length === 0) {
     return (
-      <Card data-testid="fallback-0-sessions" className={cn("w-full max-w-4xl mx-auto my-8 p-6", className)}>
+      <Card data-testid="fallback-0-sessions" className={cn("w-full max-w-4xl mx-auto my-8 p-6 border-[#DADCE0] bg-white shadow-card", className)}>
         <CardHeader className="text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[var(--color-primary)]">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[#E8F0FE] text-[#1A73E8]">
             <Layers className="size-6" />
           </div>
-          <CardTitle className="mt-3 text-xl font-bold">Dual Session Comparison Requires 2 Gait Sessions</CardTitle>
-          <CardDescription className="max-w-md mx-auto mt-1">
+          <CardTitle className="mt-3 text-xl font-bold text-[#202124]">Dual Session Comparison Requires 2 Gait Sessions</CardTitle>
+          <CardDescription className="max-w-md mx-auto mt-1 text-[#5F6368]">
             Side-by-side gait comparison enables clinical tracking of baseline vs. follow-up or single vs. dual-task walks. Currently, no saved sessions exist in the database.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4 mt-2">
           <div className="flex flex-wrap justify-center gap-3">
             {onNewSession && (
-              <Button onClick={onNewSession} className="gap-2">
+              <Button onClick={onNewSession} className="gap-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white">
                 <Activity className="size-4" /> Analyze New Video
               </Button>
             )}
             {onOpenHistory && (
-              <Button variant="secondary" onClick={onOpenHistory} className="gap-2">
+              <Button variant="secondary" onClick={onOpenHistory} className="gap-2 border-[#DADCE0] bg-[#F8F9FA] text-[#202124]">
                 <Clock className="size-4" /> Open Session History
               </Button>
             )}
             {handleClose && (
-              <Button variant="ghost" onClick={handleClose} className="gap-2">
+              <Button variant="ghost" onClick={handleClose} className="gap-2 text-[#5F6368]">
                 <ArrowLeft className="size-4" /> Back to Workflow
               </Button>
             )}
@@ -617,28 +561,28 @@ export function SessionComparisonView({
   if (!loading && sessions.length === 1 && !sessionB) {
     const singleSession = sessions[0];
     return (
-      <Card data-testid="fallback-1-session" className={cn("w-full max-w-4xl mx-auto my-8 p-6", className)}>
+      <Card data-testid="fallback-1-session" className={cn("w-full max-w-4xl mx-auto my-8 p-6 border-[#DADCE0] bg-white shadow-card", className)}>
         <CardHeader className="text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-warn)_15%,transparent)] text-[var(--color-warn)]">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[#FEF7E0] text-[#B06000]">
             <Info className="size-6" />
           </div>
-          <CardTitle className="mt-3 text-xl font-bold">Only 1 Saved Session Found</CardTitle>
-          <CardDescription className="max-w-md mx-auto mt-1">
+          <CardTitle className="mt-3 text-xl font-bold text-[#202124]">Only 1 Saved Session Found</CardTitle>
+          <CardDescription className="max-w-md mx-auto mt-1 text-[#5F6368]">
             Session A (Baseline) is loaded as <strong>"{singleSession.sessionName}"</strong>. Save a second session (e.g. Follow-up or Dual-Task) to compute metric deltas and joint angle curve overlays.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-6 mt-2">
-          <div className="w-full max-w-md rounded-lg border border-[var(--color-border)] p-4 bg-[var(--color-surface-2)] text-left">
+          <div className="w-full max-w-md rounded-lg border border-[#DADCE0] p-4 bg-[#F8F9FA] text-left">
             <div className="flex justify-between items-start">
               <div>
-                <h4 className="font-semibold text-sm">{singleSession.sessionName}</h4>
-                <p className="text-xs text-[var(--color-subtle)]">
+                <h4 className="font-semibold text-sm text-[#202124]">{singleSession.sessionName}</h4>
+                <p className="text-xs text-[#5F6368]">
                   {new Date(singleSession.createdAt).toLocaleString()}
                 </p>
               </div>
-              <Badge tone="primary">{singleSession.overallScore.toFixed(0)} / 100</Badge>
+              <Badge tone="primary" className="bg-[#1A73E8] text-white">{singleSession.overallScore.toFixed(0)} / 100</Badge>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--color-muted)]">
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#5F6368]">
               <div>Cadence: {singleSession.cadenceSpm.toFixed(0)} spm</div>
               <div>Mode: {singleSession.taskMode}</div>
               <div>Steps: {singleSession.stepCount}</div>
@@ -648,17 +592,17 @@ export function SessionComparisonView({
 
           <div className="flex flex-wrap justify-center gap-3">
             {onNewSession && (
-              <Button onClick={onNewSession} className="gap-2">
+              <Button onClick={onNewSession} className="gap-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white">
                 <Activity className="size-4" /> Record / Analyze 2nd Video
               </Button>
             )}
             {onOpenHistory && (
-              <Button variant="secondary" onClick={onOpenHistory} className="gap-2">
+              <Button variant="secondary" onClick={onOpenHistory} className="gap-2 border-[#DADCE0] bg-[#F8F9FA] text-[#202124]">
                 <Clock className="size-4" /> View Saved Sessions
               </Button>
             )}
             {handleClose && (
-              <Button variant="ghost" onClick={handleClose} className="gap-2">
+              <Button variant="ghost" onClick={handleClose} className="gap-2 text-[#5F6368]">
                 <ArrowLeft className="size-4" /> Back to Workflow
               </Button>
             )}
@@ -673,46 +617,46 @@ export function SessionComparisonView({
   // ----------------------------------------------------
   return (
     <div data-testid="session-comparison-view" className={cn("w-full max-w-6xl mx-auto space-y-6 py-6 px-4 sm:px-6", className)}>
-      {/* Header & Controls */}
-      <Card className="p-4 sm:p-6 border-[var(--color-border)]">
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--color-border)]">
+      {/* Header & Controls in Google Workspace Card Layout */}
+      <div className="rounded-lg border border-[#DADCE0] bg-white shadow-card overflow-hidden">
+        <div className="bg-[#1A73E8] px-6 py-4 text-white flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             {handleClose && (
-              <Button variant="secondary" size="sm" onClick={handleClose} aria-label="Back">
+              <Button variant="secondary" size="sm" onClick={handleClose} aria-label="Back" className="bg-white/10 hover:bg-white/20 text-white border-none">
                 <ArrowLeft className="size-4 mr-1" /> Back
               </Button>
             )}
             <div>
-              <h2 className="text-lg font-bold flex items-center gap-2 text-[var(--color-fg)]">
-                <GitCompare className="size-5 text-[var(--color-primary)]" />
-                Side-by-Side Dual Session Comparison
+              <h2 className="text-lg font-bold flex items-center gap-2 text-white font-sans">
+                <GitCompare className="size-5 text-white" />
+                Google Workspace Gait Workstation · Dual Session Comparison
               </h2>
-              <p className="text-xs text-[var(--color-subtle)]">
-                Quantitative metric deltas & overlaid joint angle kinematic trajectories
+              <p className="text-xs text-blue-100">
+                Quantitative metric deltas & resampled joint angle kinematic trajectories
               </p>
             </div>
           </div>
           {onOpenHistory && (
-            <Button variant="secondary" size="sm" onClick={onOpenHistory}>
+            <Button variant="secondary" size="sm" onClick={onOpenHistory} className="bg-white/10 hover:bg-white/20 text-white border-none">
               <Clock className="size-3.5 mr-1.5" /> History Drawer
             </Button>
           )}
         </div>
 
         {/* Dropdown Selectors Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#F8F9FA]">
           {/* Baseline Session A Selector */}
-          <div className="space-y-1.5 p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)]">
+          <div className="space-y-1.5 p-4 rounded-md border border-[#DADCE0] bg-white">
             <div className="flex items-center justify-between">
-              <label htmlFor="selector-session-a" className="text-xs font-semibold uppercase tracking-wider text-[var(--color-primary)] flex items-center gap-1.5">
-                <span className="inline-block size-2 rounded-full bg-blue-500" /> Baseline (Session A)
+              <label htmlFor="selector-session-a" className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1A73E8] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">A · Baseline</span>
               </label>
-              {sessionA && <Badge tone="primary" className="text-[10px]">{sessionA.taskMode}</Badge>}
+              {sessionA && <Badge tone="primary" className="text-[10px] bg-[#E8F0FE] text-[#1967D2]">{sessionA.taskMode}</Badge>}
             </div>
             <select
               id="selector-session-a"
               data-testid="selector-session-a"
-              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+              className="w-full rounded-md border border-[#DADCE0] bg-white p-2 text-sm text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
               value={sessionAId ?? ""}
               onChange={(e) => setSessionAId(e.target.value || null)}
             >
@@ -724,7 +668,7 @@ export function SessionComparisonView({
               ))}
             </select>
             {sessionA && (
-              <p className="text-[11px] text-[var(--color-muted)] flex items-center gap-3 pt-1">
+              <p className="text-[11px] text-[#5F6368] flex items-center gap-3 pt-1">
                 <span><Calendar className="inline size-3 mr-1" />{new Date(sessionA.createdAt).toLocaleString()}</span>
                 <span><Activity className="inline size-3 mr-1" />{sessionA.cadenceSpm.toFixed(0)} spm</span>
               </p>
@@ -732,17 +676,17 @@ export function SessionComparisonView({
           </div>
 
           {/* Target Session B Selector */}
-          <div className="space-y-1.5 p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)]">
+          <div className="space-y-1.5 p-4 rounded-md border border-[#DADCE0] bg-white">
             <div className="flex items-center justify-between">
-              <label htmlFor="selector-session-b" className="text-xs font-semibold uppercase tracking-wider text-[var(--color-success)] flex items-center gap-1.5">
-                <span className="inline-block size-2 rounded-full bg-emerald-500" /> Target / Follow-up (Session B)
+              <label htmlFor="selector-session-b" className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#188038] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">B · Follow-up</span>
               </label>
-              {sessionB && <Badge tone="accent" className="text-[10px]">{sessionB.taskMode}</Badge>}
+              {sessionB && <Badge tone="accent" className="text-[10px] bg-[#E6F4EA] text-[#137333]">{sessionB.taskMode}</Badge>}
             </div>
             <select
               id="selector-session-b"
               data-testid="selector-session-b"
-              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+              className="w-full rounded-md border border-[#DADCE0] bg-white p-2 text-sm text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#188038]"
               value={sessionBId ?? ""}
               onChange={(e) => setSessionBId(e.target.value || null)}
             >
@@ -754,7 +698,7 @@ export function SessionComparisonView({
               ))}
             </select>
             {sessionB && (
-              <p className="text-[11px] text-[var(--color-muted)] flex items-center gap-3 pt-1">
+              <p className="text-[11px] text-[#5F6368] flex items-center gap-3 pt-1">
                 <span><Calendar className="inline size-3 mr-1" />{new Date(sessionB.createdAt).toLocaleString()}</span>
                 <span><Activity className="inline size-3 mr-1" />{sessionB.cadenceSpm.toFixed(0)} spm</span>
               </p>
@@ -764,12 +708,12 @@ export function SessionComparisonView({
 
         {/* Identical Session Warning */}
         {sessionAId && sessionBId && sessionAId === sessionBId && (
-          <div data-testid="same-session-warning" className="mt-3 flex items-center gap-2 rounded-md border border-[color-mix(in_oklab,var(--color-warn)_40%,transparent)] bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] p-3 text-xs text-[var(--color-warn)]">
-            <AlertTriangle className="size-4 shrink-0" />
+          <div data-testid="same-session-warning" className="m-4 flex items-center gap-2 rounded-md border border-[#F9AB00] bg-[#FEF7E0] p-3 text-xs text-[#B06000]">
+            <AlertTriangle className="size-4 shrink-0 text-[#B06000]" />
             <span>Baseline (Session A) and Target (Session B) are identical. Select two different sessions for meaningful clinical delta analysis.</span>
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Main Dual Comparison Content (When both sessions are selected) */}
       {sessionA && sessionB && (
@@ -777,35 +721,40 @@ export function SessionComparisonView({
           {/* Domain Gait Health Scores Summary Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {domainDeltas.map((d) => (
-              <Card key={d.key} data-testid={`card-${d.key}`} className="p-3 border-[var(--color-border)] flex flex-col justify-between">
+              <Card key={d.key} data-testid={`card-${d.key}`} className="p-3 border-[#DADCE0] bg-white shadow-card flex flex-col justify-between">
                 <div>
-                  <span className="text-[11px] font-medium text-[var(--color-subtle)] truncate block">{d.name}</span>
+                  <span className="text-[11px] font-medium text-[#5F6368] truncate block">{d.name}</span>
                   <div className="mt-1 flex items-baseline justify-between">
-                    <span className="text-xs text-[var(--color-muted)]">A: {d.formattedValA}</span>
-                    <span className="text-xs font-semibold text-[var(--color-fg)]">B: {d.formattedValB}</span>
+                    <span className="text-xs text-[#5F6368]">A: {d.formattedValA}</span>
+                    <span className="text-xs font-semibold text-[#202124]">B: {d.formattedValB}</span>
                   </div>
                 </div>
-                <div className="mt-2 pt-2 border-t border-[var(--color-border)] flex items-center justify-between">
-                  <Badge tone={d.badgeTone} className="text-[10px] px-1.5 py-0 font-mono">
+                <div className="mt-2 pt-2 border-t border-[#DADCE0] flex items-center justify-between">
+                  <span className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-medium",
+                    d.badgeTone === "success" && "chip-success",
+                    d.badgeTone === "danger" && "chip-danger",
+                    d.badgeTone === "neutral" && "chip-info bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]"
+                  )}>
+                    {d.interpretation === "improved" && <span aria-hidden="true">↑</span>}
+                    {d.interpretation === "degraded" && <span aria-hidden="true">↓</span>}
                     {d.formattedDelta}
-                  </Badge>
-                  {/* Wording is deliberately "moved beyond measurement noise", not
-                      "improved": no clinical MDC exists for this pipeline. */}
+                  </span>
                   {d.interpretation === "improved" ? (
                     <TrendingUp
-                      className="size-3.5 text-[var(--color-success)]"
+                      className="size-3.5 text-[#137333]"
                       role="img"
                       aria-label={`${d.name}: moved in the favourable direction, beyond measurement noise`}
                     />
                   ) : d.interpretation === "degraded" ? (
                     <TrendingDown
-                      className="size-3.5 text-[var(--color-danger)]"
+                      className="size-3.5 text-[#C5221F]"
                       role="img"
                       aria-label={`${d.name}: moved in the unfavourable direction, beyond measurement noise`}
                     />
                   ) : (
                     <Minus
-                      className="size-3.5 text-[var(--color-muted)]"
+                      className="size-3.5 text-[#5F6368]"
                       role="img"
                       aria-label={`${d.name}: within measurement noise, no detectable change`}
                     />
@@ -816,48 +765,55 @@ export function SessionComparisonView({
           </div>
 
           {/* Comparison Metric Tables */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x md:divide-[#DADCE0] border border-[#DADCE0] rounded-lg overflow-hidden">
             {/* Spatio-Temporal Parameters Table */}
-            <Card className="border-[var(--color-border)]">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Activity className="size-4 text-[var(--color-primary)]" /> Spatio-Temporal Parameters
+            <Card className="border-0 bg-white shadow-none rounded-none">
+              <CardHeader className="pb-3 border-b border-[#DADCE0] bg-[#F8F9FA]">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-[#202124]">
+                  <Activity className="size-4 text-[#1A73E8]" /> Spatio-Temporal Parameters
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[var(--color-surface-2)] text-[var(--color-subtle)] uppercase tracking-wider text-[10px]">
+                  <table className="clinical-table">
+                    <thead>
                       <tr>
-                        <th className="py-2.5 px-4">Metric</th>
-                        <th className="py-2.5 px-3 text-right">Baseline A</th>
-                        <th className="py-2.5 px-3 text-right">Target B</th>
-                        <th className="py-2.5 px-4 text-right" title="Change from Baseline A to Target B, compared against this tool's own measurement noise.">Change vs. measurement noise</th>
+                        <th>Metric</th>
+                        <th className="text-right">Baseline A</th>
+                        <th className="text-right">Target B</th>
+                        <th className="text-right" title="Change from Baseline A to Target B, compared against this tool's own measurement noise.">Change vs. measurement noise</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--color-border)]">
+                    <tbody>
                       {spatioTemporalDeltas.map((d) => {
                         const isContextOnly = CONTEXT_ONLY_METRIC_KEYS.has(d.key);
                         return (
-                          <tr key={d.key} data-testid={`row-${d.key}`} className="hover:bg-[var(--color-surface-2)]/50 transition-colors">
-                            <td className="py-2.5 px-4 font-medium text-[var(--color-fg)]">
+                          <tr key={d.key} data-testid={`row-${d.key}`}>
+                            <td className="font-medium text-[#202124]">
                               {d.name}
                               {isContextOnly && (
                                 <span
                                   data-testid={`context-only-${d.key}`}
-                                  className="ml-1.5 align-middle text-[10px] font-normal uppercase tracking-wide text-[var(--color-subtle)]"
+                                  className="ml-1.5 align-middle text-[10px] font-normal uppercase tracking-wide text-[#70757A]"
                                   title="Recording context: this value has no clinically better or worse direction, so its delta is reported but not scored."
                                 >
                                   (context, not scored)
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-mono text-[var(--color-muted)]">{d.formattedValA}</td>
-                            <td className="py-2.5 px-3 text-right font-mono font-semibold text-[var(--color-fg)]">{d.formattedValB}</td>
-                            <td className="py-2.5 px-4 text-right">
-                              <Badge tone={d.badgeTone} className="text-[10px] px-1.5 py-0 font-mono">
+                            <td className="text-right font-mono text-[#5F6368]">{d.formattedValA}</td>
+                            <td className="text-right font-mono font-semibold text-[#202124]">{d.formattedValB}</td>
+                            <td className="text-right">
+                              <span className={cn(
+                                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-medium",
+                                d.badgeTone === "success" && "chip-success",
+                                d.badgeTone === "danger" && "chip-danger",
+                                d.badgeTone === "neutral" && "chip-info bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]"
+                              )}>
+                                {d.interpretation === "improved" && <span aria-hidden="true">↑</span>}
+                                {d.interpretation === "degraded" && <span aria-hidden="true">↓</span>}
                                 {d.formattedDelta}
-                              </Badge>
+                              </span>
                             </td>
                           </tr>
                         );
@@ -869,33 +825,40 @@ export function SessionComparisonView({
             </Card>
 
             {/* Symmetry & Variability Table */}
-            <Card className="border-[var(--color-border)]">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <GitCompare className="size-4 text-[var(--color-accent)]" /> Symmetry & Variability Metrics
+            <Card className="border-0 bg-white shadow-none rounded-none">
+              <CardHeader className="pb-3 border-b border-[#DADCE0] bg-[#F8F9FA]">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-[#202124]">
+                  <GitCompare className="size-4 text-[#188038]" /> Symmetry & Variability Metrics
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[var(--color-surface-2)] text-[var(--color-subtle)] uppercase tracking-wider text-[10px]">
+                  <table className="clinical-table">
+                    <thead>
                       <tr>
-                        <th className="py-2.5 px-4">Metric</th>
-                        <th className="py-2.5 px-3 text-right">Baseline A</th>
-                        <th className="py-2.5 px-3 text-right">Target B</th>
-                        <th className="py-2.5 px-4 text-right" title="Change from Baseline A to Target B, compared against this tool's own measurement noise.">Change vs. measurement noise</th>
+                        <th>Metric</th>
+                        <th className="text-right">Baseline A</th>
+                        <th className="text-right">Target B</th>
+                        <th className="text-right" title="Change from Baseline A to Target B, compared against this tool's own measurement noise.">Change vs. measurement noise</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--color-border)]">
+                    <tbody>
                       {symmetryAndVariabilityDeltas.map((d) => (
-                        <tr key={d.key} data-testid={`row-${d.key}`} className="hover:bg-[var(--color-surface-2)]/50 transition-colors">
-                          <td className="py-2.5 px-4 font-medium text-[var(--color-fg)]">{d.name}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-[var(--color-muted)]">{d.formattedValA}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-[var(--color-fg)]">{d.formattedValB}</td>
-                          <td className="py-2.5 px-4 text-right">
-                            <Badge tone={d.badgeTone} className="text-[10px] px-1.5 py-0 font-mono">
+                        <tr key={d.key} data-testid={`row-${d.key}`}>
+                          <td className="font-medium text-[#202124]">{d.name}</td>
+                          <td className="text-right font-mono text-[#5F6368]">{d.formattedValA}</td>
+                          <td className="text-right font-mono font-semibold text-[#202124]">{d.formattedValB}</td>
+                          <td className="text-right">
+                            <span className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-medium",
+                              d.badgeTone === "success" && "chip-success",
+                              d.badgeTone === "danger" && "chip-danger",
+                              d.badgeTone === "neutral" && "chip-info bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]"
+                            )}>
+                              {d.interpretation === "improved" && <span aria-hidden="true">↑</span>}
+                              {d.interpretation === "degraded" && <span aria-hidden="true">↓</span>}
                               {d.formattedDelta}
-                            </Badge>
+                            </span>
                           </td>
                         </tr>
                       ))}
@@ -906,10 +869,10 @@ export function SessionComparisonView({
             </Card>
           </div>
 
-          {/* Provenance of the "unchanged" thresholds used by both delta tables above. */}
+          {/* Provenance footnote */}
           <p
             data-testid="delta-threshold-footnote"
-            className="text-[11px] leading-relaxed text-[var(--color-subtle)]"
+            className="text-[11px] leading-relaxed text-[#5F6368]"
           >
             A change is flagged only when it exceeds a per-metric threshold. One of those thresholds has a
             measured basis: the step-time and stride-time CV threshold (2.4 percentage points) comes from
@@ -922,19 +885,20 @@ export function SessionComparisonView({
           </p>
 
           {/* Overlaid Joint Kinematic Trajectory Curves Section */}
-          <Card className="border-[var(--color-border)]">
-            <CardHeader>
+          <Card className="border-[#DADCE0] bg-white shadow-card">
+            <CardHeader className="border-b border-[#DADCE0] bg-[#F8F9FA]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <Activity className="size-5 text-[var(--color-primary)]" />
-                  <CardTitle className="text-base font-bold">Overlaid Joint Kinematic Trajectories</CardTitle>
+                  <Activity className="size-5 text-[#1A73E8]" />
+                  <CardTitle className="text-base font-bold text-[#202124]">Overlaid Joint Kinematic Trajectories</CardTitle>
                 </div>
-                <div className="flex items-center gap-1 rounded-lg border border-[var(--color-border)] p-1 bg-[var(--color-surface-2)]">
+                <div className="flex items-center gap-1 rounded-md border border-[#DADCE0] p-1 bg-white">
                   <Button
                     variant={activeJoint === "knee" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setActiveJoint("knee")}
                     data-testid="joint-tab-knee"
+                    className={cn(activeJoint === "knee" && "bg-[#1A73E8] text-white hover:bg-[#1557B0]")}
                   >
                     Knee
                   </Button>
@@ -943,6 +907,7 @@ export function SessionComparisonView({
                     size="sm"
                     onClick={() => setActiveJoint("hip")}
                     data-testid="joint-tab-hip"
+                    className={cn(activeJoint === "hip" && "bg-[#1A73E8] text-white hover:bg-[#1557B0]")}
                   >
                     Hip
                   </Button>
@@ -951,22 +916,23 @@ export function SessionComparisonView({
                     size="sm"
                     onClick={() => setActiveJoint("ankle")}
                     data-testid="joint-tab-ankle"
+                    className={cn(activeJoint === "ankle" && "bg-[#1A73E8] text-white hover:bg-[#1557B0]")}
                   >
                     Ankle
                   </Button>
                 </div>
               </div>
-              <CardDescription>
+              <CardDescription className="text-xs text-[#5F6368]">
                 Comparison of Session A (Solid lines) vs. Session B (Dashed lines) normalized joint trajectories (0–100% Gait Cycle) overlaid against Perry &amp; Burnfield (2010) normative reference envelope.
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className="p-6 space-y-4">
               {/* View Suppression Alert Banner */}
               {isSuppressedAny && (
                 <div
                   data-testid="view-suppression-banner"
-                  className="flex items-start gap-3 rounded-lg border border-[color-mix(in_oklab,var(--color-warn)_40%,transparent)] bg-[color-mix(in_oklab,var(--color-warn)_12%,transparent)] p-4 text-sm text-[var(--color-warn)]"
+                  className="flex items-start gap-3 rounded-md border border-[#F9AB00] bg-[#FEF7E0] p-4 text-sm text-[#B06000]"
                 >
                   <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
@@ -980,56 +946,56 @@ export function SessionComparisonView({
               {!isSuppressedAny && jointRomStats && (
                 <div
                   data-testid="joint-rom-badges"
-                  className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-xs"
+                  className="flex flex-wrap items-center gap-2 rounded-md border border-[#DADCE0] bg-[#F8F9FA] p-3 text-xs"
                 >
-                  <span className="font-semibold text-[var(--color-fg)] mr-2">{jointRomStats.title}:</span>
-                  <Badge tone="primary" data-testid="rom-left-a">
+                  <span className="font-semibold text-[#202124] mr-2">{jointRomStats.title}:</span>
+                  <Badge tone="primary" data-testid="rom-left-a" className="bg-[#E8F0FE] text-[#1967D2] border border-[#1967D2]/20">
                     Left ROM A: {jointRomStats.leftRomA != null ? `${jointRomStats.leftRomA.toFixed(1)}°` : "—"}
                   </Badge>
-                  <Badge tone="success" data-testid="rom-left-b">
+                  <Badge tone="success" data-testid="rom-left-b" className="bg-[#E6F4EA] text-[#137333] border border-[#137333]/20">
                     Left ROM B: {jointRomStats.leftRomB != null ? `${jointRomStats.leftRomB.toFixed(1)}°` : "—"}
                   </Badge>
-                  <Badge tone="accent" data-testid="rom-right-a">
+                  <Badge tone="accent" data-testid="rom-right-a" className="bg-[#FEF7E0] text-[#B06000] border border-[#B06000]/20">
                     Right ROM A: {jointRomStats.rightRomA != null ? `${jointRomStats.rightRomA.toFixed(1)}°` : "—"}
                   </Badge>
-                  <Badge tone="warn" data-testid="rom-right-b">
+                  <Badge tone="warn" data-testid="rom-right-b" className="bg-[#FCE8E6] text-[#C5221F] border border-[#C5221F]/20">
                     Right ROM B: {jointRomStats.rightRomB != null ? `${jointRomStats.rightRomB.toFixed(1)}°` : "—"}
                   </Badge>
-                  <Badge tone="neutral" data-testid="asymmetry-comp">
+                  <Badge tone="neutral" data-testid="asymmetry-comp" className="bg-[#F1F3F4] text-[#5F6368] border border-[#DADCE0]">
                     Asymmetry: A {jointRomStats.asymmetryA != null ? `${jointRomStats.asymmetryA.toFixed(1)}%` : "—"} vs B {jointRomStats.asymmetryB != null ? `${jointRomStats.asymmetryB.toFixed(1)}%` : "—"}
                   </Badge>
                 </div>
               )}
 
               {/* Recharts Chart Container */}
-              <div className="h-80 w-full min-w-0">
+              <div className="h-80 w-full min-w-0 border border-[#DADCE0] rounded-lg overflow-hidden">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart
                     data={chartData}
                     margin={{ top: 10, right: 30, left: 10, bottom: 20 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} />
+                    <CartesianGrid stroke="#E8EAED" />
                     <XAxis
                       dataKey="gaitCyclePct"
                       unit="%"
                       domain={[0, 100]}
-                      tick={{ fontSize: 12, fill: "var(--color-muted)" }}
+                      tick={{ fontSize: 11, fontFamily: "Roboto, sans-serif", fill: "#5F6368", style: { fontVariantNumeric: "tabular-nums" } }}
                       label={{
                         value: "Gait Cycle (%)",
                         position: "insideBottom",
                         offset: -10,
-                        fill: "var(--color-fg)",
+                        fill: "#202124",
                         fontSize: 12,
                       }}
                     />
                     <YAxis
                       unit="°"
-                      tick={{ fontSize: 12, fill: "var(--color-muted)" }}
+                      tick={{ fontSize: 11, fontFamily: "Roboto, sans-serif", fill: "#5F6368", style: { fontVariantNumeric: "tabular-nums" } }}
                       label={{
                         value: "Joint Angle (°)",
                         angle: -90,
                         position: "insideLeft",
-                        fill: "var(--color-fg)",
+                        fill: "#202124",
                         fontSize: 12,
                       }}
                     />
@@ -1040,20 +1006,36 @@ export function SessionComparisonView({
                       ]}
                       labelFormatter={(label: any) => `${label}% Gait Cycle`}
                       contentStyle={{
-                        backgroundColor: "var(--color-surface, #ffffff)",
-                        borderColor: "var(--color-border, #e2e8f0)",
-                        color: "var(--color-fg, #0f172a)",
+                        backgroundColor: "#FFFFFF",
+                        borderColor: "#DADCE0",
+                        color: "#202124",
                         borderRadius: "8px",
+                        fontSize: "12px",
+                        boxShadow: "0 2px 6px 2px rgba(60, 64, 67, 0.15)",
+                        padding: "12px",
                       }}
                     />
-                    <Legend verticalAlign="top" height={40} />
+                    <Legend
+                      verticalAlign="bottom"
+                      height={40}
+                      content={({ payload }) => (
+                        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                          {payload?.map((entry, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1.5 text-xs text-[#5F6368] font-['Roboto',sans-serif]">
+                              <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                              {entry.value}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    />
                     {hasNormativeBand && (
                       <Area
                         type="monotone"
                         dataKey="normativeRange"
                         stroke="none"
-                        fill="#94a3b8"
-                        fillOpacity={0.18}
+                        fill="#00897B"
+                        fillOpacity={0.08}
                         name="Normative Range (Perry & Burnfield)"
                         connectNulls={false}
                       />
@@ -1061,36 +1043,38 @@ export function SessionComparisonView({
                     <Line
                       type="monotone"
                       dataKey="sessionALeft"
-                      stroke="#2563eb"
-                      strokeWidth={2}
+                      stroke="#1A73E8"
+                      strokeWidth={2.5}
                       dot={false}
-                      name={`Session A (${sessionA.sessionName.slice(0, 12)}) Left`}
+                      name={`A (${sessionA.sessionName.slice(0, 12)}) Left`}
                     />
                     <Line
                       type="monotone"
                       dataKey="sessionARight"
-                      stroke="#0369a1"
+                      stroke="#1A73E8"
                       strokeWidth={2}
-                      strokeDasharray="4 4"
+                      strokeDasharray="6 4"
                       dot={false}
-                      name={`Session A (${sessionA.sessionName.slice(0, 12)}) Right`}
+                      opacity={0.6}
+                      name={`A (${sessionA.sessionName.slice(0, 12)}) Right`}
                     />
                     <Line
                       type="monotone"
                       dataKey="sessionBLeft"
-                      stroke="#0f766e"
-                      strokeWidth={2}
+                      stroke="#188038"
+                      strokeWidth={2.5}
                       dot={false}
-                      name={`Session B (${sessionB.sessionName.slice(0, 12)}) Left`}
+                      name={`B (${sessionB.sessionName.slice(0, 12)}) Left`}
                     />
                     <Line
                       type="monotone"
                       dataKey="sessionBRight"
-                      stroke="#64748b"
+                      stroke="#188038"
                       strokeWidth={2}
-                      strokeDasharray="4 4"
+                      strokeDasharray="6 4"
                       dot={false}
-                      name={`Session B (${sessionB.sessionName.slice(0, 12)}) Right`}
+                      opacity={0.6}
+                      name={`B (${sessionB.sessionName.slice(0, 12)}) Right`}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -1099,7 +1083,7 @@ export function SessionComparisonView({
               {!hasNormativeBand && (
                 <p
                   data-testid="normative-band-unavailable"
-                  className="text-[11px] text-[var(--color-subtle)]"
+                  className="text-[11px] text-[#5F6368]"
                 >
                   No normative reference envelope is stored for either session, so the shaded
                   normative band is omitted rather than drawn at 0°.

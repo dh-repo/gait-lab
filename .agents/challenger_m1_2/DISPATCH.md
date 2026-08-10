@@ -1,19 +1,20 @@
-## 2026-08-09T12:45:25Z
-You are Challenger 2 for Milestone 1 (M1): Core Engine Integration & Polish (R1).
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/challenger_m1_2.
-Create your folder /Users/damian/GitHub/gait-lab/.agents/challenger_m1_2 if needed.
+# Dispatch for Challenger M1-2
 
-Authoritative source of truth & requirements:
-- /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md
-- Worker Handoff: /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md
+**Role**: teamwork_preview_challenger (Noise Stress & Signal Integrity Challenger)
+**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/challenger_m1_2
 
-Your task:
-1. Perform empirical stress-testing and verification of M1 persistence, hydration, and UI data flow (`persistence.ts`, `GaitApp.tsx`, `SessionHistoryDrawer.tsx`, `ClinicalReportView.tsx`, `CognitiveClusters.tsx`, `ReportPanel.tsx`).
-2. Test edge cases: saving session with null `angleAnalysis` or missing `patientMeta`, saving with partial metrics, loading legacy records missing `angle_analysis_json` or `patient_meta_json`, JSON serialization/deserialization boundary cases, rendering `JointAnglesChart` with incomplete joint angles.
-3. Verify that session hydration never crashes and properly defaults missing fields.
-4. Execute `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
+## Objective
+Empirically stress-test and challenge the 1D landmark coordinate temporal smoothing filter in `src/lib/gait/signal.ts` and integration in `src/lib/gait/analysis.ts`:
+1. Verify `savitzkyGolay5` and `smoothPoseFrames` against high-frequency Gaussian noise, impulse noise spikes, zero-length signals, micro-clips ($N = 1, 2, 3, 4$), and $N \ge 500$ frame clips.
+2. Verify linear trend signal preservation ($y = ax + b$) across all frames including endpoints $0, 1, N-2, N-1$.
+3. Run synthetic noise regression tests (`cat1_landmark_jitter_noise.test.ts`) and confirm >50% noise variance reduction without peak phase shift.
+4. Run `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
 
-Output:
-Write your stress-test report and verdict (APPROVE or REJECT) to `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/handoff.md`.
-Notify the caller via `send_message` when done.
+## Authoritative Reference Inputs
+- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
+- `/Users/damian/GitHub/gait-lab/PROJECT.md`
+- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
+- `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`
+
+## Output Requirements
+Deliver `handoff.md` with explicit Verdict (`APPROVE` or `REJECT`) and test verification evidence. Communicate completion via `send_message`.

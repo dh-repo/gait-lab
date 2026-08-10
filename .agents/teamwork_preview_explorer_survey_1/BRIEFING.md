@@ -1,40 +1,34 @@
-# BRIEFING — 2026-08-09T16:41:50Z
+# BRIEFING — 2026-08-09T21:05:40Z
 
 ## Mission
-Perform a full codebase survey of /Users/damian/GitHub/gait-lab to analyze code structure, run diagnostic checks (build, test, lint, typecheck), and map implementation state against requirements R1, R2, R3, R4 in ORIGINAL_REQUEST.md.
+Investigate gait-lab codebase for Requirement 1 (R1): MediaPipe Pose model loading (heavy -> full -> lite fallbacks) and 1D landmark coordinate temporal smoothing (Kalman / Savitzky-Golay) in the gait analysis pipeline.
 
 ## 🔒 My Identity
-- Archetype: Teamwork explorer
-- Roles: Codebase survey & health analysis
+- Archetype: explorer
+- Roles: survey investigator
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_1
-- Original parent: d1ec1083-2d60-429a-9f15-484f0050dc21
-- Milestone: Initial Survey & Gap Analysis
+- Original parent: a781c023-9e74-468c-b16f-39a0ba455871
+- Milestone: Requirement 1 (R1) Survey & Handoff Analysis
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement application source code fixes outside .agents directory.
-- Report all observations with precise file paths, line numbers, and terminal outputs.
+- Read-only investigation — do NOT implement application code changes (only write analysis reports/briefing in working directory)
 
 ## Current Parent
-- Conversation ID: d1ec1083-2d60-429a-9f15-484f0050dc21
-- Updated: 2026-08-09T16:41:50Z
+- Conversation ID: a781c023-9e74-468c-b16f-39a0ba455871
+- Updated: 2026-08-09T21:05:40Z
 
 ## Investigation State
-- **Explored paths**: `src/`, `src/lib/gait/`, `src/components/gait/`, `migrations/`, `public/samples/`, `package.json`, `ORIGINAL_REQUEST.md`
+- **Explored paths**: `ORIGINAL_REQUEST.md`, `src/lib/gait/pose.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/events.ts`, `src/lib/gait/PoseTracker.ts`, `src/lib/gait/signal.ts`, `src/lib/gait/landmarks.ts`, `public/models/`
 - **Key findings**:
-  - `npm test`, `npx tsc --noEmit`, `npx eslint .`, `npm run build` all pass cleanly with 0 errors/warnings.
-  - R1 (Core Engine Modules) is ~85% complete and integrated.
-  - R2 (`SessionComparisonView.tsx`) is missing (0%).
-  - R3 (`PoseTracker.ts` and Live WebCam Mode in `GaitApp.tsx`) is missing (0%).
-  - R4 (Test Suite & Deployment) is 100% complete and green.
-- **Unexplored areas**: None. Full codebase survey complete.
+  1. `getPoseLandmarker()` in `pose.ts` currently hardcodes `/models/pose_landmarker_lite.task`. Needs candidate array `['/models/pose_landmarker_heavy.task', '/models/pose_landmarker_full.task', '/models/pose_landmarker_lite.task']` with GPU -> CPU attempts for each candidate before falling back.
+  2. 1D keypoint coordinates in `PoseFrame.landmarks` are currently unfiltered before derived geometry calculations. Adding 5-point Savitzky-Golay and 1D Kalman filter coordinate smoothing in `signal.ts` and calling `smoothPoseFrames` at the start of `computeGaitMetricsCore` in `analysis.ts` suppresses tracking jitter and single-frame noise pops prior to metric calculation.
+- **Unexplored areas**: None for R1.
 
 ## Key Decisions Made
-- Executed diagnostic health commands.
-- Audited implementation against R1-R4 requirements.
-- Generated `analysis.md` and `handoff.md`.
+- Completed R1 survey and produced detailed architectural report `analysis.md` and handoff report `handoff.md`.
 
 ## Artifact Index
-- `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_1/DISPATCH.md` — Received task dispatch
-- `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_1/BRIEFING.md` — Working memory state index
-- `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_1/analysis.md` — Full Codebase Survey & Implementation Gap Analysis
-- `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_1/handoff.md` — 5-Component Handoff Report
+- /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_1/DISPATCH.md — Dispatch log
+- /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_1/BRIEFING.md — Working memory index
+- /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_1/analysis.md — Technical analysis report for R1
+- /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_explorer_survey_1/handoff.md — 5-Component Handoff report for R1

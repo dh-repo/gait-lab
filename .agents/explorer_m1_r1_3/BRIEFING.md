@@ -1,42 +1,47 @@
-# BRIEFING — 2026-08-09T03:25:20Z
+# BRIEFING — 2026-08-09T21:07:51Z
 
 ## Mission
-Investigate Gait Symmetry, Smoothness & Dual-Task Effect (Features 6-8) for M1 of gait-lab. Analyze `src/lib/gait/symmetry.ts`, `src/lib/gait/smoothness.ts`, and `src/lib/gait/dte.ts`, review scientific literature & equations, check compliance with `PROJECT.md` contracts, and write `handoff.md`.
+Investigate Integration of Keypoint Smoothing into `src/lib/gait/analysis.ts` for M1 (F2).
 
 ## 🔒 My Identity
-- Archetype: Explorer
-- Roles: Read-only investigator for gait symmetry, smoothness, and dual-task effect
-- Working directory: `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3`
-- Original parent: `9fa0c177-add2-4b10-b1ff-21a45d75ca2c`
-- Milestone: M1 (Features 6, 7, 8)
+- Archetype: explorer
+- Roles: Explorer for M1 F2 keypoint smoothing integration analysis
+- Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3
+- Original parent: 75715ff9-9d80-47ae-bd6a-226d8bd44d8a
+- Milestone: M1 (F2 Keypoint Smoothing Integration)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT modify source code files in `src/` directly
-- Focus area: Features 6-8 (`symmetry.ts`, `smoothness.ts`, `dte.ts`)
-- Ensure compliance with interface contracts in `PROJECT.md`
+- Read-only investigation — do NOT implement changes to project source code.
+- Write analysis and handoff report inside `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/`.
 
 ## Current Parent
-- Conversation ID: `9fa0c177-add2-4b10-b1ff-21a45d75ca2c`
-- Updated: 2026-08-09T03:25:20Z
+- Conversation ID: 75715ff9-9d80-47ae-bd6a-226d8bd44d8a
+- Updated: 2026-08-09T21:07:51Z
 
 ## Investigation State
-- **Explored paths**: `PROJECT.md`, `SCOPE.md`, `ORIGINAL_REQUEST.md`, `src/lib/gait/types.ts`, `src/lib/gait/analysis.ts`
+- **Explored paths**:
+  - `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
+  - `/Users/damian/GitHub/gait-lab/PROJECT.md`
+  - `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
+  - `src/lib/gait/analysis.ts`
+  - `src/lib/gait/signal.ts`
+  - `src/lib/gait/__tests__/analysis.test.ts`
+  - `src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts`
+  - `src/lib/gait/__tests__/signal.test.ts`
 - **Key findings**:
-  - Detailed Zifchock Symmetry Angle (SA) formula $|45^\circ - \arctan(X_L/X_R)| / 90^\circ \times 100\%$ and Gait Symmetry Index (GSI) min/max ratio.
-  - Detailed Trunk Harmonic Ratio (HR) via FFT: vertical HR (even/odd harmonics ratio for 2 steps/stride) and lateral HR (odd/even harmonics ratio for 1 stride cycle).
-  - Detailed Standardized Dual-Task Effect (DTE) formulas with sign adjustment for lower-is-better metrics (Step Time CV) and Plummer & Eskes (2015) 4-band CMI classification.
-  - Authored proposed module files in `.agents/explorer_m1_r1_3/`: `proposed_symmetry.ts`, `proposed_smoothness.ts`, `proposed_dte.ts`.
-  - Authored comprehensive 5-component handoff report in `.agents/explorer_m1_r1_3/handoff.md`.
-- **Unexplored areas**: None for M1 Features 6-8.
+  - `computeGaitMetricsCore` receives raw `PoseFrame[]` and passes un-smoothed landmark coordinates to `detectViewAngle`, `torsoHeight` normalization, spatial coordinate series, `detectGaitEventsZeni`, and `computeGaitAngleAnalysis`.
+  - `smoothPoseFrames(frames, method)` from `signal.ts` must be invoked right after the `frames.length < 5` check at the start of `computeGaitMetricsCore`.
+  - Using Savitzky-Golay 5-point smoothing (`'savitzky-golay'`) by default preserves biomechanical peak amplitudes while eliminating tracking jitter and transient coordinate pops.
+  - All temporal, spatial, kinematic, and symmetry metrics as well as downstream joint angle curves benefit from keypoint pre-smoothing.
+- **Unexplored areas**: None.
 
 ## Key Decisions Made
-- Fully documented mathematical equations, edge-case angle handling, biomechanical rationale, contract compliance, and verification strategy in `handoff.md`.
+- Completed detailed investigation of `analysis.ts` keypoint pipeline and downstream impacts.
+- Produced `analysis.md` and 5-component `handoff.md`.
 
 ## Artifact Index
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/DISPATCH.md` — Dispatch prompt
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/BRIEFING.md` — Briefing state
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/progress.md` — Progress tracker
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/proposed_symmetry.ts` — Proposed code for symmetry.ts
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/proposed_smoothness.ts` — Proposed code for smoothness.ts
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/proposed_dte.ts` — Proposed code for dte.ts
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/handoff.md` — Handoff report
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/DISPATCH.md` — Dispatch log
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/BRIEFING.md` — Persistent working memory index
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/progress.md` — Progress log & liveness heartbeat
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/analysis.md` — Detailed keypoint smoothing integration analysis
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/handoff.md` — 5-component handoff report

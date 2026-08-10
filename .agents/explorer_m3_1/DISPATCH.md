@@ -1,20 +1,18 @@
-## 2026-08-09T12:47:28Z
-Task Objective:
-Investigate and design `PoseTracker.ts` webcam stream acquisition, MediaPipe video pose detection (`runningMode: "VIDEO"` with `detectForVideo`), frame processing loop (`requestAnimationFrame`), and stream resource cleanup (stopping media tracks, handling permissions, camera switching).
+## 2026-08-09T21:37:31Z
 
-Authoritative Files & Context:
-- Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-- Read /Users/damian/GitHub/gait-lab/.agents/sub_orch_m3/SCOPE.md
-- Examine existing files in `src/lib/gait/` (especially `PoseTracker.ts`, `types.ts`, `GaitEngine.ts`) and `src/components/gait/`.
+<USER_REQUEST>
+You are Explorer 1 for Milestone 3: Real-Time AR/CV Pose Tracking Canvas.
+Working directory for your metadata: /Users/damian/GitHub/gait-lab/.agents/explorer_m3_1
+Please read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md` and `/Users/damian/GitHub/gait-lab/PROJECT.md`.
 
-Specific Focus Areas for Explorer 1:
-1. `PoseTracker.ts` Architecture:
-   - How to manage `navigator.mediaDevices.getUserMedia({ video: { width: ..., height: ..., frameRate: ... } })`.
-   - MediaPipe PoseLandmarker initialization & mode switching (`runningMode: "VIDEO"` vs `"IMAGE"`).
-   - Real-time frame loop using `requestAnimationFrame` and `detectForVideo(videoElement, timestamp)`.
-   - Memory management, timestamp management, and clean teardown of media tracks when stopping webcam mode or unmounting.
-2. Error Handling & Robustness:
-   - Handling `NotAllowedError` (camera permission denied), `NotFoundError` (no camera available), `NotReadableError` (camera in use by another app).
-   - Re-entrancy and race conditions when quickly toggling start/stop.
-3. Unit Testing Strategy:
-   - How to mock `navigator.mediaDevices.getUserMedia`, `MediaStream`, `HTMLVideoElement`, and MediaPipe `PoseLandmarker.detectForVideo` in Vitest/Jest unit tests.
+Task:
+Formulate an exact technical blueprint for `src/components/gait/SkeletonCanvas.tsx`:
+1. Upgrade 2D canvas pose rendering to Google AR/CV style:
+   - High-contrast joint nodes: Cyan `#00E5FF` outer ring, Google Blue `#1A73E8` core.
+   - Limb skeleton connections: High-contrast cyan `#00E5FF` lines (`strokeWidth={3}`).
+   - AR target reticles & confidence meters: Sleek circular reticles with confidence percentage text in Google Sans font.
+   - View angle & tracking HUD: Top HUD overlay with dark surface pill (`bg-[#202124]/80`, white Google Sans text, status indicator).
+2. Preserve all canvas rendering functions, aspect ratios, responsive container sizing, and prop interfaces.
+
+Write your blueprint report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/handoff.md` and send a message to parent.
+</USER_REQUEST>

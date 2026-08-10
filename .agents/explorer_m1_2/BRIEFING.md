@@ -1,38 +1,39 @@
-# BRIEFING — 2026-08-09T16:43:00Z
+# BRIEFING — 2026-08-09T21:07:02Z
 
 ## Mission
-Explore and evaluate gait analysis modules: symmetry.ts, dte.ts, angles.ts, JointAnglesChart.tsx, and their integration in analysis.ts & GaitApp.tsx. Identify bugs, TODOs, mock data, disconnected logic, and math issues.
+Investigate `src/lib/gait/signal.ts` and analyze the implementation for 1D landmark coordinate temporal smoothing (5-point Savitzky-Golay filter across 33 keypoints), including boundary reflection padding, short sequence handling, metadata preservation, function exports, and unit test specifications.
 
 ## 🔒 My Identity
 - Archetype: explorer
-- Roles: Explorer 2 for M1
+- Roles: Explorer M1-2 (Signal Processing & Temporal Smoothing Specialist)
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2
-- Original parent: c4f51a02-7aa3-4f8b-85a7-f91521482274
-- Milestone: M1 — Core Engine Integration & Polish (R1)
+- Original parent: e4978e50-e48c-4d54-93a2-5d05726d31e6
+- Milestone: M1.2
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in src/
-- Follow Handoff Protocol and produce analysis.md and handoff.md in working directory
-- Notify caller via send_message when done
+- Read-only investigation — do NOT modify source code in `src/` directly.
+- Provide full, mathematically rigorous analysis and exact code proposals for `smoothPoseFrames` and `savitzkyGolay5`.
+- Write detailed technical report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/analysis.md`.
+- Produce 5-component `handoff.md` in working directory.
+- Communicate completion to parent via `send_message`.
 
 ## Current Parent
-- Conversation ID: c4f51a02-7aa3-4f8b-85a7-f91521482274
-- Updated: 2026-08-09T16:43:00Z
+- Conversation ID: e4978e50-e48c-4d54-93a2-5d05726d31e6
+- Updated: 2026-08-09T21:07:02Z
 
 ## Investigation State
-- **Explored paths**: `src/lib/gait/symmetry.ts`, `src/lib/gait/dte.ts`, `src/lib/gait/angles.ts`, `src/components/gait/JointAnglesChart.tsx`, `src/lib/gait/analysis.ts`, `src/components/gait/GaitApp.tsx`, `src/components/gait/ReportPanel.tsx`, `src/components/gait/ClinicalReportView.tsx`, `src/components/gait/CognitiveClusters.tsx`
-- **Key findings**:
-  1. Critical Integration Disconnect: `GaitApp.tsx` does not compute or store `angleAnalysis` on `AnalysisResult`. Downstream UI components pass `frames: []` to `computeGaitAngleAnalysis`, causing `JointAnglesChart` and Clinical Report to render empty curves and `—` ROM values in live production analysis.
-  2. DTE Classification Edge Case: `dte.ts` line 78 only checks `cadenceDTE > 5.0` for `motor_prioritization`, omitting `stepTimeCvDTE > 5.0`.
-  3. `symmetry.ts` and `angles.ts` mathematical derivations, 3-point joint angles, 0-100% gait cycle normalization, Perry & Burnfield curves, and view suppression are sound.
-- **Unexplored areas**: None (Scope complete).
+- **Explored paths**: `src/lib/gait/signal.ts`, `src/lib/gait/types.ts`, `src/lib/gait/pose.ts`, `src/lib/gait/__tests__/signal.test.ts`, `src/lib/gait/analysis.ts`
+- **Key findings**: `signal.ts` currently contains Butterworth lowpass & detrending; missing `savitzkyGolay5` kernel convolution & `smoothPoseFrames` 3D landmark frame temporal coordinate filter.
+- **Unexplored areas**: None.
 
 ## Key Decisions Made
-- Written `analysis.md` and `handoff.md` with complete findings, logic chain, and step-by-step fix recommendations for implementer agent.
+- Designing `savitzkyGolay5` with boundary reflection padding $x_{-1} = 2x_0 - x_1$, $x_{-2} = 2x_0 - x_2$, $x_N = 2x_{N-1} - x_{N-2}$, $x_{N+1} = 2x_{N-1} - x_{N-3}$.
+- Designing `smoothPoseFrames` to process `landmarks` $(x, y, z)$ and `worldLandmarks` $(x, y, z)$ (if present) for all keypoints across frames while preserving `visibility`, `presence`, `timeMs`, and any extra metadata intact.
+- Adding type aliases for `LandmarkFrame` = `PoseFrame` in `types.ts` or `signal.ts` to ensure compatibility.
 
 ## Artifact Index
-- DISPATCH.md — incoming dispatch instructions
-- BRIEFING.md — working memory and identity index
-- progress.md — liveness heartbeat log
-- analysis.md — detailed findings and analysis report
-- handoff.md — 5-component handoff report
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/DISPATCH.md — Task dispatch
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/BRIEFING.md — Working memory briefing
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/progress.md — Liveness log
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/analysis.md — Detailed technical investigation report
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/handoff.md — 5-component handoff report

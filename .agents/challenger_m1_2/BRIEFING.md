@@ -1,51 +1,58 @@
-# BRIEFING — 2026-08-09T12:47:00Z
+# BRIEFING — 2026-08-09T21:14:00Z
 
 ## Mission
-Adversarial stress-testing and empirical verification of M1 persistence, hydration, and UI data flow for Gait Lab.
+Empirically stress-test and challenge the 1D landmark coordinate temporal smoothing filter in `src/lib/gait/signal.ts` and integration in `src/lib/gait/analysis.ts`.
 
 ## 🔒 My Identity
-- Archetype: Empirical Challenger
+- Archetype: EMPIRICAL CHALLENGER
 - Roles: critic, specialist
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/challenger_m1_2
-- Original parent: c4f51a02-7aa3-4f8b-85a7-f91521482274
-- Milestone: M1 Core Engine Integration & Polish (R1)
-- Instance: 2 of 2
+- Original parent: e4978e50-e48c-4d54-93a2-5d05726d31e6
+- Milestone: Milestone M1 (Computer Vision & Model Fidelity Upgrades)
+- Instance: 2 of 2 (Challenger M1-2)
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code (write test scripts in temp/test files if needed or run verification commands)
-- EMPIRICAL verification required: write and execute tests, stress harnesses, or unit test runners.
-- Output report to `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/handoff.md`.
+- Review-only — do NOT modify implementation code (report findings, don't fix implementation yourself)
+- Empirically verify claims — run build, tests, and custom stress-test harnesses
+- Explicit verdict required: APPROVE or REJECT
 
 ## Current Parent
-- Conversation ID: c4f51a02-7aa3-4f8b-85a7-f91521482274
-- Updated: 2026-08-09T12:47:00Z
+- Conversation ID: e4978e50-e48c-4d54-93a2-5d05726d31e6
+- Updated: 2026-08-09T21:14:00Z
 
 ## Review Scope
-- **Files to review**: `src/lib/gait/persistence.ts`, `src/components/gait/GaitApp.tsx`, `src/components/gait/SessionHistoryDrawer.tsx`, `src/components/gait/ClinicalReportView.tsx`, `src/components/gait/CognitiveClusters.tsx`, `src/components/gait/ReportPanel.tsx`, `src/components/gait/JointAnglesChart.tsx`
-- **Interface contracts**: `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`, `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`, `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`
-- **Review criteria**: persistence schema, legacy hydration, null/undefined protection, UI data flow safety, edge case handling, zero runtime crashes, build & test clean execution.
+- **Files to review**: `src/lib/gait/signal.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/pose.ts`
+- **Interface contracts**: `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`, `/Users/damian/GitHub/gait-lab/PROJECT.md`, `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
+- **Worker Report**: `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`
+- **Review criteria**: Empirical stress testing of 1D landmark coordinate temporal smoothing (`savitzkyGolay5`, `smoothPoseFrames`), signal preservation, noise variance reduction, edge case handling, boundary reflection, performance, phase shift, numerical stability, integration in `analysis.ts`, test pass rate, typecheck, lint, build.
 
 ## Key Decisions Made
-- Authored empirical stress test suite `src/lib/gait/__tests__/m1_challenger_2_stress.test.tsx` testing 11 specific boundary and edge cases.
-- Executed `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` — all passed cleanly with 0 errors.
-- Confirmed verdict: **APPROVE**.
+- Initialized challenger workspace for M1-2 temporal smoothing stress testing.
+- Formulated and executed empirical stress test suite `src/lib/gait/__tests__/m1_2_temporal_smoothing_stress.test.ts`.
+- Verified linear trend preservation, DC constant preservation, quadratic interior reconstruction, high-frequency noise variance reduction (>50%), zero peak phase shift, boundary reflection padding ($N \ge 5$), micro-sequence safety ($N < 5$), non-finite number handling, landmark metadata immutability, and 1000-frame scaling (<15ms).
+- Executed `npm test` (62 test files passed, 656 tests passed, 100% pass rate).
+- Executed `npm run typecheck` (0 errors).
+- Executed `npm run lint` (0 errors).
+- Executed `npm run build` (Clean production Vercel/Nitro build in 8.52s).
+- Verdict: **`APPROVE`**.
 
 ## Artifact Index
-- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/DISPATCH.md`
-- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/BRIEFING.md`
-- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/progress.md`
-- `/Users/damian/GitHub/gait-lab/src/lib/gait/__tests__/m1_challenger_2_stress.test.tsx`
-- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/handoff.md`
+- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/DISPATCH.md` — Dispatch log
+- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/progress.md` — Progress log
+- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/BRIEFING.md` — Briefing document
+- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/handoff.md` — Final verification report & APPROVE verdict
+- `/Users/damian/GitHub/gait-lab/src/lib/gait/__tests__/m1_2_temporal_smoothing_stress.test.ts` — Empirical stress test suite
 
 ## Attack Surface
 - **Hypotheses tested**:
-  1. Saving session with null `angleAnalysis` or missing `patientMeta` causes no serialization/deserialization errors or DB constraint crashes. (PASSED)
-  2. Hydration of legacy records missing `angle_analysis_json`, `patient_meta_json`, or `dual_task_json` defaults cleanly and renders without runtime exceptions. (PASSED)
-  3. Partial metrics object (missing optional fields like `symmetryAngle`, `leftStancePct`, `doubleSupportPct`) does not crash `buildStructuredReport` or UI components (`CognitiveClusters`, `ClinicalReportView`, `ReportPanel`). (PASSED)
-  4. Rendering `JointAnglesChart` with empty or incomplete `normalizedPoints`, `null` ROM metrics, or missing `normativeData` handles nulls safely and renders fallback indicators ("—") without throwing. (PASSED)
-  5. Session hydration flow (`SessionHistoryDrawer` -> `GaitApp` state -> `ReportPanel` / `ClinicalReportView` / `CognitiveClusters`) executes seamlessly without breaking state or crashing React. (PASSED)
-- **Vulnerabilities found**: None. All boundary conditions pass and fall back gracefully.
-- **Untested angles**: None. 40 test files (347 unit & integration tests) pass 100%.
+  - Linear signal trend preservation ($y=ax+b$): CONFIRMED (0.000 error across all interior & reflected boundary points).
+  - High-frequency noise attenuation: CONFIRMED (>50% variance reduction with 0 frame phase shift).
+  - Boundary reflection padding for $N \ge 5$: CONFIRMED ($x_{-1} = 2x_0 - x_2, x_{-2} = 2x_0 - x_1$).
+  - Short sequence grace ($N < 5$): CONFIRMED (returns input unaltered without array bounds exceptions).
+  - Metadata immutability (`visibility`, `presence`, `timeMs`): CONFIRMED.
+  - Quality gates (`npm test`, `typecheck`, `lint`, `build`): CONFIRMED (100% pass).
+- **Vulnerabilities found**: None.
+- **Untested angles**: None.
 
 ## Loaded Skills
 - None.

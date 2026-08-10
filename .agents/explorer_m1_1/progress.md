@@ -1,14 +1,14 @@
-# Progress Log
+# Progress Log - Explorer M1-1 (MediaPipe Pose Landmarker Hierarchy)
 
-Last visited: 2026-08-09T16:42:50Z
+Last visited: 2026-08-09T21:07:01Z
 
-- [x] Initialized DISPATCH.md, BRIEFING.md, progress.md
-- [x] Read ORIGINAL_REQUEST.md and SCOPE.md
-- [x] Inspect `src/lib/gait/signal.ts` (Butterworth filter, OLS detrending, DSP correctness)
-- [x] Inspect `src/lib/gait/events.ts` (Zeni engine, heel strike IC, toe off TO, stance/swing/DS, prominence, parabolic interpolation, follow-cam)
-- [x] Inspect `src/lib/gait/analysis.ts` (integration and call flow)
-- [x] Inspect UI components (`GaitApp.tsx`, `SkeletonCanvas.tsx`)
-- [x] Search project for TODOs, mock data, disconnected logic, missing implementations
-- [x] Write `analysis.md` and `handoff.md`
-- [x] Update BRIEFING.md and progress.md
-- [x] Notify parent agent via `send_message`
+- [x] Initialized DISPATCH.md and updated BRIEFING.md
+- [x] Audit `src/lib/gait/pose.ts` and existing test infrastructure
+- [x] Formulate technical blueprint for 3-tier model fallback (`heavy` -> `full` -> `lite`)
+- [x] Formulate GPU -> CPU delegate fallback strategy
+- [x] Formulate Local asset path -> Google Storage CDN URL fallback matrix
+- [x] Define updated `PoseLandmarkerLike` interface with `modelTier` and `delegate` properties
+- [x] Specify comprehensive Vitest unit test suite for `src/lib/gait/__tests__/pose.test.ts`
+- [x] Write detailed technical report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/analysis.md`
+- [x] Write 5-component handoff report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/handoff.md`
+- [x] Notify parent via `send_message`

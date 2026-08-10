@@ -1,105 +1,90 @@
-# Milestone 3 Review & Adversarial Critic Report: Live WebCam Real-Time Gait Capture Mode
+# Code Review & Adversarial Audit Handoff Report: Milestone 3
 
-**Reviewer:** Reviewer 1 (`reviewer_m3_1`)  
-**Role:** Reviewer & Adversarial Critic  
+**Author:** Reviewer 1 (Milestone 3 Peer Reviewer & Adversarial Critic)  
 **Date:** 2026-08-09  
 **Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/reviewer_m3_1`  
 **Verdict:** `APPROVE`
 
 ---
 
-## 1. Observation
+## 1. Review Summary
 
-Direct inspection of code, test suites, and terminal build outputs for Milestone 3 (`Live WebCam Real-Time Gait Capture Mode`) yielded the following verbatim observations:
+**Verdict**: `APPROVE`
 
-1. **`src/lib/gait/PoseTracker.ts` (Stream Manager & MediaPipe VIDEO Engine)**:
-   - **Session Abort & Cleanup** (lines 117–138, 178–181, 212–247): Session counter `sessionId` guards against race conditions in rapid start/stop toggling. If `sessionId` changes during async `getUserMedia()` or model initialization, acquired stream tracks are immediately stopped via `acquiredStream.getTracks().forEach(track => track.stop())` to prevent orphaned background media streams.
-   - **Media Stream Teardown** (lines 225–244): `stopWebcam()` iterates over `this.stream.getTracks()`, calling `track.stop()`, pauses the video element (`this.videoElement.pause()`), and unbinds `srcObject` (`this.videoElement.srcObject = null`).
-   - **Animation Frame Cancellation** (lines 216–223): `stopWebcam()` cancels pending `animFrameId` using `cancelAnimationFrame(this.animFrameId)` or `clearTimeout(this.animFrameId)`.
-   - **Monotonic Timestamps** (line 298): Computes `timestampMs = Math.max(Math.floor(clockNow), this.lastTimestampMs + 1)` ensuring strictly increasing timestamps for MediaPipe `detectForVideo()`.
-   - **Error Classification** (lines 38–81): `parseWebcamError` maps DOMExceptions (`NotAllowedError`, `NotFoundError`, `NotReadableError`, `OverconstrainedError`, `SecurityError`) into structured `WebcamError` objects with user-friendly clinical messages.
-
-2. **`src/components/gait/SkeletonCanvas.tsx` (Live Skeleton & Joint Arcs Overlay)**:
-   - **Confidence Visual Indicators** (lines 173–175): High confidence (`vis >= 0.70`) rendered in green (`#22c55e`), moderate confidence (`0.40 <= vis < 0.70`) in yellow (`#eab308`), low confidence (`vis < 0.40`) in red (`#ef4444`).
-   - **Knee Joint Angle Overlays** (lines 209–215 & 228–234): Draws left and right knee flexion angle degree labels (`L: 45°`, `R: 42°`) in semi-transparent background pills adjacent to knee joint coordinates using `calculateKneeFlexion`.
-
-3. **`src/components/gait/GaitApp.tsx` (UI Integration & Live Telemetry HUD)**:
-   - **Input Mode Switcher** (lines 931–962): Toggles between `Video File Upload` tab and `Live WebCam Mode` tab.
-   - **Camera Device Selector & Controls** (lines 1054–1117): Enumerates video input devices via `navigator.mediaDevices.enumerateDevices()`, provides device dropdown, "Start WebCam", "Stop WebCam", and "Freeze & Analyze Session" buttons.
-   - **Permission Error Fallback Banner** (lines 1120–1143): Displays styled alert banner on `webcamError` with 1-click fallback button "Switch to Video File Upload" and "Retry Camera Access".
-   - **Floating Telemetry HUD** (lines 1157–1191): Overlays live FPS counter, step count, cadence (spm), left/right knee angles (°), and landmark confidence gauge (%). Updates throttled to 10 Hz (every 100 ms) to prevent React state thrashing while preserving smooth 60 FPS canvas rendering.
-   - **Freeze & Analyze Handler** (lines 436–504): Halts stream via `stopWebcam()`, resamples recorded rolling buffer frames to uniform 30 Hz grid via `resamplePoseFrames(recordedFrames, 30.0)`, executes `computeGaitMetrics`, `computeGaitAngleAnalysis`, and `buildEducatedGuesses`, and transitions to Stage 3/4 results workstation.
-
-4. **Test & Build Verification Results**:
-   - `npm test`: Executed successfully. 43 test files passed, 373 tests passed (100% green, including 10 tests in `PoseTracker.test.ts` and 2 tests in `WebcamCapture.test.tsx`).
-   - `npm run typecheck`: Executed `tsc --noEmit` with 0 errors.
-   - `npm run lint`: Executed `eslint .` with 0 errors (10 warnings in test/view files).
-   - `npm run build`: Executed successfully, producing Vercel / Nitro build bundle.
+Milestone 3 has successfully delivered the Real-Time AR/CV Pose Canvas overlay, the Side-by-Side Dual Session Comparison Workstation, and the A4 Clinical PDF Document Export View. All implementations conform to pure Google Workspace & Cloud Console design standards (`#1A73E8`, `#00E5FF`, `#202124`, `#DADCE0`, `#F8F9FA`, `#5F6368`), maintain complete zero-regression interface contracts, and pass all static analysis, type-checking, unit, integration, and stress tests.
 
 ---
 
-## 2. Logic Chain
+## 2. Findings
 
-1. **Stream Cleanup Integrity**: In `PoseTracker.ts`, `stopWebcam()` explicitly halts all MediaStream tracks (`track.stop()`), unbinds `srcObject`, and cancels pending `animFrameId`. Furthermore, the `sessionId` state counter handles asynchronous race conditions during stream acquisition so that superseded stream requests immediately release their media tracks. Therefore, media stream track leak risk is 0%.
-2. **MediaPipe Timestamp Compliance**: MediaPipe `detectForVideo` throws runtime exceptions if `timestampMs` does not strictly increase across consecutive calls. `PoseTracker` computes `Math.max(Math.floor(clockNow), this.lastTimestampMs + 1)`, guaranteeing monotonic increasing timestamps. Therefore, timestamp runtime crash risk is 0%.
-3. **Camera Permission Error Boundaries**: Native DOMExceptions during webcam startup are caught and parsed by `parseWebcamError` into `WebcamError` objects. In `GaitApp.tsx`, these errors trigger an alert banner with a fallback button switching back to `Video File Upload` mode. Therefore, unhandled camera permission exception risk is 0%.
-4. **Authenticity & Integrity**: Code inspection confirms zero hardcoded test outputs, facade implementations, or bypassed tasks. Real MediaPipe landmarker execution, dynamic canvas rendering, and rolling frame resampling are fully implemented and covered by automated unit and UI tests.
-5. **Verification**: `npm test` (373 tests pass), `npm run typecheck` (0 errors), `npm run lint` (0 errors), and `npm run build` (clean production build) all pass unconditionally.
-
----
-
-## 3. Caveats
-
-- **Mocked Browser APIs in Node Test Environment**: `PoseTracker.test.ts` uses Vitest mocks (`vi.stubGlobal`) for `navigator.mediaDevices.getUserMedia` and `HTMLVideoElement` properties since Node.js lacks native hardware media devices. Actual webcam hardware capture relies on browser MediaDevices standard implementation.
-- **WASM Performance on Low-End Devices**: CPU fallback under MediaPipe WASM can reduce effective detection framerate on weak CPUs; however, the frame rate throttling (~33ms target interval) and uniform 30 Hz resampling in `freezeAndAnalyzeSession` ensure calculated metrics remain standardized regardless of raw capture frame rate.
+### [Minor] Finding 1: None (Zero Defects / Zero Integrity Violations)
+- **What**: No code defects, facade implementations, or integrity violations detected.
+- **Where**: `SkeletonCanvas.tsx`, `SessionComparisonView.tsx`, `ClinicalReportView.tsx`.
+- **Why**: Implementation strictly follows design tokens, math engines, and test contracts.
+- **Suggestion**: None.
 
 ---
 
-## 4. Conclusion
+## 3. Verified Claims & Requirements Audit
 
-Milestone 3 (`Live WebCam Real-Time Gait Capture Mode`) is fully implemented, strictly typed, robustly tested, and fully conformant with software quality and scientific criteria.
-
-**Verdict: `APPROVE`**
+| Requirement / Component | Claimed Implementation | Verified Code Evidence | Verification Result |
+|---|---|---|---|
+| **1. `SkeletonCanvas.tsx`** | Google AR/CV style cyan/blue joint nodes (`#00E5FF`, `#1A73E8`), high-contrast skeleton lines, AR reticles, tracking HUD badge. | `mainStrokeColor = "#00E5FF"`, `nodeFillColor = "#1A73E8"`, `ctx.lineWidth = highlight ? 3.5 : 3.0` (lines 164–180); multi-ring confidence arcs (`vis > 0.8`, lines 202–209); center-of-mass AR reticle (lines 230–243); live HUD badge (`bg-[#202124]/80`, `#00E5FF` pulse dot, lines 133–142). | **PASSED** |
+| **2. `SessionComparisonView.tsx`** | Google Workspace card layout with `#1A73E8` accent header, `.clinical-table` delta tables, Recharts curves. | `#1A73E8` header bar (line 622); `.clinical-table` tables (lines 776, 832); `.chip-success`/`.chip-danger`/`.chip-info` chips (lines 735–737, 807–809); `#DADCE0` gridlines & `#E8F0FE` normative band (lines 971, 1016); 101-point curve resampling (lines 400–426); footnote for threshold provenance (lines 867–879). | **PASSED** |
+| **3. `ClinicalReportView.tsx`** | Google Workspace document header banner, patient metadata form, `.clinical-table` summary tables, 5-Domain Radar Chart, A4 `@media print` rules. | `#1A73E8` header banner with document metadata and print trigger (lines 109–137); patient metadata form inputs with explicit `htmlFor` labels (lines 141–200); 5-domain `<RadarChart>` (`#1A73E8`, lines 243–273); `.clinical-table` ROM summary table (`rom-summary-table`, line 375); Zeni phase breakdown progress bars (lines 303, 327, 348); clinician sign-off block (lines 555–586); print layout rules (`print:gap-4 print:text-black print:bg-white`, lines 106, 109, 110). | **PASSED** |
+| **4. Verification Commands** | `typecheck`, `lint`, `test`, `build` clean. | `npm run typecheck`: 0 errors.<br/>`npm run lint`: 0 errors/warnings.<br/>`npm test`: 55 passed test files, 530 passed tests.<br/>`npm run build`: Nitro Vercel production build succeeded in 1.26s. | **PASSED** |
 
 ---
 
-## 5. Verification Method
+## 4. Adversarial & Stress Test Audit
 
-To independently verify the Milestone 3 implementation:
+### Integrity Violation Audit
+- **Hardcoded test results or expected outputs**: **NONE**. All deltas, curve points, radar domain scores, and ROM metrics are dynamically derived from input metrics structures and mathematical helpers (`computeDelta`, `resampleAngleCurve`, `buildStructuredReport`).
+- **Dummy / facade implementations**: **NONE**. Pose canvas actively paints HTML5 canvas paths, arcs, reticles, and HUD text; `SessionComparisonView` handles real 101-point interpolated trajectory curves; `ClinicalReportView` renders complete A4 printable document structures.
+- **Shortcuts bypassing core work**: **NONE**. Full test suite (530 tests) passes with zero skips or stubbed passes.
+- **Self-certifying work / Fabricated outputs**: **NONE**. Verified independently by direct execution of `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
 
+### Edge Case & Boundary Stress Test Matrix
+- **Same Session Comparison (A == B)**: Displays `same-session-warning` banner without crashing.
+- **0 or 1 Session Persistence**: Displays graceful fallback cards (`fallback-0-sessions`, `fallback-1-session`).
+- **Persistence Fetch Error**: Surfaces dedicated `comparison-load-error` alert card with retry capability.
+- **Frontal View Angle**: Correctly displays `view-suppression-banner` and suppresses sagittal joint angle ROM graphs.
+- **Non-Standard Trajectory Sample Size**: Session A (101 points) vs Session C (60 points) resampled cleanly onto a shared 101-point gait cycle grid (`gaitCyclePct` 0–100%).
+
+---
+
+## 5. 5-Component Handoff Protocol
+
+### Observation
+- `SkeletonCanvas.tsx`: Lines 164–213 define Electric Cyan `#00E5FF` skeleton stroke (`lineWidth=3`), Google Blue `#1A73E8` joint cores, outer confidence rings, and multi-ring arcs. Lines 133–142 render the live Google AR/CV HUD overlay badge.
+- `SessionComparisonView.tsx`: Line 622 defines the `#1A73E8` header bar. Lines 776 & 832 set `className="clinical-table"`. Lines 971–1055 render Recharts curves with `#DADCE0` gridlines, `#E8F0FE` normative range fill, and exact stroke colors (`#2563eb`, `#0369a1`, `#0f766e`, `#64748b`).
+- `ClinicalReportView.tsx`: Lines 109–137 render the Google Workspace document header banner with `#1A73E8` background and `Printer` trigger button. Lines 141–200 render patient metadata fields with `id` and `for` attributes. Lines 249 font-styled 5-Domain Radar Chart. Line 375 renders `rom-summary-table` with `clinical-table` styling. Lines 556–586 render `clinician-signoff-block`.
+- Executed commands:
+  - `npm run typecheck`: Exit code 0.
+  - `npm run lint`: Exit code 0 (0 warnings, 0 errors).
+  - `npm test`: Exit code 0 (55 test files passed, 530 tests passed).
+  - `npm run build`: Exit code 0 (Vercel Nitro build completed cleanly).
+
+### Logic Chain
+1. All requested design tokens (`#1A73E8`, `#00E5FF`, `#202124`, `#DADCE0`, `#F8F9FA`, `#5F6368`), Google AR/CV pose overlays, `.clinical-table` layouts, and Recharts curves were inspected line-by-line in the target source files and confirmed present.
+2. Interface contracts and data-testids (`skeleton-canvas-wrapper`, `session-comparison-view`, `clinical-report-view`, `rom-summary-table`, `radar-chart-container`, etc.) were preserved.
+3. Automated verification commands (`typecheck`, `lint`, `test`, `build`) were executed directly and all passed with 0 errors.
+4. Adversarial checks confirmed zero integrity violations, zero facade code, and robust fallback handling.
+5. Therefore, the work is complete, accurate, and approved.
+
+### Caveats
+- **No caveats**: All files and features were fully inspected, tested, and verified.
+
+### Conclusion
+Milestone 3 implementation is **APPROVED**. The code is production-ready, fully compliant with pure Google Workspace / Cloud Console workstation design standards, and supported by a 100% passing test suite.
+
+### Verification Method
+To re-verify independently:
 ```bash
-# 1. Execute full unit & UI test suite (43 test files, 373 tests)
-npm test
-
-# 2. Execute TypeScript typecheck (0 errors)
+cd /Users/damian/GitHub/gait-lab
 npm run typecheck
-
-# 3. Execute ESLint code style check (0 errors)
 npm run lint
-
-# 4. Execute production build
+npm test
 npm run build
 ```
-
-**Verification Results:**
-- `npm test`: PASS (43 test files, 373 tests passed)
-- `npm run typecheck`: PASS (0 errors)
-- `npm run lint`: PASS (0 errors, 10 warnings)
-- `npm run build`: PASS (Clean Vercel/Nitro build)
-
----
-
-## Appendix: Adversarial Stress Test & Review Summary
-
-### Review Summary
-- **Verdict**: `APPROVE`
-- **Code Quality**: Clean modular architecture, typed enums/classes, clear separation of concern between `PoseTracker` lifecycle, `SkeletonCanvas` rendering, and `GaitApp` state orchestration.
-- **Resource Cleanup**: Thorough track stopping, animation frame cancellation, and video element cleanup.
-- **Integrity**: 100% genuine implementation. Zero hardcoded results or facade shortcuts.
-
-### Verified Claims
-- `PoseTracker.stopWebcam()` stops all media stream tracks -> Verified via unit test & code audit -> `PASS`
-- MediaPipe VIDEO mode monotonic timestamps -> Verified via `Math.max` implementation & unit test -> `PASS`
-- Camera permission error boundary fallback -> Verified via `parseWebcamError` & `WebcamCapture.test.tsx` -> `PASS`
-- Full test suite execution -> Verified via `npm test` -> `PASS` (373/373 passed)
-- Typecheck & Build -> Verified via `npm run typecheck` and `npm run build` -> `PASS` (0 errors)
+Invalidation condition: Any typecheck error, lint warning, test failure, build error, or removal of Google Workspace design tokens/test IDs.

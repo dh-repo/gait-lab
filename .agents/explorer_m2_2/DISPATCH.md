@@ -1,12 +1,14 @@
-# DISPATCH — Explorer 2 (Metric Deltas, Badges & Trajectory Curves)
+## 2026-08-09T17:27:59Z
+You are Explorer 2 for Milestone 2: High-Density Tabbed Clinical Panels & Tables.
+Working directory for your metadata: /Users/damian/GitHub/gait-lab/.agents/explorer_m2_2
+Please read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md` and `/Users/damian/GitHub/gait-lab/PROJECT.md`.
 
-## Assignment
-Investigate calculation logic for metric deltas and chart overlay implementation for `SessionComparisonView.tsx`.
-Authoritative User Request: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-Milestone Scope Document: /Users/damian/GitHub/gait-lab/.agents/sub_orch_m2/SCOPE.md
+Task:
+Formulate an exact technical blueprint for `MetricsPanel.tsx`, `CognitiveClusters.tsx`, `GuessesPanel.tsx`, and `GuidePanel.tsx`:
+1. `src/components/gait/MetricsPanel.tsx`: Restyle spatio-temporal parameters into high-density `.clinical-table` tables (32px row height, `#F8F9FA` header, `#DADCE0` gridlines, tabular-nums) with Google Material status chips.
+2. `src/components/gait/CognitiveClusters.tsx`: Restyle finding cluster cards into Google Workspace card containers with Material status badges (`#E6F4EA`, `#FEF7E0`, `#FCE8E6`, `#E8F0FE`).
+3. `src/components/gait/GuessesPanel.tsx`: Restyle hypothesis cards into Google Workspace recommendation cards.
+4. `src/components/gait/GuidePanel.tsx`: Restyle clinician guide into Google Workspace documentation card.
+5. Ensure all existing test selectors (`data-testid="..."`) and props remain 100% compliant.
 
-## Requirements
-1. Examine existing chart visualization components (e.g. Recharts or Canvas/SVG line charts used for joint angles/trajectories).
-2. Plan metric delta calculations (% change or absolute difference) and threshold rules for color-coded badges (green for improvement, red/amber for decline, gray for neutral).
-3. Plan overlaid joint trajectory curves (Knee, Ankle, Hip angles over normalized stride cycle 0-100% or time) plotting Session A vs Session B on shared axes.
-4. Output your findings to /Users/damian/GitHub/gait-lab/.agents/explorer_m2_2/handoff.md and report back.
+Write your blueprint report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_2/handoff.md` and send a message to parent.

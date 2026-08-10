@@ -1,28 +1,22 @@
-# Progress Log — Orchestrator
+# Progress Log — Project Orchestrator
 
-## Current Status
-Last visited: 2026-08-09T17:04:50Z
+Last visited: 2026-08-10T01:22:30Z
 
 ## Iteration Status
-Current iteration: 0 / 32
+Current iteration: 1 / 32
 
-## Checklist
-- [x] Phase 0: Survey & Map Architecture (Dispatch 3 Explorers / Spec Miners)
-- [x] Create PROJECT.md and Feature Inventory (26 features mapped)
-- [x] Phase 1: Milestone Decomposition & Track Setup (M1, M2, M3, M4)
-- [x] Milestone 1: Core Engine Integration & Polish (R1) [DONE - c4f51a02]
-- [x] Milestone 2: Side-by-Side Dual Session Comparison View (R2) [DONE - 46c38289]
-- [x] Milestone 3: Live WebCam Real-Time Gait Capture Mode (R3) [DONE - 7f68613b]
-- [ ] Milestone 4: E2E Test Suite & Deployment Verification (R4) [IN_PROGRESS - 94e95a73]
-- [ ] Phase 2: Final Verification & Victory Report to Sentinel
-
-## Log
-- 2026-08-09T16:40:43Z: Initialized orchestrator briefing and progress tracking.
-- 2026-08-09T16:40:53Z: Dispatched 3 parallel survey subagents.
-- 2026-08-09T16:41:31Z: Received reports from all 3 survey subagents. Created PROJECT.md with 26 features across 4 milestones.
-- 2026-08-09T16:41:40Z: Dispatched Sub-Orchestrator for Milestone 1 (`c4f51a02-7aa3-4f8b-85a7-f91521482274`).
-- 2026-08-09T16:47:12Z: Sub-Orchestrator M1 completed Milestone 1 cleanly (347 tests passed, 0 tsc errors, 0 lint warnings, CLEAN audit). Marked M1 DONE.
-- 2026-08-09T16:47:18Z: Dispatched parallel Sub-Orchestrators for Milestone 2 (`46c38289`) and Milestone 3 (`7f68613b`).
-- 2026-08-09T16:57:23Z: Sub-Orchestrator M3 completed Milestone 3 cleanly (401 tests passed, 0 tsc errors, 0 lint warnings, CLEAN audit). Marked M3 DONE.
-- 2026-08-09T17:04:47Z: Sub-Orchestrator M2 completed Milestone 2 cleanly (406 tests passed, 0 tsc errors, 0 lint warnings, CLEAN audit). Marked M2 DONE.
-- 2026-08-09T17:04:50Z: Dispatched Sub-Orchestrator for Milestone 4 (`94e95a73-9eb4-49d3-8cd1-57371d44cd61`).
+## Current Status
+- [x] Orchestrator initialized
+- [x] State files DISPATCH.md and BRIEFING.md updated for full project scope
+- [x] Phase 0: Survey codebase and requirements via parallel Explorers (completed)
+  - [x] Explorer 1: R1 Survey completed (.agents/explorer_survey_1/handoff.md)
+  - [x] Explorer 2: R2 Survey completed (.agents/explorer_survey_2/handoff.md)
+  - [x] Explorer 3: R3 Survey completed (.agents/explorer_survey_3/handoff.md)
+- [x] Phase 1: Create PROJECT.md and TEST_INFRA.md (completed)
+- [/] Phase 2: Implementation & Testing Track execution
+  - [/] Sub-Orchestrator M1 (Core Tracking, Model Hierarchy, 1D Smoothing in `pose.ts`, `signal.ts`, `analysis.ts` - Conv ID `e4978e50-e48c-4d54-93a2-5d05726d31e6`) — IN PROGRESS
+  - [/] Sub-Orchestrator E2E (Ground-truth synthetic test suite creation - Conv ID `fcf72808-ec26-4c9f-a5d7-d352b976af84`) — IN PROGRESS
+  - [ ] Sub-Orchestrator M2 (WebRTC 60 FPS, Target Lock & Background Suppression in `PoseTracker.ts`, `calibration.ts`) — PENDING (depends on M1)
+  - [ ] Sub-Orchestrator M3 (Multi-Signal Fusion, Planar Homography & Person Identification Stress Tests) — PENDING (depends on M1, M2)
+  - [ ] Sub-Orchestrator M4 (Steady-State Stride Filtering & Final Hardening) — PENDING (depends on M1-M3)
+- [ ] Phase 3: Victory Audit & Final Handover

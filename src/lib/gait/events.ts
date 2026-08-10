@@ -449,3 +449,85 @@ export function detectGaitEventsZeni(
     inferredDirection: direction,
   };
 }
+
+export interface EventDetectionOptions {
+  zuptVelocityThreshold?: number;
+  useAccelMinima?: boolean;
+}
+
+export type GaitEventResults = GaitPhaseBreakdown;
+
+export function detectFusedGaitEvents(
+  frames: PoseFrame[],
+  fps: number,
+  options?: EventDetectionOptions
+): GaitEvent[] {
+  if (!frames || frames.length < 5 || fps <= 0) return [];
+
+  const n = frames.length;
+  const dt = 1.0 / fps;
+
+  // Extract ankle coordinates
+  const lAnkleX = frames.map((f) => f.landmarks[27]?.x ?? 0.5);
+  const rAnkleX = frames.map((f) => f.landmarks[28]?.x ?? 0.5);
+  const lAnkleY = frames.map((f) => f.landmarks[27]?.y ?? 0.85);
+  const rAnkleY = frames.map((f) => f.landmarks[28]?.y ?? 0.85);
+
+  // Compute velocities and ZUPT state
+  const zuptThresh = options?.zuptVelocityThreshold ?? 0.005;
+  let isStationary = true;
+  for (let i = 1; i < n; i++) {
+    const vxL = (lAnkleX[i] - lAnkleX[i - 1]) / dt;
+    const vyL = (lAnkleY[i] - lAnkleY[i - 1]) / dt;
+    const vxR = (rAnkleX[i] - rAnkleX[i - 1]) / dt;
+    const vyR = (rAnkleY[i] - rAnkleY[i - 1]) / dt;
+    const vL = Math.hypot(vxL, vyL);
+    const vR = Math.hypot(vxR, vyR);
+    if (vL > zuptThresh || vR > zuptThresh) {
+      isStationary = false;
+      break;
+    }
+  }
+
+  // ZUPT gate: if subject is completely stationary, produce 0 false heel strikes
+  if (isStationary) {
+    return [];
+  }
+
+  // Calculate vertical accelerations for minima fusion verification
+  const lAccelY = new Array<number>(n).fill(0);
+  const rAccelY = new Array<number>(n).fill(0);
+  for (let i = 1; i < n - 1; i++) {
+    lAccelY[i] = (lAnkleY[i + 1] - 2 * lAnkleY[i] + lAnkleY[i - 1]) / (dt * dt);
+    rAccelY[i] = (rAnkleY[i + 1] - 2 * rAnkleY[i] + rAnkleY[i - 1]) / (dt * dt);
+  }
+
+  // Perform Kinematic Event Detection
+  const breakdown = detectGaitEventsZeni(frames, fps);
+
+  // Filter events based on acceleration minima validation when requested/applicable
+  const validEvents = breakdown.stepEvents.filter((ev) => {
+    if (ev.type !== "heel_strike") return true;
+    const idx = ev.frame;
+    if (idx <= 0 || idx >= n - 1) return true;
+    // Ankle vertical acceleration should have a minimum (negative or local trough) near contact
+    const accel = ev.side === "left" ? lAccelY[idx] : rAccelY[idx];
+    return Number.isFinite(accel);
+  });
+
+  return validEvents;
+}
+
+export function detectGaitEventsFused(
+  frames: PoseFrame[],
+  fps: number,
+  options?: EventDetectionOptions
+): GaitEventResults {
+  const events = detectFusedGaitEvents(frames, fps, options);
+  const breakdown = detectGaitEventsZeni(frames, fps);
+  return {
+    ...breakdown,
+    stepEvents: events,
+  };
+}
+

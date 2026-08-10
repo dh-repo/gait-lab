@@ -546,9 +546,9 @@ export function buildStructuredReport(
     const c = opts.dualTaskCost;
     // Higher cost = more burden under dual task
     const burden = clamp(
-      (Math.max(0, c.cadenceCostPct) / 40 +
-        Math.max(0, c.stepTimeCvCostPct) / 50 +
-        Math.max(0, c.automaticityCostPts) / 30) /
+      (Math.max(0, c.cadenceCostPct ?? 0) / 40 +
+        Math.max(0, c.stepTimeCvCostPct ?? 0) / 50 +
+        Math.max(0, c.automaticityCostPts ?? 0) / 30) /
         3,
       0,
       1,

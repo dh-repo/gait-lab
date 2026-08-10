@@ -1,97 +1,136 @@
-# Handoff & Review Report — Reviewer 2 (Milestone M2)
+# Handoff Report: Independent Code & Adversarial Review of Milestone 2 (Reviewer 2)
 
 ## 1. Observation
 
-A full review of UX responsiveness, UI integration, fallback card rendering, mathematical delta calculations, and unit test coverage for Milestone 2 (`SessionComparisonView`) was conducted across the codebase.
+### 1.1 Inspected Source Files
+- **`src/components/gait/JointAnglesChart.tsx`**:
+  - Recharts `ComposedChart` rendering Left angle trajectory (`#1A73E8`, `strokeWidth={2.5}`) and Right angle trajectory (`#34A853`, `strokeWidth={2.5}`, `strokeDasharray="6 4"`).
+  - Normative reference band: Shaded Area polygon (`#E8F0FE`, `fillOpacity={0.45}`) bounded by dashed line boundaries (`#BDC1C6`, `strokeDasharray="3 3"`).
+  - Custom dark popover tooltip (`CustomTooltip`: `bg-[#202124] border-[#3C4043] text-white`) for high contrast.
+  - Interactive joint selector pills (`Knee`, `Hip`, `Ankle`) styled with `bg-[#F1F3F4]` container and `bg-[#1A73E8]` active state.
+  - ROM metric chips (`#E8F0FE` Left ROM, `#E6F4EA` Right ROM, `#FEF7E0` ROM Asymmetry).
+  - Correct view suppression banner handling (`view-suppression-banner`) when `angleAnalysis.isSuppressed` is true.
 
-### Files Inspected
-1. **`src/components/gait/SessionComparisonView.tsx`**:
-   - Implements `computeDelta` engine (lines 79–160) calculating absolute deltas ($\Delta = \text{Val}_B - \text{Val}_A$) and percentage deltas ($\% \Delta = \frac{\Delta}{|\text{Val}_A|} \times 100\%$) with clinical thresholds ($\epsilon = 0.5$ pts for scores, $\epsilon = 1.0$ spm for cadence, $\epsilon = 0.2\%$ for symmetry/variability). Zero division when $\text{Val}_A = 0$ is safely guarded.
-   - Handles fallback states: `fallback-0-sessions` card when 0 sessions exist (lines 425–458), and `fallback-1-session` card when 1 session exists (lines 463–515).
-   - Renders 2+ session workstation (lines 520–904) with dropdown selectors, domain score delta cards, spatio-temporal and symmetry comparison tables, interactive joint selection tabs (`Knee` | `Hip` | `Ankle`), Perry & Burnfield (2010) normative range curves, and identical-session warning badge (`same-session-warning`).
-   - Handles view suppression alert banner (`view-suppression-banner`) for frontal camera view recordings.
-2. **`src/components/gait/SessionHistoryDrawer.tsx`**:
-   - Multi-session selection state `selectedIds` (lines 27, 57–67) with FIFO queue capped at 2 sessions.
-   - Checkboxes on session cards (`data-testid="checkbox-select-{id}"`, lines 120–133) toggling selection.
-   - Sticky footer compare action button (`data-testid="compare-selected-button"`, lines 188–206) rendered when 2 sessions are selected: `"Compare Selected (2 Sessions)"`.
-3. **`src/components/gait/WorkflowHeader.tsx`**:
-   - Renders top-level action button (`data-testid="header-compare-button"`, lines 100–111) triggering `onOpenCompare`.
-4. **`src/components/gait/GaitApp.tsx`**:
-   - Integrates state routing `viewMode: "workflow" | "comparison"` (line 103).
-   - Connects `WorkflowHeader.onOpenCompare` and `SessionHistoryDrawer.onCompareSessions` to transition to comparison view seamlessly (lines 847, 861–872, 1705–1709).
-5. **`src/components/gait/__tests__/SessionComparisonView.test.tsx`**:
-   - 14 unit test cases covering metric delta calculations (improvement, degradation, neutral thresholds, null handling), fallback cards (0 sessions, 1 session), 2+ sessions dual workstation, Recharts overlays, joint tab switching, same-session warnings, and view suppression banners.
+- **`src/components/gait/MetricsPanel.tsx`**:
+  - Spatio-temporal parameter tables restyled to high-density `.clinical-table` format with 32px row heights (`h-[32px]`), `#F8F9FA` header rows (`border-b border-[#DADCE0]`), and tabular fonts (`font-mono tabular-nums`).
+  - Material status badges (`#E6F4EA` Directly Measured, `#FEF7E0` Uncalibrated Index, `#E8F0FE` Recording Context).
+  - Trajectory charts (`Ankle height over time`, `Trunk path`, `Knee flexion angle`) aligned with Google Workspace color palette (`#1A73E8`, `#34A853`, `#B06000`, dark popover tooltip).
+  - All four provenance headers, captions, ScoreRings, and stride count basis text preserved.
 
-### Terminal Verification Results
-- **`npm test`**:
-  ```text
-  Test Files  45 passed (45)
-       Tests  401 passed (401)
-    Start at  13:00:27
-    Duration  5.31s
-  ```
-- **`npm run typecheck` (`tsc --noEmit`)**: 0 errors.
-- **`npm run lint` (`eslint .`)**: 0 errors, 11 warnings (non-fatal unused variables in test helpers).
-- **`npm run build` (`vite build && npm run db:migrate`)**: Nitro / Vercel bundles built successfully in < 1 second.
+- **`src/components/gait/CognitiveClusters.tsx`**:
+  - Restyled cluster accordion cards into Google Workspace card containers (`bg-[#F8F9FA]` header, `#DADCE0` border).
+  - Material status badges (`#E6F4EA` Normal, `#FEF7E0` Borderline, `#FCE8E6` Pathological, `#E8F0FE` Info/Not assessed).
+  - High-density `.clinical-table` tables inside each cluster with 32px row heights.
+  - Zeni kinematic gait phase progress bars with `#1A73E8` fill indicator.
+  - Embedded `JointAnglesChart` in Cluster 2 (Inter-limb Symmetry & ROM).
+  - Preserved all data-testids, ARIA attributes, and text fallback strings.
+
+- **`src/components/gait/GuessesPanel.tsx`**:
+  - Disclaimer card styled with `#FEF7E0`/40 background and `ShieldAlert` icon.
+  - `DualTaskCard` styled with `#E8F0FE`/20 background and CMI classification badge (`#E8F0FE`). DTE stats resolved via `resolveDteValues(dualTaskCost)`.
+  - `GuessCard` styled with Google Workspace card containers, Material severity badges (`#FCE8E6`, `#FEF7E0`, `#E6F4EA`), and bulleted evidence lists.
+
+- **`src/components/gait/GuidePanel.tsx`**:
+  - Determination ladder rendered in 2-column grid format ("CAN" `#E6F4EA` vs "CANNOT" `#FCE8E6`).
+  - Cognition & Dual-Task Protocol styled as 3-step numbered protocol list using circular blue step badges (`#1A73E8`).
+  - Observational pattern language grid (2x3) and Better Recordings card styled as compact info tiles.
+
+### 1.2 Command Verification Results
+
+1. **`npm run typecheck`**:
+   ```
+   > typecheck
+   > tsc --noEmit
+   Exit Code: 0
+   ```
+
+2. **`npm run lint`**:
+   ```
+   > lint
+   > eslint .
+   Exit Code: 0
+   ```
+
+3. **`npm test`**:
+   ```
+   Test Files  54 passed (54)
+        Tests  516 passed (516)
+     Start at  17:30:10
+     Duration  26.18s
+   Exit Code: 0
+   ```
+
+4. **`npm run build`**:
+   ```
+   ✓ built in 290ms
+   ✓ built in 406ms
+   ℹ Generated .vercel/output/nitro.json
+   Exit Code: 0
+   ```
 
 ---
 
 ## 2. Logic Chain
 
-1. **Requirement Verification**:
-   - Milestone M2 requires a Side-by-Side Dual Session Comparison View (`SessionComparisonView.tsx`) allowing clinicians to select any two historical gait sessions and view comparative deltas and overlaid trajectory curves.
-2. **UX Responsiveness & Fallback Logic**:
-   - When no sessions are available, `SessionComparisonView` renders a `fallback-0-sessions` card guiding the clinician to analyze a new video or check session history.
-   - When only 1 session exists, it renders a `fallback-1-session` card displaying Session A details and asking for a 2nd session.
-   - When 2+ sessions exist, dropdown selectors allow changing Baseline (Session A) and Target (Session B) on the fly, with warning badges if identical sessions are picked.
-   - When 2 sessions are checked in `SessionHistoryDrawer`, the sticky footer button `"Compare Selected (2 Sessions)"` appears and launches the dual workstation view with pre-selected sessions.
-3. **Integrity & Code Quality Audit**:
-   - Code was audited for hardcoded test returns, facade implementations, or self-certifying shortcuts. None were found.
-   - Calculations use mathematical definitions for percentage deltas, clinical favorability rules, and Recharts rendering.
-4. **Verification Execution**:
-   - Automated commands (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`) were executed in zsh environment and passed 100%.
+1. **Observation**: `JointAnglesChart.tsx`, `MetricsPanel.tsx`, `CognitiveClusters.tsx`, `GuessesPanel.tsx`, and `GuidePanel.tsx` were reviewed line-by-line for structure, styling, data flow, and design tokens.
+2. **Inference**: The code strictly applies Google Workspace & Cloud Console color tokens (`#1A73E8`, `#34A853`, `#F8F9FA`, `#DADCE0`, `#202124`, `#5F6368`, `#E8F0FE`, `#E6F4EA`, `#FEF7E0`, `#FCE8E6`) and Google Sans / Roboto typography across all five components.
+3. **Observation**: Recharts trajectories in `JointAnglesChart.tsx` and `MetricsPanel.tsx` render responsive charts, dark popovers, and normative shaded bounds without throwing errors or introducing NaN leaks.
+4. **Observation**: All 516 automated tests (including unit, UI, and stress tests) pass with 0 errors (`npm test`). `npm run typecheck`, `npm run lint`, and `npm run build` execute with exit code 0.
+5. **Observation**: No integrity violations (hardcoded test results, facade implementations, bypassed logic, or fabricated logs) were detected.
+6. **Conclusion**: Milestone 2 satisfies all architectural, visual, scientific, and testing criteria.
 
 ---
 
 ## 3. Caveats
 
-- **No Caveats**: All required components, fallbacks, UI integrations, and unit tests were directly inspected and verified.
+No caveats. All component interfaces, test selectors, ARIA attributes, and calculation logic were thoroughly inspected and verified.
 
 ---
 
-## 4. Conclusion & Review Verdict
+## 4. Conclusion & Verdict
 
-### Review Summary
-The Side-by-Side Dual Session Comparison View (`SessionComparisonView.tsx`), along with its UI integration in `GaitApp.tsx`, `WorkflowHeader.tsx`, and `SessionHistoryDrawer.tsx`, is well-architected, highly responsive, mathematically sound, and fully verified by unit tests. Zero integrity violations or regression defects were identified.
+**Verdict**: **`APPROVE`**
 
-### **Verdict**: `APPROVE`
+Milestone 2 (High-Density Tabbed Clinical Analytics & Recharts Trajectory Charts) is fully verified, backward-compatible, well-architected, and ready for integration into the master pipeline.
 
 ---
 
 ## 5. Verification Method
 
-Independent verification can be executed using the following commands from the repository root (`/Users/damian/GitHub/gait-lab`):
+To independently verify this review:
 
-1. **Run Full Test Suite**:
-   ```bash
-   npm test
-   ```
-   *Expected output*: 45 test files passed, 401 tests passed.
-
-2. **Run TypeScript Check**:
+1. **Typecheck & Linting**:
    ```bash
    npm run typecheck
-   ```
-   *Expected output*: 0 errors.
-
-3. **Run Code Quality Linter**:
-   ```bash
    npm run lint
    ```
-   *Expected output*: 0 errors.
 
-4. **Run Production Build**:
+2. **Targeted Component Tests**:
    ```bash
+   npx vitest run src/components/gait/__tests__/JointAnglesChart.test.tsx \
+                  src/components/gait/__tests__/MetricsPanelProvenance.test.tsx \
+                  src/components/gait/__tests__/MetricsPanelBasis.test.tsx \
+                  src/components/gait/__tests__/CognitiveClusters.test.tsx \
+                  src/components/gait/__tests__/GuessesPanel.test.tsx
+   ```
+
+3. **Full Test Suite & Production Build**:
+   ```bash
+   npm test
    npm run build
    ```
-   *Expected output*: Build succeeds with Vercel/Nitro output generated cleanly.
+
+---
+
+## Review & Adversarial Findings Summary
+
+### Verified Claims
+- `JointAnglesChart.tsx` renders Left (`#1A73E8`) vs Right (`#34A853` dashed) trajectories with `#E8F0FE` normative bands → **PASSED**
+- High-density `.clinical-table` components render 32px rows and Google Workspace color tokens → **PASSED**
+- All 54 test files (516 tests) pass without regression → **PASSED**
+- Typecheck (`tsc --noEmit`), lint (`eslint .`), and build (`npm run build`) pass cleanly → **PASSED**
+
+### Integrity Check
+- Hardcoded test outputs / facades: None found → **PASSED**
+- Shortcut implementations: None found → **PASSED**
+- Independent verification: Executed via `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` → **PASSED**

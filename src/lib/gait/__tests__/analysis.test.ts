@@ -146,6 +146,29 @@ describe("Integrated Gait Analysis Engine (analysis.ts)", () => {
       expect(metrics.confidenceIntervals?.stepTimeCV).toBeDefined();
       expect(metrics.confidenceIntervals?.symmetryAngle).toBeDefined();
     });
+
+    it("applies keypoint smoothing via options parameter ('savitzky-golay', 'kalman', 'none')", () => {
+      const baseFrames = generateSyntheticWalkingFrames({ durationSec: 4.0, fps: 30 });
+      // Add high frequency jitter to landmark coordinates
+      const noisyFrames = baseFrames.map((f, i) => ({
+        ...f,
+        landmarks: f.landmarks.map((lm) => ({
+          ...lm,
+          x: lm.x + (i % 2 === 0 ? 0.03 : -0.03),
+          y: lm.y + (i % 2 === 0 ? 0.03 : -0.03),
+        })),
+      }));
+
+      const sgMetrics = computeGaitMetrics(noisyFrames, { smoothingMethod: "savitzky-golay" });
+      const kalmanMetrics = computeGaitMetrics(noisyFrames, { smoothingMethod: "kalman" });
+      const noneMetrics = computeGaitMetrics(noisyFrames, { smoothingMethod: "none" });
+
+      expect(sgMetrics.overallScore).toBeGreaterThan(0);
+      expect(kalmanMetrics.overallScore).toBeGreaterThan(0);
+      expect(noneMetrics.overallScore).toBeGreaterThan(0);
+      // Smoothed trajectories should produce lower or equal step time variability than un-smoothed jitter
+      expect(sgMetrics.stepTimeCV).toBeLessThanOrEqual(noneMetrics.stepTimeCV + 0.05);
+    });
   });
 
   describe("Multi-Person Tracking (matchPeople, trackPriorityScore, tracksToPeople)", () => {
@@ -238,6 +261,9 @@ describe("Integrated Gait Analysis Engine (analysis.ts)", () => {
           box: { x: 0.4, y: 0.1, w: 0.2, h: 0.4 },
           areaSum: 0.4,
           hipYSum: 1.0,
+          firstFrameIndex: 0,
+          lastFrameIndex: 4,
+          frameIndices: [0, 1, 2, 3, 4],
         },
         {
           id: 2,
@@ -246,15 +272,110 @@ describe("Integrated Gait Analysis Engine (analysis.ts)", () => {
           box: { x: 0.2, y: 0.4, w: 0.6, h: 0.5 },
           areaSum: 15.0,
           hipYSum: 40.0,
+          firstFrameIndex: 0,
+          lastFrameIndex: 49,
+          frameIndices: Array.from({ length: 50 }, (_, i) => i),
         },
       ];
 
       const people = tracksToPeople(tracks, 10);
 
       expect(people.length).toBe(2);
-      expect(people[0].id).toBe(2);
+      // tracksToPeople reassigns IDs sequentially after sorting by priority
+      // Track with 50 frames sorts first (higher priority) and gets id=1
+      expect(people[0].id).toBe(1);
       expect(people[0].color).toBeDefined();
-      expect(people[1].id).toBe(1);
+      expect(people[1].id).toBe(2);
+    });
+
+    it("merges fragmented sequential tracks of a single walking subject into 1 person", () => {
+      // Simulates a single person walking across screen, creating 3 fragmented tracklets due to motion/gaps
+      const track1: PersonTrack = {
+        id: 1,
+        firstHip: { x: 0.1, y: 0.5, z: 0 },
+        lastHip: { x: 0.3, y: 0.5, z: 0 },
+        frames: 5,
+        box: { x: 0.1, y: 0.2, w: 0.2, h: 0.6 },
+        areaSum: 0.6,
+        hipYSum: 2.5,
+        velocity: { vx: 0.04, vy: 0 },
+        biometrics: { aspectRatio: 0.33, torsoLegRatio: 0.7, shoulderHipRatio: 1.2 },
+        firstFrameIndex: 0,
+        lastFrameIndex: 4,
+        frameIndices: [0, 1, 2, 3, 4],
+      };
+
+      const track2: PersonTrack = {
+        id: 2,
+        firstHip: { x: 0.35, y: 0.5, z: 0 },
+        lastHip: { x: 0.6, y: 0.5, z: 0 },
+        frames: 6,
+        box: { x: 0.35, y: 0.2, w: 0.2, h: 0.6 },
+        areaSum: 0.72,
+        hipYSum: 3.0,
+        velocity: { vx: 0.04, vy: 0 },
+        biometrics: { aspectRatio: 0.33, torsoLegRatio: 0.7, shoulderHipRatio: 1.2 },
+        firstFrameIndex: 5,
+        lastFrameIndex: 10,
+        frameIndices: [5, 6, 7, 8, 9, 10],
+      };
+
+      const track3: PersonTrack = {
+        id: 3,
+        firstHip: { x: 0.64, y: 0.5, z: 0 },
+        lastHip: { x: 0.85, y: 0.5, z: 0 },
+        frames: 5,
+        box: { x: 0.64, y: 0.2, w: 0.2, h: 0.6 },
+        areaSum: 0.6,
+        hipYSum: 2.5,
+        velocity: { vx: 0.04, vy: 0 },
+        biometrics: { aspectRatio: 0.33, torsoLegRatio: 0.7, shoulderHipRatio: 1.2 },
+        firstFrameIndex: 11,
+        lastFrameIndex: 15,
+        frameIndices: [11, 12, 13, 14, 15],
+      };
+
+      const tracks = [track1, track2, track3];
+      const people = tracksToPeople(tracks, 15);
+
+      expect(people.length).toBe(1); // 3 tracklets merged into 1 person!
+      expect(people[0].id).toBe(1);
+      expect(people[0].frameCount).toBe(16);
+    });
+
+    it("does NOT merge distinct people walking simultaneously in the same frame", () => {
+      const person1Track: PersonTrack = {
+        id: 1,
+        firstHip: { x: 0.2, y: 0.5, z: 0 },
+        lastHip: { x: 0.3, y: 0.5, z: 0 },
+        frames: 10,
+        box: { x: 0.2, y: 0.2, w: 0.2, h: 0.6 },
+        areaSum: 1.2,
+        hipYSum: 5.0,
+        biometrics: { aspectRatio: 0.33, torsoLegRatio: 0.7, shoulderHipRatio: 1.2 },
+        firstFrameIndex: 0,
+        lastFrameIndex: 9,
+        frameIndices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      };
+
+      const person2Track: PersonTrack = {
+        id: 2,
+        firstHip: { x: 0.7, y: 0.5, z: 0 },
+        lastHip: { x: 0.8, y: 0.5, z: 0 },
+        frames: 10,
+        box: { x: 0.7, y: 0.2, w: 0.2, h: 0.6 },
+        areaSum: 1.2,
+        hipYSum: 5.0,
+        biometrics: { aspectRatio: 0.33, torsoLegRatio: 0.7, shoulderHipRatio: 1.2 },
+        firstFrameIndex: 0,
+        lastFrameIndex: 9,
+        frameIndices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      };
+
+      const tracks = [person1Track, person2Track];
+      const people = tracksToPeople(tracks, 9);
+
+      expect(people.length).toBe(2); // Two simultaneous people remain 2 distinct subjects
     });
   });
 

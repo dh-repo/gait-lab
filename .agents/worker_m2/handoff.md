@@ -1,77 +1,144 @@
-# Milestone M2 Handoff Report: Adversarial & Edge-Case Stress Testing Expansion
-
-**Agent:** `teamwork_preview_worker`  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/worker_m2`  
-**Date:** 2026-08-09  
-
----
+# Handoff Report: High-Density Clinical Analytics & Recharts Trajectory Charts (Milestone 2 Worker 1)
 
 ## 1. Observation
 
-- **Baseline Test Suite State:** `npm test` initially executed 278 tests across 23 test files. `npm run lint` failed on temporary `.remember/` workspace files due to missing ignore patterns in `eslint.config.mjs`.
-- **Created Adversarial Test Suites:** Created 6 dedicated synthetic gait adversarial test files under `src/lib/gait/__tests__/`:
-  1. `cat1_landmark_jitter_noise.test.ts`: Evaluates single-frame coordinate spikes (salt-and-pepper noise), joint-correlated high-frequency noise, coordinate clipping out-of-bounds (`x < 0`, `y > 1`), and `NaN`/`Infinity` landmark injection.
-  2. `cat2_variable_frame_rate.test.ts`: Evaluates multi-frame burst drops (10-15 consecutive frames dropped), Variable Frame Rate (VFR) UI thread lag (12ms–220ms deltas), duplicate timestamps (`timeMs[i] === timeMs[i+1]`), and unordered frame arrival.
-  3. `cat3_landmark_occlusion.test.ts`: Evaluates multi-frame total pose loss (15-45 consecutive frames with `visibility = 0.0`), unilateral leg landmark missingness, and torso landmark loss (shoulders and hips `visibility = 0.0`).
-  4. `cat4_extreme_gait_asymmetry.test.ts`: Evaluates severe hemiparetic gait (80/20 stance/swing phase split), prosthetic stiff-knee gait (knee flexion locked < 10 deg), and 9:1 step length disparity.
-  5. `cat5_micro_steps_parkinsonian.test.ts`: Evaluates Parkinsonian shuffling gait (< 0.015 step length, < 0.005 vertical bounce), festinating gait with accelerating cadence (100–192 SPM) and decaying stride, and Freezing of Gait (FOG) episodes (3–8 Hz micro-oscillations, zero forward progress).
-  6. `cat6_camera_shake_motion.test.ts`: Evaluates frame-wide 2D translational handheld camera shake, 15-degree rotational camera tilt relative to ground plane, and dynamic scale/zoom shifts.
-- **Identified Codebase Deficiencies & Edge Cases:**
-  - `landmarks.ts`: Functions (`mid`, `dist`, `angleDeg`, `torsoHeight`, `boundingBox`, `hipCenter`, `mean`, `std`, `range`, `clamp`, `pct`) threw `TypeError` or returned `NaN` when passed `null`/`undefined` landmarks or non-finite coordinates. `mean` and `std` were re-filtering arrays recursively on every iteration.
-  - `signal.ts`: Butterworth filters (`butterworthLowPass` and `zeroPhaseButterworth`) propagated `NaN` values across entire signals if input arrays contained non-finite values.
-  - `events.ts`: `findExtrema` had a hardcoded minimum prominence floor of `0.01` which filtered out Parkinsonian micro-step shuffling gait (< 0.015 step length). Stance percentage calculation was capped at `[40%, 80%]`, discarding valid severe hemiparetic stance phases (e.g. 80-85%).
-  - `analysis.ts`: Moving average vector `ma(hipXNorm, win)` was called inside `.map(...)` for every frame N, causing quadratic $O(N^2)$ execution time (~40 million allocations for 120s clips) and timing out Vitest at 30s.
+### 1.1 Modified Files & Applied Changes
+- **`src/components/gait/JointAnglesChart.tsx`**:
+  - Implemented Google Workspace / Cloud Console styling for joint kinematic trajectories.
+  - Recharts `ComposedChart`: Left leg line solid `#1A73E8` (`strokeWidth={2.5}`), Right leg line dashed `#34A853` (`strokeWidth={2.5}`, `strokeDasharray="6 4"`).
+  - Perry & Burnfield Normative Range: Shaded area polygon `#E8F0FE` (`fillOpacity={0.45}`), bounded by top and bottom dashed boundary lines (`#BDC1C6`, `strokeDasharray="3 3"`).
+  - `CartesianGrid`: Crisp un-dashed gridlines (`stroke="#DADCE0" strokeDasharray="0" opacity={0.6}`).
+  - XAxis & YAxis: 11px Google Sans ticks (`fill="#5F6368"`), 12px font-medium Google Sans labels (`fill="#202124"`).
+  - `CustomTooltip`: Dark popover card (`bg-[#202124] border-[#3C4043] text-white`) displaying exact ° values, gait cycle %, and normative min/max reference bounds.
+  - ROM Metric Badges: Google Cloud Console stat chips (`#E8F0FE` / `#1A73E8` for Left ROM, `#E6F4EA` / `#137333` for Right ROM, `#FEF7E0` / `#B06000` for ROM Asymmetry).
+  - Segmented Joint Control: Pill control container (`bg-[#F1F3F4] border-[#DADCE0]`, active pill `bg-[#1A73E8] text-white`).
+  - Preserved test selectors (`tab-knee`, `tab-hip`, `tab-ankle`, `view-suppression-banner`, `rom-stat-badges`, `left-peak-rom`, `right-peak-rom`, `peak-flexion`, `peak-extension`, `rom-asymmetry`).
+
+- **`src/components/gait/MetricsPanel.tsx`**:
+  - Converted spatio-temporal parameter grids into high-density `.clinical-table` tables with 32px row heights (`h-[32px]`), `#F8F9FA` headers (`bg-[#F8F9FA] text-[#5F6368] font-medium border-b border-[#DADCE0]`), `#DADCE0` gridlines, tabular numbers (`font-mono tabular-nums font-semibold`), and Material status chips (`#E8F0FE`, `#E6F4EA`, `#FEF7E0`, `#FCE8E6`).
+  - Restyled Recharts trajectory charts (`Ankle height over time`, `Trunk path (hip center)`, `Knee flexion angle`) with Google Workspace color palette (`#1A73E8`, `#34A853`, `#B06000`, `#DADCE0` gridlines, dark tooltip cards).
+  - Preserved all four provenance band headings ("Directly measured", "Uncalibrated indices", "Composite research indices (unvalidated weighting)", "Recording context (not scored)"), captions, ScoreRings, stride count basis text, and data-testids.
+
+- **`src/components/gait/CognitiveClusters.tsx`**:
+  - Restyled finding cluster cards into Google Workspace card containers (`Card` with border `#DADCE0`, header `bg-[#F8F9FA] hover:bg-[#F1F3F4]`) with Material status badges (`#E6F4EA`, `#FEF7E0`, `#FCE8E6`, `#E8F0FE`).
+  - Converted internal stat cards into high-density `.clinical-table` tables with 32px row heights, `#DADCE0` gridlines, and tabular numbers.
+  - Zeni Kinematic Gait Phase Progress Bars: Styled `<Progress role="progressbar" className="h-2 bg-[#DADCE0] [&>div]:bg-[#1A73E8]" />`.
+  - Embedded `JointAnglesChart` in Cluster 2.
+  - Preserved all cluster headers (`cluster-spatiotemporal`, `cluster-symmetry`, `cluster-stability`, `cluster-dualtask`), status badges (`status-badge-pace`, `status-badge-symmetry`, `status-badge-stability`, `status-badge-dualtask`), ARIA roles/controls, and text fallbacks (`SA: N/A`, `N/A (Requires Side View)`, `Not assessed`, `Requires a paired single-task and dual-task recording`, `No baseline recorded`, `Single-Task Baseline`, `Task mode not recorded`).
+
+- **`src/components/gait/GuessesPanel.tsx`**:
+  - Restyled disclaimer card into `#FEF7E0`/40 background card with `#DADCE0` border and `ShieldAlert` icon.
+  - Restyled `DualTaskCard` into `#E8F0FE`/20 recommendation card with CMI badge (`#E8F0FE` bg / `#1967D2` text) and compact DtcStat tiles (`bg-white border-[#DADCE0]`). Maintained DTE sign convention via `resolveDteValues(dualTaskCost)`.
+  - Restyled `GuessCard` into Google Workspace recommendation card (`border-[#DADCE0] shadow-xs hover:shadow-sm`) with Material severity badges (`#FCE8E6`, `#FEF7E0`, `#E6F4EA`), compact bullet points for evidence list, and `#F8F9FA` callout box for alternative considerations.
+
+- **`src/components/gait/GuidePanel.tsx`**:
+  - Restyled clinician guide into Google Workspace documentation cards (`Card` with border `#DADCE0`).
+  - Determination Ladder: 2-column grid for "Can" (`#137333` text, `#E6F4EA` chip) vs "Cannot" (`#C5221F` text, `#FCE8E6` chip).
+  - Cognition & Dual-Task Protocol: 3-step numbered protocol list using circular blue step badges (`#1A73E8` bg, white text), `#E8F0FE` callout box with `#1967D2` text and `#D2E3FC` border.
+  - Pattern Language Card: 2x3 grid of observational pattern cards styled as compact Google Cloud Console info tiles (`#F8F9FA` bg, `#DADCE0` border, `#202124` text).
+  - Better Recordings Card: Recommendation card with `#F8F9FA` background and bullet point list.
+
+### 1.2 Command Outputs
+
+#### 1. Typecheck Output (`npm run typecheck`)
+```
+> typecheck
+> tsc --noEmit
+```
+(Exit code: 0)
+
+#### 2. Lint Output (`npm run lint`)
+```
+> lint
+> eslint .
+```
+(Exit code: 0)
+
+#### 3. Test Suite Output (`npm test`)
+```
+✓ src/components/gait/__tests__/JointAnglesChart.test.tsx (4 tests)
+✓ src/components/gait/__tests__/MetricsPanelProvenance.test.tsx (9 tests)
+✓ src/components/gait/__tests__/MetricsPanelBasis.test.tsx (4 tests)
+✓ src/components/gait/__tests__/CognitiveClusters.test.tsx (13 tests)
+✓ src/components/gait/__tests__/GuessesPanel.test.tsx (3 tests)
+✓ src/components/gait/__tests__/WebcamCapture.test.tsx (11 tests)
+
+Test Files  54 passed (54)
+     Tests  516 passed (516)
+  Start at  17:29:33
+  Duration  6.92s
+```
+(Exit code: 0)
+
+#### 4. Build Output (`npm run build`)
+```
+✓ built in 286ms
+✓ built in 317ms
+ℹ Generated .vercel/output/nitro.json
+```
+(Exit code: 0)
 
 ---
 
 ## 2. Logic Chain
 
-1. **Category Coverage Verification:** To ensure complete coverage of real-world video artifacts and severe gait pathologies, synthetic generators were designed for all 6 target categories specified in `ORIGINAL_REQUEST.md` and the survey analysis.
-2. **Defensive Landmark & Signal Processing:**
-   - Updated `landmarks.ts` to perform strict `Number.isFinite` checks and nullish coalescing on all landmark coordinates and indices.
-   - Refactored `mean` and `std` in `landmarks.ts` into single-pass, allocation-free loops.
-   - Updated `signal.ts` Butterworth filtering to sanitize non-finite inputs before biquad processing.
-3. **Clinical Pathologies Adaptation:**
-   - Reduced `findExtrema` minimum prominence floor from `0.01` to `0.001 * sigRange` in `events.ts`, allowing micro-amplitude shuffling gait peaks to be detected without picking up flatline noise.
-   - Expanded stance phase valid percentage window from `[40%, 80%]` to `[15%, 95%]`, enabling accurate detection of hemiparetic and prosthetic stance splits.
-4. **Performance Optimization:**
-   - Precomputed `maHipX` and `maHipY` vectors once in `analysis.ts` rather than recalculating them N times inside the per-frame map loop. This reduced test suite execution time from 80.77s (with 4 timeouts) down to 5.13s (100% passing).
-5. **Ignore Configuration:**
-   - Added `.remember/**` and `.agents/**` to `ignores` in `eslint.config.mjs` so workspace metadata files do not trigger ESLint errors.
+1. **Joint Angles Trajectory Chart (`JointAnglesChart.tsx`)**:
+   - Replaced custom/Tailwind colors with Google Workspace / Cloud Console design tokens (`#1A73E8` for Left leg, `#34A853` dashed for Right leg, `#E8F0FE` shaded area with `#BDC1C6` dashed bounds).
+   - Custom dark popover tooltip (`#202124`) provides dark-surface contrast while listing exact ° readings and normative reference bounds.
+   - Using `?? undefined` for point angles ensured full TS type safety when assigning `kneeAngleLeft`, `hipAngleLeft`, etc. to `chartData`.
+
+2. **Metrics Panel (`MetricsPanel.tsx`)**:
+   - High-density `.clinical-table` structure replaces card grids with compact 32px rows, `#F8F9FA` header rows, `#DADCE0` borders, and Material status badges.
+   - Rendered provenance bands in strict order ("Directly measured" -> "Uncalibrated indices" -> "Composite research indices" -> "Recording context").
+   - Preserved all text assertions including stride count basis disclosures and uncalibrated disclaimer captions.
+
+3. **Cognitive Clusters (`CognitiveClusters.tsx`)**:
+   - Styled accordion card headers into Google Workspace cards (`bg-[#F8F9FA] hover:bg-[#F1F3F4] border-[#DADCE0]`).
+   - Material status badges dynamically select colors (`#E6F4EA` for Normal, `#FEF7E0` for Borderline, `#FCE8E6` for Pathological, `#E8F0FE` for Info/Not assessed).
+   - Rendered internal parameters inside high-density `.clinical-table` tables and updated Zeni progress bars with `#1A73E8` indicator fills.
+
+4. **Guesses Panel & Guide Panel (`GuessesPanel.tsx`, `GuidePanel.tsx`)**:
+   - `GuessesPanel`: Restyled pattern hypothesis cards into Google Workspace recommendation cards. Dual-task card uses `resolveDteValues(dualTaskCost)` maintaining DTE sign conventions for all DTC stats.
+   - `GuidePanel`: Restyled clinician guidance cards into Google Workspace documentation cards with 2-column "Can" vs "Cannot" determination ladder and 3-step numbered protocol list.
 
 ---
 
 ## 3. Caveats
 
-- **No Caveats.** All 297 automated tests (272 Vitest + 25 script tests) pass cleanly with zero failures, zero warnings, zero uncaught exceptions, zero NaNs, and zero ESLint/TypeScript errors.
+No caveats. All component interfaces, test selectors, ARIA roles, and exact text strings were preserved. Full verification suite passed with zero errors or regressions.
 
 ---
 
 ## 4. Conclusion
 
-- **Milestone M2 Execution Complete.**
-- The automated test suite has been expanded by **19 new adversarial stress tests** across **6 new test files**.
-- The core signal processing, kinematic event detection, landmark geometry, and gait analysis modules in `src/lib/gait/` are fully hardened against jitter, noise, variable frame rates, landmark occlusions, extreme asymmetries, micro-steps, and camera shake.
-- All verification commands (`npm test`, `npm run typecheck`, `npm run lint`) pass 100% with zero errors.
+Milestone 2 implementation is complete and verified:
+- `JointAnglesChart.tsx`, `MetricsPanel.tsx`, `CognitiveClusters.tsx`, `GuessesPanel.tsx`, and `GuidePanel.tsx` are fully restyled into high-density Google Workspace / Cloud Console clinical analytics UI.
+- All 516 unit and UI tests pass (54 test files).
+- `npm run typecheck`, `npm run lint`, and `npm run build` all pass cleanly with exit code 0.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify this work, execute the following commands in the workspace root:
+To independently verify this work:
 
-```bash
-# 1. Run full test suite (272 Vitest unit/integration tests + 25 script tests)
-npm test
+1. **Typecheck & Lint**:
+   ```bash
+   npm run typecheck
+   npm run lint
+   ```
 
-# 2. Run TypeScript static type check
-npm run typecheck
+2. **Targeted Component Tests**:
+   ```bash
+   npx vitest run src/components/gait/__tests__/JointAnglesChart.test.tsx \
+                  src/components/gait/__tests__/MetricsPanelProvenance.test.tsx \
+                  src/components/gait/__tests__/MetricsPanelBasis.test.tsx \
+                  src/components/gait/__tests__/CognitiveClusters.test.tsx \
+                  src/components/gait/__tests__/GuessesPanel.test.tsx
+   ```
 
-# 3. Run ESLint code quality check
-npm run lint
-```
-
-**Expected Results:**
-- `npm test`: 28 test files passed (272 Vitest tests) + 25 node script tests passed = 297 total tests passing (0 failures).
-- `npm run typecheck`: 0 errors.
-- `npm run lint`: 0 errors.
+3. **Full Test Suite & Production Build**:
+   ```bash
+   npm test
+   npm run build
+   ```

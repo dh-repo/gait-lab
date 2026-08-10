@@ -1,32 +1,28 @@
-# BRIEFING — 2026-08-09T12:47:06-04:00
+# BRIEFING — 2026-08-09T21:22:55-04:00
 
 ## Mission
-Execute Milestone 1 (M1): Core Engine Integration & Polish (R1) for `gait-lab` to 100% completion through the standard Explorer -> Worker -> Reviewer -> Challenger -> Auditor loop.
+Lead the iteration loop to implement Milestone M1 (MediaPipe pose landmarker heavy/full/lite hierarchy & 5-point Savitzky-Golay 1D temporal landmark smoothing) for `gait-lab`.
 
 ## 🔒 My Identity
 - Archetype: self
 - Roles: sub_orchestrator, orchestrator
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1
 - Original parent: top-level orchestrator
-- Original parent conversation ID: d1ec1083-2d60-429a-9f15-484f0050dc21
+- Original parent conversation ID: b181ee99-96ae-46a9-b7f3-e111c8eac369
 
 ## 🔒 My Workflow
 - **Pattern**: Project (Sub-orchestrator)
 - **Scope document**: /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md
-1. **Decompose**: Scope defined in SCOPE.md (Milestone 1).
-2. **Dispatch & Execute**: Direct iteration loop per milestone:
-   - 3 Parallel Explorers (teamwork_preview_explorer) [completed]
-   - 1 Worker (teamwork_preview_worker) [completed]
-   - 2 Parallel Reviewers (teamwork_preview_reviewer) [completed - APPROVE]
-   - 2 Parallel Challengers (teamwork_preview_challenger) [completed - APPROVE]
-   - 1 Forensic Auditor (teamwork_preview_auditor) [completed - CLEAN]
-   - Gate Check (GATE_STATUS.md) [PASS]
+1. **Decompose**: Milestone M1 (CV Model Fidelity & Landmark Temporal Smoothing).
+2. **Dispatch & Execute**:
+   - Iteration 1: Gate FAIL (Forensic Auditor INTEGRITY_VIOLATION & Reviewer REQUEST_CHANGES).
+   - Iteration 2: Remediation (Explorers [completed] -> Worker [completed] -> Reviewers [in-progress] -> Challengers [in-progress] -> Auditor [in-progress] -> Gate Check).
 3. **On failure**: Retry -> Replace -> Skip -> Redistribute -> Redesign -> Escalate to parent
 4. **Succession**: Track spawn count; self-succeed if threshold reached.
 - **Work items**:
-  1. Milestone 1: Core Engine Integration & Polish [done]
-- **Current phase**: Completed
-- **Current focus**: Milestone 1 complete. Reporting back to parent orchestrator.
+  1. Milestone M1: MediaPipe Model Hierarchy Upgrade & 5-Point Savitzky-Golay Temporal Coordinate Smoothing [in-progress]
+- **Current phase**: 2B Iteration Loop — Iteration 2 Phase c/d/e: Review & Verification
+- **Current focus**: Waiting for 2 Reviewers, 2 Challengers, and 1 Forensic Auditor reports for Iteration 2.
 
 ## 🔒 Key Constraints
 - Never write, modify, or create source code files directly.
@@ -35,42 +31,39 @@ Execute Milestone 1 (M1): Core Engine Integration & Polish (R1) for `gait-lab` t
 - Pass ORIGINAL_REQUEST.md path (/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md) to all subagents.
 
 ## Current Parent
-- Conversation ID: d1ec1083-2d60-429a-9f15-484f0050dc21
-- Updated: not yet
+- Conversation ID: b181ee99-96ae-46a9-b7f3-e111c8eac369
+- Updated: 2026-08-09T21:22:55-04:00
 
 ## Key Decisions Made
-- Iteration 1 started & completed.
-- 3 Explorers, 1 Worker, 2 Reviewers, 2 Challengers, 1 Forensic Auditor executed.
-- Gate Check PASSED. SCOPE.md updated to DONE.
+- Worker M1-2 remediation complete. Dispatched Iteration 2 verification team.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
-| explorer_m1_1 | teamwork_preview_explorer | DSP & Event Engine Analysis | completed | 8f60f7dc-6c7a-45f0-950b-3b30c8f8e9bf |
-| explorer_m1_2 | teamwork_preview_explorer | Symmetry, DTE & Kinematics Analysis | completed | 46640594-2685-43f6-bfba-cfff118fdf41 |
-| explorer_m1_3 | teamwork_preview_explorer | Reporting, Persistence & UI Integration Analysis | completed | ffa01190-195b-4d78-b627-b35be3d390e2 |
-| worker_m1_1 | teamwork_preview_worker | Implement M1 Fixes & Integration | completed | f5bd1566-d200-44ff-8b9c-2b3c74e61aa9 |
-| reviewer_m1_1 | teamwork_preview_reviewer | Code Quality & Math Rigor Review | completed (APPROVE) | 86948eb5-821a-4c0f-9014-2a1fad79baae |
-| reviewer_m1_2 | teamwork_preview_reviewer | UI Integration & Persistence Review | completed (APPROVE) | b9809120-4509-4071-a9e1-8c168247212b |
-| challenger_m1_1 | teamwork_preview_challenger | Core Engine Stress Test | completed (APPROVE) | 24af4a28-1ec6-49e4-9af3-699fbe85d7d0 |
-| challenger_m1_2 | teamwork_preview_challenger | Persistence & UI Stress Test | completed (APPROVE) | 72c2cfc7-8966-4049-ba3c-54a87c6abea1 |
-| auditor_m1_1 | teamwork_preview_auditor | Forensic Integrity Audit | completed (CLEAN) | e3c4ac6e-cf89-4ac5-9760-3798e6fdc1ab |
+| explorer_m1_r2_1 | teamwork_preview_explorer | Types & Imports Remediation Analysis | completed | fc045da5-f81d-4155-a51e-c9808b6595cd |
+| explorer_m1_r2_2 | teamwork_preview_explorer | Test Suite Assertions Remediation | completed | 40f6f264-fe59-42e0-9d05-0fe371f369ad |
+| worker_m1_2 | teamwork_preview_worker | Execute M1 Remediation Fixes & Verification | completed | a4e04961-8487-4bda-bcc5-be6219ba0f9a |
+| reviewer_m1_r2_1 | teamwork_preview_reviewer | Code Quality & Architecture Review | in-progress | 2b283e9c-3846-4b7c-a0e6-ade0d70f91d4 |
+| reviewer_m1_r2_2 | teamwork_preview_reviewer | Performance & Biomechanics Review | in-progress | 81d36bcb-3b23-48e7-ac03-ce07c554f858 |
+| challenger_m1_r2_1 | teamwork_preview_challenger | Model Fallback Stress Challenger | in-progress | a9088c6a-b860-4198-9a2e-f84404db311c |
+| challenger_m1_r2_2 | teamwork_preview_challenger | Performance & Noise Stress Challenger | in-progress | 637817c2-37ce-4654-a028-36df5377dca9 |
+| auditor_m1_r2_1 | teamwork_preview_auditor | Forensic Integrity Audit | in-progress | f68bc4ed-df6d-473f-adce-a0b741fee3cd |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 9 / 20
-- Pending subagents: none
+- Spawn count: 17 / 20
+- Pending subagents: 2b283e9c-3846-4b7c-a0e6-ade0d70f91d4, 81d36bcb-3b23-48e7-ac03-ce07c554f858, a9088c6a-b860-4198-9a2e-f84404db311c, 637817c2-37ce-4654-a028-36df5377dca9, f68bc4ed-df6d-473f-adce-a0b741fee3cd
 - Predecessor: none
 - Successor: not yet spawned
 
 ## Active Timers
-- Heartbeat cron: task-13 (will kill on completion)
+- Heartbeat cron: task-20
 - Safety timer: none
 
 ## Artifact Index
 - /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/DISPATCH.md — Task assignment
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md — Milestone 1 Scope
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/GATE_STATUS.md — Milestone 1 Gate Status
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/handoff.md — Sub-orchestrator handoff report
+- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md — Scope specification
+- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/GATE_STATUS.md — Gate status tracking
 - /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/BRIEFING.md — Sub-orchestrator briefing
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/progress.md — Sub-orchestrator progress log
+- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/progress.md — Progress log
+- /Users/damian/GitHub/gait-lab/.agents/worker_m1_2/handoff.md — Worker M1-2 report

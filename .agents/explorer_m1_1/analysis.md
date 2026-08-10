@@ -1,294 +1,340 @@
-# Comprehensive Technical Analysis: M1 Core Engine Integration & DSP/Events Verification
+# Technical Analysis & Implementation Specification: MediaPipe Pose Landmarker Model Hierarchy & Delegate Fallback Engine (`src/lib/gait/pose.ts`)
 
-**Explorer:** Explorer 1 (Milestone 1)  
-**Date:** 2026-08-09  
-**Target Files:**  
-- `src/lib/gait/signal.ts`
-- `src/lib/gait/events.ts`
-- `src/lib/gait/analysis.ts`
-- `src/components/gait/GaitApp.tsx`
-- `src/components/gait/SkeletonCanvas.tsx`
+**Author**: Explorer M1-1 (CV Model Hierarchy Specialist)  
+**Date**: 2026-08-09  
+**Target File**: `src/lib/gait/pose.ts`  
+**Associated Test File**: `src/lib/gait/__tests__/pose.test.ts`  
+**Milestone**: M1 — Feature F1 (MediaPipe Heavy/Full/Lite Model Candidate Hierarchy & GPU/CPU Delegate Fallback)
 
 ---
 
 ## 1. Executive Summary
 
-This report presents a thorough, line-by-line scientific and architectural analysis of the core signal processing (`signal.ts`) and kinematic gait event engine (`events.ts`), along with their call chains in `analysis.ts` and UI integration in `GaitApp.tsx` and `SkeletonCanvas.tsx`.
+This report presents a thorough technical investigation and architectural design for upgrading the MediaPipe Pose Landmarker initialization engine in `src/lib/gait/pose.ts`. The current implementation hardcodes a single lightweight model (`pose_landmarker_lite.task`) with only a local GPU/CPU delegate fallback. 
 
-### Core Assessment Summary
-1. **DSP Filter Correctness & Order Doubling:** The biquad coefficient calculations in `signal.ts` use mathematically exact bilinear transform equations. However, `zeroPhaseButterworth` cascades two biquads in `butterworthLowPass` (a 4th-order filter) and executes it both forward and backward. This creates an **8th-order** total zero-phase filter (48 dB/octave attenuation slope) rather than a 4th-order filter, shifting the cutoff attenuation at $f_c = 6\text{ Hz}$ from $-3\text{ dB}$ (70.7%) to $-6\text{ dB}$ (50.0%).
-2. **Missing Central OLS Detrending Export:** `SCOPE.md` (Feature 1) specifies OLS linear detrending in `signal.ts`. Currently, `signal.ts` omits detrending entirely, and `analysis.ts` maintains its own unexported local function `detrend(xs: number[])`.
-3. **Filter Boundary Transient State:** `applyBiquad` hardcodes initial internal registers (`x1, x2, y1, y2`) to `0`. For non-zero spatial signals (e.g. pixel height $y \approx 450$ or normalized coordinate $x \approx 0.5$), starting $y_1=0, y_2=0$ generates a step transient at the start of the padded sequence. The current padding length (`padLen = Math.min(12, n - 1)`) is too short (0.4s at 30 FPS) to fully decay biquad ringing before reaching real unpadded data.
-4. **Landmark Fallback Step Impulse Artifact:** `getLandmarkX` in `events.ts` returns `0` when both primary (heel/toe) and fallback (ankle) landmarks fall below visibility thresholds. Subtracting `hipX` from `0` creates an artificial spike to $-0.5$, injecting extreme impulse noise into the relative trajectory before Butterworth filtering and event detection.
-5. **Zeni Event Engine & Subframe Precision:** The subframe parabolic peak refinement math (`refinePeakTimestamp`) is mathematically exact and achieves sub-3 ms timing precision. Peak prominence calculation (`calculateProminence`) is topologically sound, though the left-to-right `minGap` replacement loop in `findExtrema` can be improved to match SciPy's global prominence-ordered distance filtering.
-6. **Systemic Test Suite Health:** The test suite currently passes 100% across 37 test files (296 tests), establishing a strong regression baseline for targeted DSP and event refinements.
+The upgraded architecture establishes:
+1. **3-Tier Model Hierarchy**: Primary attempt with `pose_landmarker_heavy.task`, falling back to `pose_landmarker_full.task`, and finally `pose_landmarker_lite.task`.
+2. **Dual Delegate Resilience**: For every model tier and path candidate, GPU delegate execution is attempted first; on WebGL/GPU failure, CPU delegate execution is attempted immediately before moving to subsequent path/tier candidates.
+3. **Local Asset & Google Storage CDN Dual Path Resolution**: Attempts local static asset `/models/pose_landmarker_${tier}.task` first, with automatic fallback to the official Google Storage CDN URL (`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${tier}/float16/1/pose_landmarker_${tier}.task`).
+4. **Enhanced `PoseLandmarkerLike` Interface**: Exposes runtime metadata properties `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate` on the active landmarker instance.
+5. **Comprehensive Unit Test Suite**: Complete specification for `src/lib/gait/__tests__/pose.test.ts` utilizing Vitest mocks to validate all 12 fallback combinations, error handling, singleton caching, and existing video detection utilities.
 
 ---
 
-## 2. DSP Signal Processing Module Analysis (`src/lib/gait/signal.ts`)
+## 2. Codebase Audit: `src/lib/gait/pose.ts`
 
-### 2.1 Filter Architecture & Biquad Coefficient Derivation
+### 2.1 Current Implementation Analysis
 
-`signal.ts` implements low-pass digital filtering using 2nd-order Direct Form biquads.
+Lines 29–66 of `src/lib/gait/pose.ts` currently contain:
 
-#### Bilinear Transform Verification
-`computeBiquadLowPass(fps, cutoffHz, Q)` computes coefficients using bilinear transformation:
-$$K = \tan\left(\frac{\pi f_c}{f_s}\right)$$
-$$\text{norm} = 1 + \frac{K}{Q} + K^2$$
-$$b_0 = \frac{K^2}{\text{norm}}, \quad b_1 = \frac{2 K^2}{\text{norm}}, \quad b_2 = \frac{K^2}{\text{norm}}$$
-$$a_1 = \frac{2 (K^2 - 1)}{\text{norm}}, \quad a_2 = \frac{1 - K/Q + K^2}{\text{norm}}$$
+```typescript
+export async function getPoseLandmarker(): Promise<PoseLandmarkerLike> {
+  if (!landmarkerPromise) {
+    landmarkerPromise = (async () => {
+      const vision = await import("@mediapipe/tasks-vision");
+      const { FilesetResolver, PoseLandmarker } = vision;
+      const fileset = await FilesetResolver.forVisionTasks("/wasm");
+      const modelAssetPath = "/models/pose_landmarker_lite.task";
 
-**Mathematical Audit:** These formulas match the normalized s-plane low-pass prototype $H(s) = \frac{1}{s^2 + s/Q + 1}$ mapped to the z-plane via $s = \frac{1}{K} \frac{1 - z^{-1}}{1 + z^{-1}}$.
+      const common = {
+        runningMode: "IMAGE" as const,
+        numPoses: 5,
+        minPoseDetectionConfidence: 0.25,
+        minPosePresenceConfidence: 0.25,
+        minTrackingConfidence: 0.25,
+      };
 
-#### Single-Pass vs Dual-Pass Filter Order (The 8th-Order Bug)
-In `butterworthLowPass` (lines 83–90):
-```ts
-const Q1 = 1 / (2 * Math.cos(Math.PI / 8)); // ≈ 0.5411961
-const Q2 = 1 / (2 * Math.cos((3 * Math.PI) / 8)); // ≈ 1.3065630
-
-const coeffs1 = computeBiquadLowPass(fps, cutoffHz, Q1);
-const coeffs2 = computeBiquadLowPass(fps, cutoffHz, Q2);
-
-const stage1 = applyBiquad(cleanData, coeffs1);
-const stage2 = applyBiquad(stage1, coeffs2);
-```
-Cascading `stage1` (2nd order) and `stage2` (2nd order) forms a single-pass **4th-order Butterworth filter**.
-
-In `zeroPhaseButterworth` (lines 131–141):
-```ts
-const forwardFiltered = butterworthLowPass(padded, fps, cutoffHz); // 4th order forward
-const reversed = forwardFiltered.reverse();
-const backwardFiltered = butterworthLowPass(reversed, fps, cutoffHz); // 4th order backward
-```
-When a 4th-order filter is passed forward and then backward:
-1. Total effective filter order = $4 + 4 = 8$ (roll-off rate = 48 dB/octave).
-2. Cutoff attenuation: At $f = f_c$, the gain of a single 4th-order pass is $-3\text{ dB}$ ($\approx 0.7071$). After two passes, gain is $(-3) + (-3) = -6\text{ dB}$ ($0.5000$).
-3. **Biomechanical Standard:** In gait analysis literature (Winter, 2009; Robertson et al., 2013), a 4th-order zero-phase Butterworth filter is constructed by running a **2nd-order** Butterworth filter ($Q = 1/\sqrt{2} \approx 0.7071$) forward and backward, OR by adjusting the single-pass cutoff frequency with correction factor $C = (2^{1/2} - 1)^{-1/4} \approx 1.25$ ($f_{c,\text{single}} = 1.25 f_c$).
-
-### 2.2 Boundary Conditions & Initial State Transient
-
-In `applyBiquad` (lines 46–49):
-```ts
-let x1 = 0; let x2 = 0; let y1 = 0; let y2 = 0;
-```
-- Initial filter states $y_1, y_2$ are hardcoded to `0`.
-- When filtering positional trajectory signals (e.g., knee angles $\approx 45^\circ\text{--}60^\circ$ or ankle Y coordinates $\approx 0.8$), starting $y_1=0, y_2=0$ introduces a large initial step discontinuity ($0 \to \text{signal}[0]$).
-- Although `zeroPhaseButterworth` uses boundary reflection padding ($2 x_0 - x_{\text{pad}}$), the padding length is:
-  ```ts
-  const padLen = Math.min(12, n - 1);
-  ```
-  At 30 FPS, 12 samples equals $0.4\text{ s}$. For a 4th-order filter stage with $Q_2 = 1.306$, the impulse response decay time constant requires at least 25–30 samples ($\approx 1\text{ s}$) to settle to $< 0.1\%$ DC offset.
-
-### 2.3 Array Mutation Bug
-In `zeroPhaseButterworth`:
-```ts
-const reversed = forwardFiltered.reverse();
-```
-`Array.prototype.reverse()` mutates `forwardFiltered` in-place. While `stage2` in `butterworthLowPass` allocates a new array, in-place mutation of intermediate variables is bad practice and risks side-effects.
-
-### 2.4 Missing OLS Linear Detrending in `signal.ts`
-`SCOPE.md` states:
-> `1 | Zero-Phase LPF & Detrending | 4th-order zero-phase Butterworth filter & OLS linear detrending in signal.ts`
-
-However, `signal.ts` does NOT export or define any detrending function. Instead, `analysis.ts` defines an unexported helper:
-```ts
-function detrend(xs: number[]): number[] {
-  if (xs.length < 2) return xs.slice();
-  const n = xs.length;
-  const xMean = (n - 1) / 2;
-  const yMean = mean(xs);
-  let num = 0; let den = 0;
-  for (let i = 0; i < n; i++) {
-    num += (i - xMean) * (xs[i] - yMean);
-    den += (i - xMean) ** 2;
+      try {
+        const landmarker = await PoseLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath, delegate: "GPU" },
+          ...common,
+        });
+        return landmarker as unknown as PoseLandmarkerLike;
+      } catch {
+        const landmarker = await PoseLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath, delegate: "CPU" },
+          ...common,
+        });
+        return landmarker as unknown as PoseLandmarkerLike;
+      }
+    })().catch((err) => {
+      landmarkerPromise = null;
+      throw err;
+    });
   }
-  const slope = den ? num / den : 0;
-  return xs.map((y, i) => y - (yMean + slope * (i - xMean)));
+  return landmarkerPromise;
 }
 ```
-**Evaluation:** The OLS formula in `analysis.ts` is mathematically correct for uniform sample spacing. However, leaving it local to `analysis.ts` leaves `signal.ts` incomplete according to project specifications and architectural modularity requirements.
+
+### 2.2 Identified Architectural Deficiencies
+
+1. **Single Hardcoded Model Tier**: Line 35 explicitly hardcodes `/models/pose_landmarker_lite.task`. The higher accuracy models (`heavy` and `full`) are never attempted, limiting clinical precision for high-resolution gait analysis.
+2. **Single Local Asset Path**: If the local file `/models/pose_landmarker_lite.task` is missing (e.g. static asset deployment issue or uncached offline asset), initialization fails entirely without attempting CDN retrieval.
+3. **No Cross-Tier Fallback**: If GPU/CPU fails on `heavy`, there is no secondary fallback to `full` or `lite`.
+4. **Missing Runtime Metadata**: `PoseLandmarkerLike` does not report which model tier or backend delegate was successfully loaded at runtime.
+5. **Testability Limitation**: `landmarkerPromise` singleton state is private and cannot be cleared by unit tests without module re-imports.
 
 ---
 
-## 3. Zeni Kinematic Event Engine Analysis (`src/lib/gait/events.ts`)
+## 3. Multi-Tier Model Hierarchy & Fallback Matrix Specification
 
-### 3.1 Zeni Kinematic Algorithm Overview
-The Zeni algorithm (Zeni et al., 2008) detects gait events from 2D relative anterior-posterior (AP) foot displacement relative to pelvis center:
-- **Heel Strike (Initial Contact, IC):** Local maximum in anterior displacement relative to mid-hip in the direction of motion.
-- **Toe Off (Terminal Contact, TO):** Local minimum in anterior displacement relative to mid-hip in the direction of motion.
+### 3.1 Model Tier Hierarchy
 
-### 3.2 Landmark Extraction & Hard Zero Fallback Bug
-In `getLandmarkX` (lines 23–37):
-```ts
-function getLandmarkX(frame: PoseFrame, primaryIdx: number, fallbackIdx: number): number {
-  const lmPrimary = frame.landmarks[primaryIdx];
-  if (lmPrimary && (lmPrimary.visibility ?? 1.0) > 0.3) {
-    return lmPrimary.x;
-  }
-  const lmFallback = frame.landmarks[fallbackIdx];
-  if (lmFallback) {
-    return lmFallback.x;
-  }
-  return 0;
-}
+| Priority | Tier (`PoseLandmarkerModelTier`) | Asset File | File Size (approx.) | Kinematic Accuracy | Target Hardware / Scenario |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 (**Primary**) | `"heavy"` | `pose_landmarker_heavy.task` | ~25 MB | Highest (Clinical Grade) | High-performance desktops/workstations, clinical setups |
+| 2 (**Fallback 1**) | `"full"` | `pose_landmarker_full.task` | ~12 MB | High (Balanced) | Mid-range devices, laptops, mobile GPUs |
+| 3 (**Fallback 2**) | `"lite"` | `pose_landmarker_lite.task` | ~5.7 MB | Medium (Fastest) | Low-power devices, fallback mode |
+
+### 3.2 Asset Path & CDN Resolution Matrix
+
+For each model tier `tier` $\in \{\text{"heavy"}, \text{"full"}, \text{"lite"}\}$:
+- **Local Path**: `/models/pose_landmarker_${tier}.task`
+- **Google Storage CDN Fallback URL**: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${tier}/float16/1/pose_landmarker_${tier}.task`
+
+### 3.3 Delegate Strategy
+
+For each path candidate, delegates are attempted in order:
+1. `"GPU"` (WebGL acceleration via MediaPipe GPU delegate)
+2. `"CPU"` (WASM multi-threaded CPU delegate fallback)
+
+### 3.4 Full 12-Step Candidate Trial Hierarchy
+
+The loader executes nested trial loops across Model Tiers $\rightarrow$ Asset Paths $\rightarrow$ Delegates:
+
 ```
-**Defect:** If both primary landmark (e.g. `LM.L_HEEL`) and fallback landmark (e.g. `LM.L_ANKLE`) have low visibility or missing data, `getLandmarkX` returns `0`.
-When relative displacement is calculated (`leftHeelXRel[i] = lHeel - hipX`), `0 - 0.5 = -0.5`. This introduces a high-amplitude negative delta step spike in the signal array.
+[Tier 1: heavy]
+  ├── Local: /models/pose_landmarker_heavy.task
+  │     ├── Delegate: GPU
+  │     └── Delegate: CPU (if GPU fails)
+  └── CDN: https://storage.googleapis.com/.../pose_landmarker_heavy.task
+        ├── Delegate: GPU (if local fails)
+        └── Delegate: CPU (if CDN GPU fails)
 
-### 3.3 Subframe Parabolic Refinement (`refinePeakTimestamp`)
-`refinePeakTimestamp` fits a 2nd-degree polynomial $y(x) = a x^2 + b x + c$ to discrete peak samples $(i-1, y_0), (i, y_1), (i+1, y_2)$:
+[Tier 2: full] (if all heavy attempts fail)
+  ├── Local: /models/pose_landmarker_full.task
+  │     ├── Delegate: GPU
+  │     └── Delegate: CPU
+  └── CDN: https://storage.googleapis.com/.../pose_landmarker_full.task
+        ├── Delegate: GPU
+        └── Delegate: CPU
 
-Vertex subframe offset $\delta$ (in fractional frames):
-$$\delta = \frac{y_0 - y_2}{2(y_0 - 2y_1 + y_2)}$$
-
-```ts
-const y0 = signal[peakIdx - 1];
-const y1 = signal[peakIdx];
-const y2 = signal[peakIdx + 1];
-
-const denom = 2 * (y0 - 2 * y1 + y2);
-if (Math.abs(denom) < 1e-9) return frameTimeSec;
-let delta = (y0 - y2) / denom;
-if (delta < -0.5) delta = -0.5;
-if (delta > 0.5) delta = 0.5;
-return frameTimeSec + delta * (1 / fps);
+[Tier 3: lite] (if all full attempts fail)
+  ├── Local: /models/pose_landmarker_lite.task
+  │     ├── Delegate: GPU
+  │     └── Delegate: CPU
+  └── CDN: https://storage.googleapis.com/.../pose_landmarker_lite.task
+        ├── Delegate: GPU
+        └── Delegate: CPU
 ```
 
-**Verification:**
-- Derivative derivation: $y'(\delta) = 2a\delta + b = 0 \implies \delta = -b / (2a)$.
-  $b = (y_2 - y_0) / 2$, $2a = y_0 - 2y_1 + y_2 \implies \delta = \frac{y_0 - y_2}{2(y_0 - 2y_1 + y_2)}$.
-- The implementation is **100% mathematically exact**, handles zero curvature ($\text{denom} < 1e-9$), clamps $\delta \in [-0.5, 0.5]$, and achieves sub-3 ms timing precision.
-
-### 3.4 Follow-Cam Direction Inference
-Direction ($+1$ for left-to-right, $-1$ for right-to-left) is determined in `detectGaitEventsZeni` (lines 227–276):
-1. Calculates median foot orientation difference ($x_{\text{toe}} - x_{\text{heel}}$) across frames where visibility $\ge 0.4$.
-2. If $\ge 5$ valid samples exist and $|\text{medianFootDiff}| > 0.005$, direction is set to $+1$ if positive, $-1$ if negative.
-3. Fallback: If foot landmarks are occluded, checks mid-hip net X displacement ($x_{\text{last}} - x_{\text{first}} < -0.05 \implies -1$, else $+1$).
-
-**Evaluation:** This logic handles follow-cam lateral tracking shots well when subject orientation differs from camera translation.
-
-### 3.5 Stance, Swing, and Double Support Breakdown
-- Stance % = $\frac{t_{\text{TO}} - t_{\text{IC}_1}}{t_{\text{IC}_2} - t_{\text{IC}_1}} \times 100\%$.
-- Swing % = $100\% - \text{Stance}\%$.
-- Double Support %: Calculates duration of overlapping stance intervals (Left IC to Right TO, and Right IC to Left TO) relative to average stride duration.
-
 ---
 
-## 4. Integration & UI Workstation Alignment
+## 4. Proposed Interface & Implementation Changes
 
-### 4.1 Trajectory Pipeline in `analysis.ts`
-1. `GaitApp.tsx` captures pose landmarks via MediaPipe WASM.
-2. Frames are resampled onto a uniform 30 Hz grid (`resamplePoseFrames`).
-3. `computeGaitMetrics` calls `zeroPhaseButterworth` on 1D trajectories (`midHipX`, `midHipY`, wrist, knee angles).
-4. Camera view angle detection (`detectViewAngle`) classifies `frontal`, `sagittal`, or `oblique`.
-5. View suppression rules set sagittal-only metrics (stance %, swing %, knee flexion) to `null` in frontal view, and frontal-only metrics (lateral sway, pelvic obliquity) to `null` in sagittal view.
-6. Split-half 95% confidence intervals are computed across half 1 and half 2 of the video clip.
+### 4.1 Interface Contract Updates in `src/lib/gait/pose.ts`
 
-### 4.2 UI Workstation Integration (`GaitApp.tsx` & `SkeletonCanvas.tsx`)
-- `GaitApp.tsx` structures a 4-stage workflow (1: Upload/Sample, 2: Tracking/Scanning, 3: Dual-Pane Workstation, 4: Clinical PDF Report).
-- `SkeletonCanvas.tsx` renders HTML5 canvas overlays for skeleton connections, knee joint angle arcs, and mid-hip sway vector.
+```typescript
+export type PoseLandmarkerModelTier = "heavy" | "full" | "lite";
+export type PoseLandmarkerDelegate = "GPU" | "CPU";
 
----
+export type PoseLandmarkerLike = {
+  detect: (image: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement) => PoseDetectionResult;
+  detectForVideo: (
+    video: HTMLVideoElement | HTMLCanvasElement,
+    timestamp: number,
+  ) => PoseDetectionResult;
+  setOptions?: (options: Record<string, unknown>) => Promise<void> | void;
+  close?: () => void;
+  /** Successfully bound model tier */
+  modelTier?: PoseLandmarkerModelTier;
+  /** Successfully bound backend delegate */
+  delegate?: PoseLandmarkerDelegate;
+};
+```
 
-## 5. Audit Matrix: Gaps, TODOs, Mock Data, and Bugs
+### 4.2 Cache Reset Helper Export
 
-| Module | Issue / Finding | Severity | Impact |
-|---|---|---|---|
-| `signal.ts` | Missing OLS linear detrending export | Medium | Violates `SCOPE.md` spec; `analysis.ts` holds local duplicate. |
-| `signal.ts` | 8th-order effective filter (dual pass of 4th-order) | Medium | Over-attenuates signals near 6 Hz cutoff (-6 dB instead of -3 dB). |
-| `signal.ts` | Zero-state initial biquad registers (`y1=0, y2=0`) | Medium | Causes initial step response transient at signal boundaries. |
-| `signal.ts` | Short reflection padding length (`padLen = 12`) | Low-Med | Ringing transients leak into first 10-15 frames at 30 FPS. |
-| `signal.ts` | `forwardFiltered.reverse()` in-place array mutation | Low | Potential unexpected mutation side-effects. |
-| `events.ts` | Landmark fallback returns `0` when missing | Medium | Injects sharp impulse spike (-0.5) into relative trajectory. |
-| `events.ts` | Left-to-right replacement in `findExtrema` | Low | Non-optimal peak selection when peaks are closely spaced. |
-
----
-
-## 6. Concrete Code Recommendations & Fix Strategies
-
-### 6.1 Recommendations for `src/lib/gait/signal.ts`
-
-#### Fix Strategy 1: Export Central OLS Linear Detrending in `signal.ts`
-Implement and export `olsDetrend(data: number[]): number[]` in `signal.ts`:
-```ts
+```typescript
 /**
- * Ordinary Least Squares (OLS) Linear Detrending.
- * Removes static baseline drift and constant linear trend from a 1D signal.
+ * Resets the singleton PoseLandmarker loading promise.
+ * Used primarily for unit test isolation when testing loading fallbacks.
  */
-export function olsDetrend(data: number[]): number[] {
-  if (!data || data.length < 2) {
-    return data ? [...data.map((v) => (Number.isFinite(v) ? v : 0))] : [];
-  }
-  const clean = data.map((v) => (Number.isFinite(v) ? v : 0));
-  const n = clean.length;
-  const xMean = (n - 1) / 2;
-  let ySum = 0;
-  for (let i = 0; i < n; i++) ySum += clean[i];
-  const yMean = ySum / n;
-
-  let num = 0;
-  let den = 0;
-  for (let i = 0; i < n; i++) {
-    const dx = i - xMean;
-    num += dx * (clean[i] - yMean);
-    den += dx * dx;
-  }
-  const slope = den > 1e-12 ? num / den : 0;
-  return clean.map((y, i) => y - (yMean + slope * (i - xMean)));
+export function resetPoseLandmarkerCache(): void {
+  landmarkerPromise = null;
 }
 ```
 
-#### Fix Strategy 2: Fix Filter Order / Cutoff Scaling in `zeroPhaseButterworth`
-To achieve an exact 4th-order zero-phase Butterworth filter with -3 dB cutoff at `cutoffHz`:
-Option A: Use a single 2nd-order biquad stage ($Q = 1/\sqrt{2} \approx 0.7071068$) in `butterworthLowPass` when called in dual-pass zero-phase mode.
-Option B: Apply cutoff frequency scaling factor $C = (2^{1/2} - 1)^{-1/4} \approx 1.24646$ to `cutoffHz` when executing dual pass.
+### 4.3 Refactored `getPoseLandmarker()` Implementation
 
-#### Fix Strategy 3: Initialize Biquad States to DC Steady State & Increase `padLen`
-1. Initialize `x1 = data[0]`, `x2 = data[0]`, `y1 = data[0]`, `y2 = data[0]` in `applyBiquad`.
-2. Increase padding length in `zeroPhaseButterworth`:
-   ```ts
-   const padLen = Math.min(Math.max(30, Math.floor(fps * 1.0)), n - 1);
-   ```
-3. Avoid in-place mutation: `const reversed = [...forwardFiltered].reverse();`.
+```typescript
+const MODEL_TIERS: PoseLandmarkerModelTier[] = ["heavy", "full", "lite"];
+const DELEGATES: PoseLandmarkerDelegate[] = ["GPU", "CPU"];
 
-### 6.2 Recommendations for `src/lib/gait/events.ts`
+function getCandidateAssetPaths(tier: PoseLandmarkerModelTier): string[] {
+  return [
+    `/models/pose_landmarker_${tier}.task`,
+    `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${tier}/float16/1/pose_landmarker_${tier}.task`,
+  ];
+}
 
-#### Fix Strategy 4: Safe Landmark Interpolation in `getLandmarkX`
-Replace returning `0` with forward-fill / last valid value or returning `hipX` so relative displacement remains 0 during temporary landmark occlusion:
-```ts
-function getLandmarkX(
-  frame: PoseFrame,
-  primaryIdx: number,
-  fallbackIdx: number,
-  defaultVal: number,
-): number {
-  const lmPrimary = frame.landmarks[primaryIdx];
-  if (lmPrimary && (lmPrimary.visibility ?? 1.0) > 0.3) {
-    return lmPrimary.x;
+export async function getPoseLandmarker(): Promise<PoseLandmarkerLike> {
+  if (!landmarkerPromise) {
+    landmarkerPromise = (async () => {
+      const vision = await import("@mediapipe/tasks-vision");
+      const { FilesetResolver, PoseLandmarker } = vision;
+      const fileset = await FilesetResolver.forVisionTasks("/wasm");
+
+      const common = {
+        runningMode: "IMAGE" as const,
+        numPoses: 5,
+        minPoseDetectionConfidence: 0.25,
+        minPosePresenceConfidence: 0.25,
+        minTrackingConfidence: 0.25,
+      };
+
+      let lastError: unknown = null;
+
+      for (const tier of MODEL_TIERS) {
+        const candidatePaths = getCandidateAssetPaths(tier);
+        for (const modelAssetPath of candidatePaths) {
+          for (const delegate of DELEGATES) {
+            try {
+              const landmarker = await PoseLandmarker.createFromOptions(fileset, {
+                baseOptions: { modelAssetPath, delegate },
+                ...common,
+              });
+              const instance = landmarker as unknown as PoseLandmarkerLike;
+              instance.modelTier = tier;
+              instance.delegate = delegate;
+              return instance;
+            } catch (err) {
+              lastError = err;
+              console.warn(
+                `Failed loading PoseLandmarker (${tier}, ${modelAssetPath}, ${delegate}):`,
+                err,
+              );
+            }
+          }
+        }
+      }
+
+      throw lastError ?? new Error("Failed to load PoseLandmarker across all tiers, paths, and delegates.");
+    })().catch((err) => {
+      landmarkerPromise = null;
+      throw err;
+    });
   }
-  const lmFallback = frame.landmarks[fallbackIdx];
-  if (lmFallback && (lmFallback.visibility ?? 1.0) > 0.3) {
-    return lmFallback.x;
-  }
-  return defaultVal;
+  return landmarkerPromise;
 }
 ```
 
 ---
 
-## 7. Verification Method
+## 5. Specification for Unit Test File `src/lib/gait/__tests__/pose.test.ts`
 
-1. **Unit Test Suite Execution:**
-   Run the full test suite to verify 100% pass rate:
-   ```bash
-   npx vitest run
-   ```
-2. **DSP & Signal Unit Tests:**
-   Check `src/lib/gait/__tests__/signal.test.ts` for impulse response symmetry, DC preservation, frequency sweep response, and zero phase delay.
-3. **Kinematic Events Unit Tests:**
-   Check `src/lib/gait/__tests__/events.test.ts` for Zeni event detection accuracy, subframe parabolic timing precision (< 3 ms), and follow-cam direction inference.
-4. **TypeScript & Linting Integrity:**
-   ```bash
-   npm run typecheck
-   npm run lint
-   ```
+The test suite must be created at `src/lib/gait/__tests__/pose.test.ts` using Vitest.
+
+### 5.1 Test Suite Structure & Mocks
+
+```typescript
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import {
+  getPoseLandmarker,
+  resetPoseLandmarkerCache,
+  nextVideoTimestamp,
+  toLandmarks,
+  resamplePoseFrames,
+  detectPosesOnVideoFrame,
+  type PoseLandmarkerLike,
+} from "../pose";
+import type { PoseFrame } from "../types";
+
+// Mock @mediapipe/tasks-vision
+const mockCreateFromOptions = vi.fn();
+const mockForVisionTasks = vi.fn().mockResolvedValue({ wasmPath: "/wasm" });
+
+vi.mock("@mediapipe/tasks-vision", () => ({
+  FilesetResolver: {
+    forVisionTasks: (...args: unknown[]) => mockForVisionTasks(...args),
+  },
+  PoseLandmarker: {
+    createFromOptions: (...args: unknown[]) => mockCreateFromOptions(...args),
+  },
+}));
+```
+
+### 5.2 Unit Test Cases to Include
+
+#### Test Group 1: Model Hierarchy & Fallback Mechanics
+1. **`heavy` Local GPU Success (Primary Path)**:
+   - Configure `mockCreateFromOptions` to resolve with a mock landmarker.
+   - Assert `getPoseLandmarker()` resolves with `modelTier === "heavy"` and `delegate === "GPU"`.
+   - Assert `mockCreateFromOptions` was called with `modelAssetPath: "/models/pose_landmarker_heavy.task"` and `delegate: "GPU"`.
+
+2. **GPU Delegate Failure $\rightarrow$ CPU Delegate Fallback**:
+   - Configure `mockCreateFromOptions` to throw when `delegate === "GPU"` for heavy local, but resolve when `delegate === "CPU"`.
+   - Assert `getPoseLandmarker()` resolves with `modelTier === "heavy"` and `delegate === "CPU"`.
+
+3. **Local Path Failure $\rightarrow$ Google Storage CDN Fallback**:
+   - Configure `mockCreateFromOptions` to throw for local path `/models/pose_landmarker_heavy.task` (both GPU and CPU), but resolve for CDN URL `https://storage.googleapis.com/.../pose_landmarker_heavy.task`.
+   - Assert `getPoseLandmarker()` resolves with `modelTier === "heavy"` and `delegate === "GPU"`.
+   - Verify `mockCreateFromOptions` was called with the CDN URL.
+
+4. **Tier 1 (`heavy`) Failure $\rightarrow$ Tier 2 (`full`) Fallback**:
+   - Configure `mockCreateFromOptions` to throw for all 4 `heavy` candidate options (Local GPU, Local CPU, CDN GPU, CDN CPU).
+   - Configure `mockCreateFromOptions` to resolve on `full` Local GPU.
+   - Assert `getPoseLandmarker()` resolves with `modelTier === "full"` and `delegate === "GPU"`.
+
+5. **Tier 1 & 2 Failure $\rightarrow$ Tier 3 (`lite`) Fallback**:
+   - Configure `mockCreateFromOptions` to throw for all 8 `heavy` and `full` candidate options.
+   - Configure `mockCreateFromOptions` to resolve on `lite` Local GPU.
+   - Assert `getPoseLandmarker()` resolves with `modelTier === "lite"` and `delegate === "GPU"`.
+
+6. **All 12 Candidates Failure $\rightarrow$ Rejection & Cache Reset**:
+   - Configure `mockCreateFromOptions` to throw for all 12 candidate combinations.
+   - Assert `getPoseLandmarker()` rejects with the last error.
+   - Subsequent call to `getPoseLandmarker()` triggers a new loading attempt (verifying `landmarkerPromise` cache reset).
+
+7. **Concurrent Invocation Singleton Deduplication**:
+   - Call `getPoseLandmarker()` twice in parallel without awaiting.
+   - Assert `mockCreateFromOptions` is called only once for the succeeding candidate.
+   - Assert both returned promises resolve to the identical instance.
+
+#### Test Group 2: Existing Utility Functions
+8. **`nextVideoTimestamp()` Monotonicity**:
+   - Call `nextVideoTimestamp()` sequentially and verify output strictly increases by 33 ms per call.
+
+9. **`toLandmarks()` Field Mapping**:
+   - Pass raw array with missing `visibility`. Verify output defaults `visibility` to `1`.
+
+10. **`resamplePoseFrames()` Catmull-Rom Spline Interpolation**:
+    - Pass raw frames array at non-uniform intervals.
+    - Verify output array has uniform $\Delta t = 1000 / \text{targetFps}$ spacing and interpolated landmark coordinates.
+
+11. **`detectPosesOnVideoFrame()` Canvas & Video Element Detection**:
+    - Mock `HTMLVideoElement` and `CanvasRenderingContext2D`.
+    - Verify landmarker `detect()` is invoked properly on canvas.
+
+---
+
+## 6. Downstream Compatibility & Risk Verification
+
+1. **`PoseTracker.ts` Compatibility**:
+   - `PoseTracker.ts` calls `await getPoseLandmarker()`. Since `PoseLandmarkerLike` now includes optional `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate`, existing code in `PoseTracker.ts` operates seamlessly.
+   - Optional: `PoseTracker.ts` can expose `getLoadedModelTier()` and `getLoadedDelegate()` for UI telemetry.
+
+2. **`GaitApp.tsx` Compatibility**:
+   - Calls `await getPoseLandmarker()` during session load/analysis. Zero breaking changes.
+
+3. **Performance Impact**:
+   - Trying candidates sequentially adds negligible setup latency (~1-5 ms per rejected mock/path in Node/browser, or fast failure on 404). Once loaded, the singleton promise caches the result globally.
+
+---
+
+## 7. Next Steps for Implementation (Worker Task Guidance)
+
+1. Apply refactored `PoseLandmarkerModelTier`, `PoseLandmarkerDelegate`, `PoseLandmarkerLike`, `resetPoseLandmarkerCache`, and `getPoseLandmarker()` to `src/lib/gait/pose.ts`.
+2. Create `src/lib/gait/__tests__/pose.test.ts` implementing the specified 11 test cases.
+3. Verify test pass rate with `npx vitest run src/lib/gait/__tests__/pose.test.ts`.
+4. Run full test suite `npm test`, typecheck `npm run typecheck`, and lint `npm run lint`.

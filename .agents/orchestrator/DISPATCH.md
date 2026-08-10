@@ -1,22 +1,21 @@
-## 2026-08-09T16:40:43Z
-<USER_REQUEST>
-You are the PROJECT ORCHESTRATOR for gait-lab.
-Working directory for project metadata: /Users/damian/GitHub/gait-lab/.agents/orchestrator
-Project workspace directory: /Users/damian/GitHub/gait-lab
-Authoritative User Request: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
+## 2026-08-09T21:14:08Z
+You are the Project Orchestrator for gait-lab.
+Your objective is to lead the project execution to fulfill all requirements in `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md` (specifically the latest follow-up section added at 2026-08-10T01:13:18Z).
 
-Your mission:
-Execute the full-spectrum end-to-end implementation and polish pass on `gait-lab` to fulfill all requirements in ORIGINAL_REQUEST.md:
+Working directory: /Users/damian/GitHub/gait-lab
+Orchestrator directory: /Users/damian/GitHub/gait-lab/.agents/orchestrator
 
-1. R1: Full-Spectrum End-to-End Polish & Integration: Ensure every core engine module (DSP filtering, Kinematic Event Detection, Symmetry Angles, Harmonic Ratio, Dual-Task Cost, Joint Kinematic Angles, Clinical PDF Exporter, Database Persistence, Sample Video Picker) is 100% integrated, seamlessly connected, and fully operational without scaffolds.
-2. R2: Side-by-Side Dual Session Comparison View: Build `SessionComparisonView.tsx` enabling clinicians to select any two historical gait sessions from the database (e.g., Baseline vs. Follow-up or Single-Task vs. Dual-Task) and view a side-by-side metric comparison with delta percentage badges and overlaid joint angle trajectory curves.
-3. R3: Live WebCam Real-Time Gait Capture Mode: Integrate live browser webcam video streaming into `GaitApp.tsx` and `PoseTracker.ts` allowing real-time pose extraction, live landmark visualization, and instantaneous gait event detection directly from the camera feed.
-4. R4: Complete Test Suite & Deployment Verification: Ensure 100% test pass rate across unit, UI, and adversarial test suites (`npm test`), with 0 TypeScript errors (`tsc --noEmit`), 0 ESLint warnings (`eslint .`), and a clean production build (`npm run build`).
+Requirements:
+- R1. Person Tracking Accuracy & Re-Identification in `src/lib/gait/analysis.ts` and `src/lib/gait/PoseTracker.ts`. Optimize morphological biometric distance gating and velocity extrapolation to maintain a single unified identity across U-turns, scale changes, and temporary occlusions without creating false duplicate person tracks.
+- R2. Transient Background Suppression & Candidate Filtering in `PoseTracker.ts` and `matchPeople` to suppress transient background people, passersby, and low-confidence noise in multi-person scenes.
+- R3. Empirical Benchmarks & Adversarial Stress Test Expansion: Expand synthetic and adversarial test suites (`src/lib/gait/__tests__/person_identification_stress.test.ts` and new test modules) with realistic multi-person noise models, scale variations, and camera movement to objectively quantify detection accuracy and verify zero false duplicate tracks.
 
-Follow multi-agent execution best practices:
-- Initialize your BRIEFING.md, plan.md, progress.md in /Users/damian/GitHub/gait-lab/.agents/orchestrator
-- Break down work into milestone task groups, dispatch specialist subagents (explorer, worker/implementer, reviewer, challenger/auditor) as needed.
-- Monitor progress and update progress.md.
-- Ensure strict verification (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`).
-- When all milestones are complete and verified, send a completion/victory report to the Sentinel.
-</USER_REQUEST>
+Acceptance Criteria:
+- 0 false duplicate person tracks generated on single-subject gait walk clips (including U-turns, scale shifts, and 2-10 frame occlusions).
+- Primary target lock reliably maintained during live webcam streaming when candidate background poses enter the frame.
+- Fast-walking subjects correctly tracked across sample steps without exceeding velocity motion gates.
+- 100% green pass rate across all Vitest test suites (`npx vitest run`).
+- 0 TypeScript compilation errors (`npx tsc --noEmit`).
+
+Maintain your `progress.md` and `BRIEFING.md` in `/Users/damian/GitHub/gait-lab/.agents/orchestrator`.
+When all milestones and verifications are complete, send a message to the Project Sentinel claiming completion so a mandatory Victory Audit can be conducted.

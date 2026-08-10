@@ -1,18 +1,14 @@
-# Master Plan: gait-lab UI Optimization
+# Project Plan: Spatio-Temporal Gait Analysis Engine Enhancements
 
-## Architecture & Layout Paradigm
-Synthesized Hybrid Low-Cognitive-Load Clinical Interface combining:
-1. 4-Stage Linear Workflow Header (1. Input -> 2. Video Processing -> 3. Clinical Insights -> 4. Export Report).
-2. Phase-Driven Dynamic Views & Responsive Dual-Pane Workstation (50/50 split on desktop).
-3. Above-the-fold Headline Clinical Indicators & 4 Cognitive Clusters (Pace, Symmetry, Trunk, Dual-Task).
-4. Progressive Disclosure Accordion for diagnostic waveforms and 95% CIs.
-5. WCAG 2.1 AA Contrast Compliance, Semantic HTML, ARIA Landmarks, Full Keyboard Nav, and 60 FPS Canvas Rendering.
+## Objective
+Enhance the accuracy, precision, and reliability of the `gait-lab` spatio-temporal gait analysis engine across 4 key technical tiers (R1-R4) while maintaining 100% test pass rate, 0 typecheck errors, 0 lint errors, and clean production build.
 
-## Milestones
-
-| # | Name | Scope | Dependencies | Status |
-|---|------|-------|-------------|--------|
-| M1 | 4-Stage Linear Workflow Progression & Header Navigation | Update `GaitApp.tsx` state machine, build `WorkflowHeader.tsx`, streamline Stage 1 & 2 views, fix `eslint.config.mjs` ignores. | none | PLANNED |
-| M2 | Cognitive Clustering & Progressive Disclosure Components | Build `CognitiveClusters.tsx` (4 clusters), dual-pane layout, progressive accordion, write `ux_design_rationale.md`. | M1 | PLANNED |
-| M3 | Accessibility, Semantic HTML, ARIA, & 60 FPS Layout Performance | WCAG AA contrast colors in `styles.css`, semantic layout, ARIA landmarks, keyboard nav, 60 FPS canvas loop, Stage 4 PDF export wiring. | M2 | PLANNED |
-| M4 | E2E Integration, Test Suite Expansion, Forensic Audit & Verification | Unit & component tests for 4-stage workflow & clusters; multi-agent review swarm (2x Reviewers, 2x Challengers, 1x Forensic Auditor). | M3 | PLANNED |
+## Phases
+- Phase 0: Survey & Codebase/Spec Mapping (3 Explorers)
+- Phase 1: PROJECT.md & Feature Inventory Setup
+- Phase 2: Implementation Track & E2E Testing Track Execution
+  - M1: R1 — Computer Vision & Model Fidelity Upgrades (`pose_landmarker_heavy.task` with fallback to `full`/`lite`, 1D Kalman or 5-point Savitzky-Golay temporal smoothing)
+  - M2: R2 — Video Capture Constraints & Real-World Floor Calibration (`ideal: 60` FPS WebRTC, QR/AprilTag/card mm/px floor calibration)
+  - M3: R3 — Multi-Signal Heel-Strike Fusion & Planar Homography (AP foot displacement + vertical ankle acceleration minima + ZUPT fusion, 2D top-down planar homography transformation)
+  - M4: R4 — Steady-State Stride Filtering & Quality Control (exclude acceleration/deceleration strides for steady-state `stepTimeCV` calculation)
+- Phase 3: Final E2E Verification & Gate Acceptance

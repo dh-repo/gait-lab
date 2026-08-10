@@ -89,7 +89,7 @@ export function GoogleTopAppBar({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 w-full border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md",
+        "sticky top-0 z-30 w-full border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md shadow-[0_1px_2px_0_rgba(60,64,67,0.1)]",
         className,
       )}
     >
@@ -97,7 +97,7 @@ export function GoogleTopAppBar({
         <div className="flex min-w-0 items-center gap-3.5">
           {/* Brand mark — gait cadence bars */}
           <div
-            className="flex size-11 shrink-0 items-end justify-center gap-[3px] rounded-xl bg-[var(--color-fg)] px-2 pb-2 pt-1.5"
+            className="flex size-11 shrink-0 items-end justify-center gap-[3px] rounded-xl bg-[#1A73E8] px-2 pb-2 pt-1.5"
             aria-hidden
           >
             <span className="w-[3px] rounded-full bg-white/90" style={{ height: "10px" }} />
@@ -106,7 +106,7 @@ export function GoogleTopAppBar({
           </div>
           <div className="min-w-0">
             <div className="flex items-baseline gap-2.5">
-              <span className="text-[1.375rem] font-semibold tracking-[-0.03em] text-[var(--color-fg)] sm:text-[1.5rem] leading-none">
+              <span className="text-[20px] font-medium tracking-[-0.02em] text-[var(--color-fg)] leading-none">
                 Gait Lab
               </span>
             </div>
@@ -190,11 +190,11 @@ export function GoogleTopAppBar({
                 >
                   <span
                     className={cn(
-                      "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+                      "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold transition-colors duration-150",
                       isActive
-                        ? "bg-[var(--color-fg)] text-white"
+                        ? "bg-[#1A73E8] text-white"
                         : isCompleted
-                          ? "bg-[var(--color-surface-2)] text-[var(--color-fg)] ring-1 ring-[var(--color-border)]"
+                          ? "bg-[#E8F0FE] text-[#1A73E8] ring-1 ring-[#1A73E8]/20"
                           : "ring-1 ring-[var(--color-border)] text-[var(--color-subtle)]",
                     )}
                   >
@@ -220,7 +220,7 @@ export function GoogleTopAppBar({
                   {isActive ? (
                     <span
                       aria-hidden
-                      className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[var(--color-fg)] sm:inset-x-4"
+                      className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#1A73E8] sm:inset-x-4"
                     />
                   ) : null}
                 </button>

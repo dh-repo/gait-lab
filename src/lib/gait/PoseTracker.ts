@@ -1,5 +1,6 @@
 import { getPoseLandmarker, toLandmarks, type PoseLandmarkerLike } from "./pose";
-import type { PoseFrame } from "./types";
+import type { Landmark, PoseFrame } from "./types";
+import { boundingBox, hipCenter } from "./landmarks";
 
 export interface WebcamOptions {
   deviceId?: string;
@@ -101,6 +102,7 @@ export class PoseTracker {
 
   private sessionId = 0;
   private onFrameCallback: FrameCallback | null = null;
+  private lastTargetHip: Landmark | null = null;
 
   constructor(targetFps = 30, maxBufferFrames = 900) {
     this.targetIntervalMs = 1000 / targetFps;
@@ -271,6 +273,7 @@ export class PoseTracker {
 
   public clearBuffer(): void {
     this.rollingBuffer = [];
+    this.lastTargetHip = null;
   }
 
   public getEffectiveFps(): number {
@@ -327,12 +330,36 @@ export class PoseTracker {
           let poseFrame: PoseFrame | null = null;
 
           if (result && result.landmarks && result.landmarks.length > 0) {
-            const rawLandmarks = result.landmarks[0];
+            let bestIdx = 0;
+            if (result.landmarks.length > 1) {
+              let maxScore = -Infinity;
+              for (let pIdx = 0; pIdx < result.landmarks.length; pIdx++) {
+                const lms = toLandmarks(result.landmarks[pIdx]);
+                const hip = hipCenter(lms);
+                const box = boundingBox(lms);
+                const area = box.w * box.h;
+
+                let score = area * 2;
+                if (this.lastTargetHip) {
+                  const d = Math.hypot(hip.x - this.lastTargetHip.x, hip.y - this.lastTargetHip.y);
+                  score = d <= 0.35 ? area * 2 - d * 4 + 1.0 : area * 2 - d * 2;
+                }
+                if (score > maxScore) {
+                  maxScore = score;
+                  bestIdx = pIdx;
+                }
+              }
+            }
+
+            const rawLandmarks = result.landmarks[bestIdx];
+            const convertedLms = toLandmarks(rawLandmarks);
+            this.lastTargetHip = hipCenter(convertedLms);
+
             poseFrame = {
               timeMs: timestampMs,
-              landmarks: toLandmarks(rawLandmarks),
-              worldLandmarks: result.worldLandmarks?.[0]
-                ? toLandmarks(result.worldLandmarks[0])
+              landmarks: convertedLms,
+              worldLandmarks: result.worldLandmarks?.[bestIdx]
+                ? toLandmarks(result.worldLandmarks[bestIdx])
                 : undefined,
             };
             this.addFrameToBuffer(poseFrame);

@@ -48,7 +48,7 @@ function MaterialStatusBadge({
     status === "Normal" ? "success" : status === "Borderline" ? "warn" : status === "Pathological" ? "info" : "neutral";
 
   return (
-    <Badge tone={tone} data-testid={testId}>
+    <Badge tone={tone} data-testid={testId} className="rounded-full h-6 text-[12px] px-3">
       {label}
     </Badge>
   );
@@ -136,7 +136,7 @@ export function CognitiveClusters({
       aria-label="Gait metric findings by cluster"
       data-testid="cognitive-clusters"
       className={cn(
-        "flex w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)]",
+        "flex w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]",
         className,
       )}
     >

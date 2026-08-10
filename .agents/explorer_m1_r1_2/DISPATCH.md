@@ -1,22 +1,9 @@
-## 2026-08-09T03:23:57Z
-You are Explorer 2 for Milestone 1 of gait-lab.
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_2.
-Your parent conversation ID is 9fa0c177-add2-4b10-b1ff-21a45d75ca2c.
-
-MANDATORY READINGS:
-- /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
-- /Users/damian/GitHub/gait-lab/PROJECT.md
-- /Users/damian/GitHub/gait-lab/.agents/teamwork_sub_orch_m1/SCOPE.md
-
-Focus Area: Signal Processing & Gait Event Detection (Features 4-5)
-1. Investigate src/lib/gait/signal.ts (and existing code in src/lib/gait/ if any):
-   - Design zero-phase 4th-order low-pass Butterworth filter (fc=6Hz default) for pose landmark trajectories. (Note: zero-phase filtering requires bi-directional forward-backward filtering or biquad implementation).
-   - Implement linear detrending.
-   - Implement FFT harmonic decomposition (computeFFTHarmonics).
-2. Investigate src/lib/gait/events.ts:
-   - Design Zeni Kinematic Gait Event Detection algorithm (AP coordinate difference of heel/toe relative to pelvis center / mid-hip).
-   - Detect Initial Contact (Heel Strike) and Terminal Contact (Toe-Off) events for left and right limbs.
-   - Calculate stance phase %, swing phase %, double support time %, and step events.
-3. Check compliance with interface contracts in PROJECT.md.
-
-Write a detailed handoff report in /Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_2/handoff.md detailing your findings, exact algorithmic designs, formulas, and verification strategy. Send a completion message when done.
+## 2026-08-09T21:07:14Z
+Investigate 1D Landmark Coordinate Temporal Smoothing Filters in `src/lib/gait/signal.ts` for Milestone M1 (F2):
+- Read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`, `/Users/damian/GitHub/gait-lab/PROJECT.md`, and `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`.
+- Inspect `src/lib/gait/signal.ts` and any existing tests in `src/lib/gait/__tests__/`.
+- Investigate 5-point Savitzky-Golay filter implementation (`savitzkyGolay5`), convolution coefficients ([-3, 12, 17, 12, -3] / 35), boundary handling (padding / mirror / edge handling for < 5 samples).
+- Investigate 1D Kalman filter implementation (`kalmanFilter1D`), state update equations (prediction, measurement update, gain, error covariance), default process/measurement noise parameters.
+- Investigate helper `smoothPoseFrames` to process 2D/3D landmark trajectories over frame sequences (`PoseFrame[]`).
+- Write a detailed analysis and implementation design in `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_2/analysis.md` and hand off via `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_2/handoff.md`.
+- Send a completion message back to parent with summary and file paths.

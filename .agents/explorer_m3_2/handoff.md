@@ -1,173 +1,343 @@
-# Technical Investigation Report: Live WebCam Real-Time Gait Capture Mode Architecture
+# Handoff Report: Milestone 3 Session Comparison & A4 Clinical PDF Export Blueprint
 
-**Author**: Explorer 2 (Milestone 3 — Live WebCam Real-Time Gait Capture Mode)  
-**Date**: 2026-08-09  
-**Target Path**: `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_2/handoff.md`  
+**Agent**: Explorer 2 (Milestone 3)  
+**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_2`  
+**Target Files**: `src/components/gait/SessionComparisonView.tsx`, `src/components/gait/ClinicalReportView.tsx`  
+**Date**: 2026-08-09T17:37:31Z
 
 ---
 
 ## 1. Observation
 
-A detailed audit of the `gait-lab` codebase (`src/lib/gait/` and `src/components/gait/`) was conducted to evaluate existing pose processing, canvas rendering, gait event detection, metric calculation, and state management mechanisms.
+### Codebase & Design System Inspection
+Direct examination of the repository files revealed the following exact structures and design tokens:
 
-### Key Codebase Observations & Exact Locations:
+1. **`src/styles.css` (lines 4–49, 93–144)**:
+   - Palette Tokens: `#1A73E8` (`--color-primary`, `--color-accent`, `--color-info`), `#F8F9FA` (`--color-bg`), `#FFFFFF` (`--color-surface`), `#F1F3F4` (`--color-surface-2`), `#DADCE0` (`--color-border`), `#202124` (`--color-fg`), `#5F6368` (`--color-muted`), `#70757A` (`--color-subtle`).
+   - Material Status Chips:
+     - `.chip-success`: `#E6F4EA` background, `#137333` text, `border: 1px solid rgba(19, 115, 51, 0.2)`.
+     - `.chip-danger`: `#FCE8E6` background, `#C5221F` text, `border: 1px solid rgba(197, 34, 31, 0.2)`.
+     - `.chip-warn`: `#FEF7E0` background, `#B06000` text, `border: 1px solid rgba(176, 96, 0, 0.2)`.
+     - `.chip-info`: `#E8F0FE` background, `#1967D2` text, `border: 1px solid rgba(25, 103, 210, 0.2)`.
+   - High-Density Data Tables (`.clinical-table`):
+     - `width: 100%`, `border-collapse: collapse`, `font-size: 13px`.
+     - `th`: `background-color: var(--color-bg)`, `color: var(--color-muted)`, `font-weight: 500`, `padding: 8px 12px`, `border-bottom: 1px solid var(--color-border)`.
+     - `td`: `padding: 8px 12px`, `height: 32px`, `font-variant-numeric: tabular-nums`.
 
-1. **MediaPipe Pose Landmarker Integration (`src/lib/gait/pose.ts`)**:
-   - `PoseLandmarkerLike` interface (lines 8–16):
-     ```typescript
-     export type PoseLandmarkerLike = {
-       detect: (image: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement) => PoseDetectionResult;
-       detectForVideo: (
-         video: HTMLVideoElement | HTMLCanvasElement,
-         timestamp: number,
-       ) => PoseDetectionResult;
-       setOptions?: (options: Record<string, unknown>) => Promise<void> | void;
-       close?: () => void;
-     };
-     ```
-   - Monotonic Timestamp Generator (lines 23–27): `nextVideoTimestamp()` increments by 33 ms per frame for MediaPipe `VIDEO` mode.
-   - Landmarker Initialization (lines 29–66): `getPoseLandmarker()` currently hardcodes `runningMode: "IMAGE"` (line 40). For live streaming webcam, MediaPipe requires setting `runningMode: "VIDEO"` and calling `detectForVideo(videoElement, timestamp)`.
-   - Spline Resampling (lines 259–340): `resamplePoseFrames(frames, targetFps = 30.0)` interpolates non-uniform pose frame sequences onto an exact uniform 30 Hz grid using Catmull-Rom cubic splines.
+2. **`src/components/gait/SessionComparisonView.tsx` (lines 1–1115)**:
+   - Exported Component: `SessionComparisonView(props: SessionComparisonViewProps)`.
+   - Helper Function: `computeDelta(key, name, unit, valA, valB, options)`.
+   - Required Data-TestIDs:
+     - Workspace Container: `session-comparison-view`
+     - Dropdown Selectors: `selector-session-a`, `selector-session-b`
+     - Warning & Error Banners: `same-session-warning`, `comparison-load-error`, `comparison-load-retry`, `fallback-0-sessions`, `fallback-1-session`, `view-suppression-banner`
+     - Domain Score Cards: `card-overallScore`, `card-mobilityScore`, `card-symmetryScore`, `card-stabilityScore`, `card-rhythmScore`, `card-automaticityScore`
+     - Table Rows: `row-cadenceSpm`, `row-stepCount`, `row-durationSec`, `row-avgStepTimeSec`, `row-doubleSupportPct`, `row-symmetryAngle`, `row-stepTimeCV`, `row-strideTimeCV`, `row-stepTimeAsymmetry`, `row-pathSmoothness`, `row-verticalBounce`
+     - Context Badges & Footnotes: `context-only-stepCount`, `context-only-durationSec`, `delta-threshold-footnote`
+     - Joint Kinematic Tabs & Badges: `joint-tab-knee`, `joint-tab-hip`, `joint-tab-ankle`, `joint-rom-badges`, `rom-left-a`, `rom-left-b`, `rom-right-a`, `rom-right-b`, `asymmetry-comp`, `normative-band-unavailable`
 
-2. **Live Skeleton Canvas Rendering (`src/components/gait/SkeletonCanvas.tsx`)**:
-   - Canvas Rendering Loop (lines 38–72): `renderFrame()` runs via `requestAnimationFrame`. Canvas width/height are synchronized with video dimensions:
-     ```typescript
-     const w = video.videoWidth || 640;
-     const h = video.videoHeight || 360;
-     if (canvas.width !== w) canvas.width = w;
-     if (canvas.height !== h) canvas.height = h;
-     ```
-   - Drawing Logic (`drawPoseOptimized`, lines 135–226): Batches POSE_CONNECTIONS (lines 156–164) and landmark points (lines 166–174), filtering by `(visibility ?? 1) < 0.25`. Sway vector (lines 177–188) and knee arcs (lines 191–208) are drawn. Currently lacks landmark confidence color-coding, One Euro landmark smoothing, and live numeric angle text labels.
+3. **`src/components/gait/ClinicalReportView.tsx` (lines 1–596)**:
+   - Exported Component: `ClinicalReportView(props: ClinicalReportViewProps)`.
+   - Exported Types: `PatientMetadata`, `ClinicalReportViewProps`.
+   - Required Data-TestIDs:
+     - Outer View Region: `clinical-report-view` (with `role="region"` and `aria-label="Clinical Gait Assessment Report"`)
+     - Form Inputs: `patient-id-input`, `assessment-date-input`, `assessment-condition-input`, `clinician-notes-input`
+     - Visualizations & Scores: `overall-score-ring`, `radar-chart-container`
+     - Summary Tables & Sign-off: `rom-summary-table`, `clinician-signoff-block`
 
-3. **Gait Event Detection & Filtering (`src/lib/gait/events.ts` & `src/lib/gait/signal.ts`)**:
-   - `detectGaitEventsZeni()` (lines 190–451): Batch Zeni algorithm. Extracts mid-hip AP trajectory and relative heel/toe positions ($x_{\text{heel}} - x_{\text{hip}}$), filters signal via `zeroPhaseButterworth()` (lines 292–295), identifies extrema via `findExtrema()` (lines 99–148), and applies parabolic timestamp refinement `refinePeakTimestamp()` (lines 155–183).
-   - `butterworthLowPass()` (`signal.ts`, lines 102–123): Causal 4th-order low-pass biquad filter section (fc = 6.0 Hz default).
-   - `zeroPhaseButterworth()` (`signal.ts`, lines 130–175): Non-causal zero-phase filter via forward-backward passes.
-
-4. **Symmetry & Kinematic Angles (`src/lib/gait/symmetry.ts` & `src/lib/gait/angles.ts`)**:
-   - `symmetryAngle(valLeft, valRight)` (`symmetry.ts`, lines 19–42): Computes Zifchock's Symmetry Angle (SA) in percentage:
-     $$\text{SA} = \frac{|45^\circ - \arctan(|V_{\text{left}}| / |V_{\text{right}}|)|}{90^\circ} \times 100\%$$
-   - `calculateKneeFlexion()`, `calculateHipFlexion()`, `calculateAnkleAngle()` (`angles.ts`, lines 77–162): Single-frame 3-point joint angle calculations in degrees ($0\text{--}180^\circ$).
-
-5. **Application Integration (`src/components/gait/GaitApp.tsx`)**:
-   - Stage-based workflow management (`computedStage`, lines 183–199). Currently processes pre-recorded video files (`processFile`, lines 276–414) and batch runs offline analysis (`runAnalysis`, lines 416–561). Needs live webcam stream acquisition, live rolling buffer state, and seamless "Freeze & Analyze" transition.
+4. **Test Suite Verification (`ClinicalReportView.test.tsx` & `SessionComparisonView.test.tsx`)**:
+   - `npm test` runs Vitest testing static HTML rendering and interactive DOM states.
+   - All data-testids, label `htmlFor` bindings, aria attributes, print trigger callbacks, and DTE sign conventions are strictly checked by automated unit tests.
 
 ---
 
 ## 2. Logic Chain
 
-Based on these observations, a step-by-step design is established across the three primary focus areas:
+1. **Restyling Alignment**:
+   - The user request requires transforming `SessionComparisonView.tsx` and `ClinicalReportView.tsx` into pure Google Workspace desktop workstation layouts.
+   - `SessionComparisonView.tsx` must feature a `#1A73E8` accent header bar, high-density `.clinical-table` delta tables, Material status chips (`#E6F4EA`, `#FCE8E6`, `#F1F3F4`), and Google Sans typography.
+   - `ClinicalReportView.tsx` must feature a Google Docs/Workspace document layout with a top `#1A73E8` header banner, patient metadata form card, 5-domain radar chart, high-density `.clinical-table` tables, and `@media print` rules for clean single/multi-page A4 PDF export.
 
-### Focus Area 1: Live Skeleton Overlay (`SkeletonCanvas.tsx` / Canvas rendering)
+2. **Preservation of Functional Contracts**:
+   - Every single `data-testid` identified in the Observation phase must remain on the exact corresponding HTML element to prevent test suite regressions.
+   - The math engine, unit conversions (e.g., `stepTimeCV` `pct()` multiplication by 100, empirical noise threshold `EPS_CV_PCT = 2.4`), resampled joint trajectory grid (`GAIT_CYCLE_GRID_SIZE = 101`), and DTE sign conventions must be 100% preserved.
+   - All prop signatures (`SessionComparisonViewProps`, `ClinicalReportViewProps`, `PatientMetadata`) and event handlers (`onPrint`, `onUpdateMeta`, `onClose`, `onBack`, `onOpenHistory`, `onNewSession`) must remain unchanged.
 
-1. **Canvas & Video Dimension Synchronization**:
-   - HTML5 `<video>` elements in live webcam mode have intrinsic video dimensions (`videoWidth`, `videoHeight`, e.g., $1280 \times 720$) that differ from CSS display dimensions.
-   - Setting `canvas.width = video.videoWidth` and `canvas.height = video.videoHeight` inside `requestAnimationFrame` preserves the intrinsic aspect ratio. The CSS styling `w-full h-full object-contain` handles scaling without distorting MediaPipe normalized coordinates $(x \cdot w, y \cdot h)$.
-
-2. **Landmark Confidence Visual Indicators**:
-   - MediaPipe landmarks include a `visibility` probability score ($[0.0, 1.0]$).
-   - Rendering visual indicators based on confidence:
-     - High Confidence ($\text{visibility} \ge 0.70$): Green dot (`#22c55e`), full opacity ($\alpha = 1.0$).
-     - Moderate Confidence ($0.40 \le \text{visibility} < 0.70$): Yellow dot (`#eab308`), moderate opacity ($\alpha = 0.8$).
-     - Low Confidence ($\text{visibility} < 0.40$): Red dot (`#ef4444`), low opacity ($\alpha = 0.35$).
-     - Hidden ($\text{visibility} < 0.25$): Omit line connections and dots.
-
-3. **Real-Time Joint Angle Text Annotations**:
-   - Calculate live joint angles for active frame using `calculateKneeFlexion()`, `calculateHipFlexion()`, `calculateAnkleAngle()`.
-   - Render numeric degree overlays (e.g. `Knee: 42°`) directly next to joint positions on canvas with semi-transparent background pills for clinical visibility.
-
-4. **One Euro Filter / Exponential Moving Average (EMA) Landmark Smoothing**:
-   - Live MediaPipe landmarks can display slight high-frequency spatial jitter frame-to-frame.
-   - Applying a low-latency 1st-order EMA filter on normalized landmark coordinates:
-     $$\hat{x}_t = \alpha \cdot x_t + (1 - \alpha) \cdot \hat{x}_{t-1}$$
-     where $\alpha \approx 0.35$. This eliminates visual jitter on the live canvas overlay without introducing perceptible lag.
-
----
-
-### Focus Area 2: Rolling Buffer & Instantaneous Real-Time Gait Metrics
-
-1. **Rolling Frame Buffer Memory Management**:
-   - Store incoming `PoseFrame` objects in a bounded circular buffer (`RollingGaitBuffer`) in memory.
-   - Capacity: $300$ frames at $30$ FPS = $10$ seconds of gait history (or $600$ frames at $60$ FPS). Memory per `PoseFrame` (33 landmarks $\times 4$ floats $\approx 500$ bytes) is $\approx 150$ KB total—extremely lightweight and browser-safe.
-
-2. **Causal Real-Time Event Detection (Online Heel Strike & Toe Off)**:
-   - Zero-phase filtering (`zeroPhaseButterworth`, non-causal) requires forward and backward passes over the full signal, which cannot run in real time on individual incoming stream frames.
-   - **Solution**: Use causal 4th-order low-pass Butterworth filtering (`butterworthLowPass` from `signal.ts`, fc = 6.0 Hz) applied incrementally to the rolling anterior-posterior (AP) heel displacement $x_{\text{heel}} - x_{\text{hip}}$.
-   - **Sliding Window Extremum Detection**:
-     - Monitor slope change ($\frac{d}{dt} = 0$, derivative sign change across 3 consecutive frames) over the last 15–30 frames in the rolling buffer.
-     - Confirm Heel Strike (max AP displacement in walking direction) and Toe Off (min AP displacement in walking direction) when peak prominence $P \ge 0.01$ and inter-event gap $\Delta t \ge 0.35\text{ s}$.
-
-3. **Instantaneous Metric Calculations**:
-   - **Live Cadence (spm)**: Computed over detected heel strikes in rolling 5–10s window:
-     $$\text{Cadence}_{\text{live}} = \frac{N_{\text{strikes}}}{\Delta t_{\text{window}}} \times 60$$
-   - **Live Step Count**: Cumulative integer counter incremented upon each confirmed live heel strike.
-   - **Live Symmetry Angle (%)**: Calculated from mean left vs right step intervals over recent strides using Zifchock's formula:
-     $$\text{SA}_{\text{live}} = \text{symmetryAngle}(\bar{t}_{\text{step, left}}, \bar{t}_{\text{step, right}})$$
-   - **Live Joint Angles**: Instantaneous knee flexion, hip flexion, and ankle angle ($^\circ$) for current frame.
-
-4. **React State & Render Architecture (Decoupled High-FPS Canvas & Low-FPS React State)**:
-   - React state updates (`setState`) on every 60 FPS frame trigger severe DOM thrashing, state lag, and UI frozen frames.
-   - **Architecture**:
-     - Keep raw pose frames and rolling event buffer inside React Mutable Refs (`rollingBufferRef`, `liveMetricsRef`).
-     - High-frequency canvas rendering executes in `requestAnimationFrame` loop (30–60 FPS), reading directly from `liveMetricsRef.current` and `videoRef.current`.
-     - React state updates (`setLiveMetrics`) are throttled to **10–15 Hz** (every 66–100 ms) via a timestamp check, updating live UI metric cards smoothly without triggering React re-render thrashing.
-
----
-
-### Focus Area 3: Teardown & Transition to Full Analysis ("Freeze & Analyze")
-
-1. **WebCam Stream & Resource Teardown**:
-   - When clinician clicks "Freeze & Analyze", call `stopWebcam()`:
-     ```typescript
-     if (mediaStream) {
-       mediaStream.getTracks().forEach((track) => track.stop());
-     }
-     if (videoElement) {
-       videoElement.srcObject = null;
-     }
-     if (animationFrameId) {
-       cancelAnimationFrame(animationFrameId);
-     }
-     ```
-
-2. **Transition Pipeline**:
-   - Retrieve complete array of recorded `PoseFrame` objects accumulated in `rollingBufferRef`.
-   - If session duration exceeds 20 seconds, select the central 20-second window or resample entire clip.
-   - Pass frames to `resamplePoseFrames(frames, 30.0)` to establish an exact uniform 30 Hz time grid.
-   - Execute full offline analysis suite:
-     1. `computeGaitMetrics(uniformFrames)`: Applies `zeroPhaseButterworth` (zero-phase 6 Hz filter), `detectGaitEventsZeni()`, split-half reliability confidence intervals, Zifchock symmetry, and score composites.
-     2. `computeGaitAngleAnalysis(uniformFrames, stepEvents, viewAngle)`: Performs stride segmentation, 101-point normalization, ROM metrics, and normative Perry & Burnfield curves.
-     3. `buildEducatedGuesses(metrics, { taskMode, dualTaskCost })`: Derives clinical evidence and severity classifications.
-   - Update React state (`setPhase("results")`, `setTab("clusters")`, `setResult(analysisResult)`), seamlessly transitioning the UI from Stage 2 (Live Webcam Capture) to Stage 3/4 (Full Kinematic Analysis & Clinical Report View).
+3. **CSS Class & Palette Selection**:
+   - Workstation Header: `bg-[#1A73E8]` text-white rounded-t-lg shadow-sm.
+   - Card Containers: `border border-[#DADCE0] bg-white rounded-lg shadow-card`.
+   - Table Elements: Apply `.clinical-table` class directly to table elements, using `.chip-success`, `.chip-danger`, and `.chip-info` badges for delta values.
+   - Recharts Visualizations: Gridlines `#DADCE0`, normative band `#E8F0FE` with stroke `none`, baseline curve `#1A73E8`, target curve `#188038`.
+   - Print Layout: `@media print` rules specifying `body { background: #fff; }`, `.print-card { border: 1px solid #DADCE0; box-shadow: none; break-inside: avoid; }`, `.no-print { display: none !important; }`.
 
 ---
 
 ## 3. Caveats
 
-1. **Variable Camera Frame Rates**: WebCam stream frame rates vary depending on browser and camera hardware (e.g. 720p @ 30 FPS vs 1080p @ 60 FPS). The rolling buffer must store actual `timeMs` timestamps rather than assuming fixed frame indices.
-2. **MediaPipe RunningMode Constraints**: MediaPipe `PoseLandmarker` requires explicit `runningMode: "VIDEO"` and monotonic timestamps (`detectForVideo`). Switching between image upload mode and webcam stream mode requires updating options via `setOptions({ runningMode: "VIDEO" })`.
-3. **View Angle Dependencies**: Certain metrics (e.g., knee flexion angles in sagittal view vs lateral sway in frontal view) depend on camera orientation. Live webcam mode should display a real-time View Angle Indicator ("Sagittal" vs "Frontal") so clinicians understand which metrics are active.
+- **Read-Only Scope**: As an Explorer agent, no code edits in `src/` are performed directly by this role. The blueprint provided herein is the exact specification to be implemented by the designated Implementer agent.
+- **Recharts In-Memory Rendering**: Recharts components require proper container width handling in server-side / static markup rendering contexts. ResponsiveContainer stubs are already configured in test suites.
 
 ---
 
 ## 4. Conclusion
 
-The proposed architecture for Milestone 3 Live WebCam Real-Time Gait Capture Mode provides a complete, performant, zero-lag solution:
-1. `PoseTracker.ts` manages webcam stream acquisition (`getUserMedia`), MediaPipe `VIDEO` mode lifecycle, and frame extraction.
-2. `SkeletonCanvas.tsx` renders 30–60 FPS skeleton overlays with landmark confidence visual indicators, live angle labels, and One Euro landmark smoothing.
-3. `RollingGaitBuffer` maintains a 10s frame window in memory, running causal real-time event detection and computing instantaneous metrics.
-4. React state updates are decoupled from the 60 FPS canvas loop and throttled to 10–15 Hz to ensure zero UI lag.
-5. Clicking "Freeze & Analyze" cleanly tears down the stream, passes recorded frames to `resamplePoseFrames()` and `computeGaitMetrics()`, and seamlessly transitions to the full clinical analysis report view.
+### Component Blueprint 1: `src/components/gait/SessionComparisonView.tsx`
+
+```tsx
+/**
+ * Exact Restyling Specification for SessionComparisonView.tsx
+ */
+// 1. Workstation Header Bar
+<div className="w-full max-w-6xl mx-auto space-y-6 py-6 px-4 sm:px-6" data-testid="session-comparison-view">
+  <div className="rounded-lg border border-[#DADCE0] bg-white shadow-sm overflow-hidden">
+    <div className="bg-[#1A73E8] px-6 py-4 text-white flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        {handleClose && (
+          <Button variant="secondary" size="sm" onClick={handleClose} className="bg-white/10 hover:bg-white/20 text-white border-none">
+            <ArrowLeft className="size-4 mr-1" /> Back
+          </Button>
+        )}
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2 text-white font-sans">
+            <GitCompare className="size-5 text-white" />
+            Google Workspace Gait Workstation · Side-by-Side Dual Session Comparison
+          </h2>
+          <p className="text-xs text-blue-100">
+            Quantitative metric deltas & resampled kinematic trajectory overlays
+          </p>
+        </div>
+      </div>
+      {onOpenHistory && (
+        <Button variant="secondary" size="sm" onClick={onOpenHistory} className="bg-white/10 hover:bg-white/20 text-white border-none">
+          <Clock className="size-3.5 mr-1.5" /> History Drawer
+        </Button>
+      )}
+    </div>
+
+    {/* Session Dropdown Selectors Card */}
+    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#F8F9FA]">
+      {/* Session A */}
+      <div className="space-y-1.5 p-4 rounded-md border border-[#DADCE0] bg-white">
+        <label htmlFor="selector-session-a" className="text-xs font-semibold uppercase tracking-wider text-[#1A73E8] flex items-center gap-1.5">
+          <span className="inline-block size-2 rounded-full bg-[#1A73E8]" /> Baseline (Session A)
+        </label>
+        <select
+          id="selector-session-a"
+          data-testid="selector-session-a"
+          className="w-full rounded-md border border-[#DADCE0] bg-white p-2 text-sm text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
+          value={sessionAId ?? ""}
+          onChange={(e) => setSessionAId(e.target.value || null)}
+        >
+          {/* Options */}
+        </select>
+      </div>
+      {/* Session B */}
+      <div className="space-y-1.5 p-4 rounded-md border border-[#DADCE0] bg-white">
+        <label htmlFor="selector-session-b" className="text-xs font-semibold uppercase tracking-wider text-[#188038] flex items-center gap-1.5">
+          <span className="inline-block size-2 rounded-full bg-[#188038]" /> Target / Follow-up (Session B)
+        </label>
+        <select
+          id="selector-session-b"
+          data-testid="selector-session-b"
+          className="w-full rounded-md border border-[#DADCE0] bg-white p-2 text-sm text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#188038]"
+          value={sessionBId ?? ""}
+          onChange={(e) => setSessionBId(e.target.value || null)}
+        >
+          {/* Options */}
+        </select>
+      </div>
+    </div>
+
+    {/* Identical Session Warning */}
+    {sessionAId && sessionBId && sessionAId === sessionBId && (
+      <div data-testid="same-session-warning" className="m-4 flex items-center gap-2 rounded-md border border-[#F9AB00] bg-[#FEF7E0] p-3 text-xs text-[#B06000]">
+        <AlertTriangle className="size-4 shrink-0" />
+        <span>Baseline (Session A) and Target (Session B) are identical. Select two different sessions for meaningful clinical delta analysis.</span>
+      </div>
+    )}
+  </div>
+
+  {/* High-Density Delta Tables using .clinical-table & Material Chips */}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <Card className="border-[#DADCE0] bg-white shadow-card">
+      <CardHeader className="pb-3 border-b border-[#DADCE0] bg-[#F8F9FA]">
+        <CardTitle className="text-sm font-bold flex items-center gap-2 text-[#202124]">
+          <Activity className="size-4 text-[#1A73E8]" /> Spatio-Temporal Parameters
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <table className="clinical-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th className="text-right">Baseline A</th>
+                <th className="text-right">Target B</th>
+                <th className="text-right">Change vs. measurement noise</th>
+              </tr>
+            </thead>
+            <tbody>
+              {spatioTemporalDeltas.map((d) => (
+                <tr key={d.key} data-testid={`row-${d.key}`}>
+                  <td className="font-medium text-[#202124]">
+                    {d.name}
+                    {CONTEXT_ONLY_METRIC_KEYS.has(d.key) && (
+                      <span data-testid={`context-only-${d.key}`} className="ml-1.5 text-[10px] uppercase text-[#70757A]">
+                        (context, not scored)
+                      </span>
+                    )}
+                  </td>
+                  <td className="text-right font-mono text-[#5F6368]">{d.formattedValA}</td>
+                  <td className="text-right font-mono font-semibold text-[#202124]">{d.formattedValB}</td>
+                  <td className="text-right">
+                    <span className={cn(
+                      "inline-block rounded-full px-2 py-0.5 text-[10px] font-mono font-medium",
+                      d.badgeTone === "success" && "chip-success",
+                      d.badgeTone === "danger" && "chip-danger",
+                      d.badgeTone === "neutral" && "chip-info bg-[#F1F3F4] text-[#5F6368] border-[#DADCE0]"
+                    )}>
+                      {d.formattedDelta}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+</div>
+```
+
+---
+
+### Component Blueprint 2: `src/components/gait/ClinicalReportView.tsx`
+
+```tsx
+/**
+ * Exact Restyling Specification for ClinicalReportView.tsx
+ */
+<section
+  role="region"
+  aria-label="Clinical Gait Assessment Report"
+  data-testid="clinical-report-view"
+  className={cn("w-full max-w-5xl mx-auto flex flex-col gap-6 print:gap-4 print:text-black print:p-0", className)}
+>
+  {/* Google Workspace A4 Document Banner */}
+  <Card className="border-[#DADCE0] bg-white shadow-card overflow-hidden print-card print:border-none print:shadow-none">
+    <CardHeader className="bg-[#1A73E8] px-6 py-4 text-white print:bg-white print:text-black print:border-b print:border-gray-300">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-white/10 text-white print:bg-blue-600 print:text-white">
+            <Activity className="size-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white print:text-black font-sans">
+              Google Workspace Gait Analysis Clinical Report
+            </h1>
+            <p className="text-xs text-blue-100 print:text-gray-600">
+              Gait Lab · Research & Educational Analysis · Patient ID: {patientMeta.patientId || "N/A"} · {new Date().toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        {onPrint && (
+          <button
+            type="button"
+            onClick={onPrint}
+            aria-label="Print or Export PDF Report"
+            className="no-print print:hidden inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#1A73E8] shadow hover:bg-blue-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <Printer className="size-4" />
+            Print / Export PDF
+          </button>
+        )}
+      </div>
+    </CardHeader>
+
+    {/* Form Inputs Grid */}
+    <CardContent className="p-6 bg-[#F8F9FA] print:bg-white print:p-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-1.5">
+          <label htmlFor="patient-id-input" className="text-xs font-semibold uppercase tracking-wider text-[#5F6368] print:text-gray-700">
+            Patient ID
+          </label>
+          <input
+            id="patient-id-input"
+            type="text"
+            value={patientMeta.patientId}
+            onChange={(e) => onUpdateMeta?.({ patientId: e.target.value })}
+            placeholder="e.g. PT-84920"
+            data-testid="patient-id-input"
+            aria-label="Patient ID"
+            className="w-full rounded-md border border-[#DADCE0] bg-white px-3 py-2 text-sm font-medium text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
+          />
+        </div>
+        {/* Date, Condition, Notes inputs with data-testids */}
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* High-Density ROM Summary Table */}
+  <Card className="border-[#DADCE0] bg-white shadow-card print-card">
+    <CardHeader className="pb-2 border-b border-[#DADCE0] bg-[#F8F9FA] print:bg-gray-100">
+      <CardTitle className="text-base font-semibold text-[#202124]">Joint Trajectory Range of Motion (ROM) Summary</CardTitle>
+      <CardDescription className="text-xs text-[#5F6368]">
+        Sagittal joint kinematic excursions and asymmetry metrics compared against Perry &amp; Burnfield (2010) normative reference bounds.
+      </CardDescription>
+    </CardHeader>
+    <CardContent className="p-0">
+      <table data-testid="rom-summary-table" className="clinical-table">
+        <thead>
+          <tr>
+            <th>Joint</th>
+            <th>Left Peak ROM</th>
+            <th>Right Peak ROM</th>
+            <th>Peak Flexion / Dorsiflexion (L / R)</th>
+            <th>Peak Extension / Plantarflexion (L / R)</th>
+            <th>ROM Asymmetry %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {/* Table rows */}
+        </tbody>
+      </table>
+    </CardContent>
+  </Card>
+
+  {/* Clinician Verification & Sign-Off Block */}
+  <Card data-testid="clinician-signoff-block" className="border-[#DADCE0] bg-white shadow-card print-card">
+    {/* Content & Signature fields */}
+  </Card>
+</section>
+```
 
 ---
 
 ## 5. Verification Method
 
-1. **Regression & Build Verification**:
-   - Run `npm test` to ensure existing unit tests pass cleanly.
-   - Run `npx tsc --noEmit` to confirm complete TypeScript type safety across all modified interfaces (`PoseFrame`, `GaitMetrics`, `PoseLandmarkerLike`).
-2. **Canvas Rendering Verification**:
-   - Inspect `SkeletonCanvas.tsx` rendering to verify skeleton connections, joint angle labels, sway vector, and landmark confidence colors render cleanly without console warnings.
-3. **WebCam Stream Lifecycle Verification**:
-   - Test webcam stream initialization (`startWebcam`) and teardown (`stopWebcam`), ensuring camera indicator light turns off when clicking "Freeze & Analyze".
-   - Confirm transition from Stage 2 live streaming mode to Stage 3/4 clinical analysis report view.
+### Automated Commands
+Run the full test suite and build verification commands:
+
+```bash
+# 1. Component unit test suite
+npm test -- src/components/gait/__tests__/SessionComparisonView.test.tsx src/components/gait/__tests__/ClinicalReportView.test.tsx
+
+# 2. Complete test suite
+npm test
+
+# 3. TypeScript static type check
+npm run typecheck
+
+# 4. ESLint verification
+npm run lint
+
+# 5. Production build
+npm run build
+```
+
+### Invalidation Conditions
+- Any failure in `SessionComparisonView.test.tsx` or `ClinicalReportView.test.tsx`.
+- Missing or misnamed `data-testid` attributes.
+- Breaking changes to prop interfaces or export signatures.
+- Broken print layout or unhandled `@media print` overflow.

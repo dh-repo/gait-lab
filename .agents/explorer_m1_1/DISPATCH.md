@@ -1,19 +1,37 @@
-## 2026-08-09T16:41:50Z
-You are Explorer 1 for Milestone 1 (M1).
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1.
-Create your folder /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1 if needed.
+# Dispatch for Explorer M1-1
 
-Authoritative source of truth & requirements:
-- /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md
+**Role**: teamwork_preview_explorer (CV Model Hierarchy Specialist)
+**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1
 
-Your scope of exploration:
-1. Examine `src/lib/gait/signal.ts` (4th-order zero-phase Butterworth filter, OLS linear detrending). Verify DSP filter mathematical correctness, edge conditions, and integration into signal processing chain.
-2. Examine `src/lib/gait/events.ts` (Zeni Kinematic Event Engine: Heel Strike IC, Toe Off TO, stance/swing/double-support breakdown, peak prominence, subframe parabolic interpolation, follow-cam direction inference).
-3. Check how `signal.ts` and `events.ts` are called in `src/lib/gait/analysis.ts` and UI components (`GaitApp.tsx`, `SkeletonCanvas.tsx`).
-4. Identify any missing implementations, disconnected logic, TODOs, mock data, or edge case bugs.
+## Task Objective
+Investigate `src/lib/gait/pose.ts` and analyze the required implementation for the MediaPipe Pose Landmarker model hierarchy upgrade:
+1. Support `pose_landmarker_heavy.task` with fallback to `pose_landmarker_full.task` and `pose_landmarker_lite.task`.
+2. Support GPU delegate attempt with CPU delegate fallback for each model tier.
+3. Support local model asset path (`/models/pose_landmarker_${tier}.task`) with Google Storage CDN URL fallback (`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${tier}/float16/1/pose_landmarker_${tier}.task`).
+4. Update `PoseLandmarkerLike` interface to expose `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate`.
+5. Specify unit test additions for `pose.test.ts`.
 
-Output:
-Write your full findings to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/analysis.md` and write a handoff report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/handoff.md`.
-Include concrete code recommendations and fix strategies.
-Notify the caller via `send_message` when done.
+## Authoritative Reference Inputs
+- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
+- `/Users/damian/GitHub/gait-lab/PROJECT.md`
+- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md`
+
+
+
+## 2026-08-09T21:07:01Z
+You are Explorer M1-1 for gait-lab.
+Your working directory is: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1
+Mandatory Reference: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
+
+Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md, /Users/damian/GitHub/gait-lab/PROJECT.md, /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md, /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/DISPATCH.md, and /Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md.
+
+Investigate `src/lib/gait/pose.ts` and analyze the required implementation for the MediaPipe Pose Landmarker model hierarchy upgrade:
+1. Support `pose_landmarker_heavy.task` with fallback to `pose_landmarker_full.task` and `pose_landmarker_lite.task`.
+2. Support GPU delegate attempt with CPU delegate fallback for each model tier.
+3. Support local model asset path (`/models/pose_landmarker_${tier}.task`) with Google Storage CDN URL fallback (`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${tier}/float16/1/pose_landmarker_${tier}.task`).
+4. Update `PoseLandmarkerLike` interface to expose `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate`.
+5. Specify unit test additions for `pose.test.ts`.
+
+Write your detailed technical report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/analysis.md` and deliver `handoff.md`. Communicate completion via send_message to parent.
+

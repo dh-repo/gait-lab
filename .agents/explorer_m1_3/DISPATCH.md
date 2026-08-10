@@ -1,21 +1,36 @@
-## 2026-08-09T12:41:51Z
+# Dispatch for Explorer M1-3
 
-You are Explorer 3 for Milestone 1 (M1).
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3.
-Create your folder /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3 if needed.
+**Role**: teamwork_preview_explorer (Metrics Integration & Regression Test Specialist)
+**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3
 
-Authoritative source of truth & requirements:
-- /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-- /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md
+## Task Objective
+Investigate `src/lib/gait/analysis.ts`, `src/lib/gait/types.ts`, and test infrastructure across `src/lib/gait/__tests__/`:
+1. Analyze where `smoothPoseFrames` should be called inside `computeGaitMetricsCore()` in `analysis.ts` prior to kinematic metric computation.
+2. Verify any updates needed in `types.ts` or interface exports for `smoothPoseFrames` and `getPoseLandmarker`.
+3. Audit existing test files in `src/lib/gait/__tests__/` to identify which tests exercise `pose.ts` and `signal.ts` or integration metrics.
+4. Detail test execution requirements (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`) and synthetic noise regression tests (`cat1_landmark_jitter_noise.test.ts`).
 
-Your scope of exploration:
-1. Examine `src/components/gait/ClinicalReportView.tsx` (Printable A4 report, 5-domain radar chart, patient metadata, PDF export flow).
-2. Examine `src/lib/gait/persistence.ts` (PostgreSQL DB schema `migrations/0002_gait_sessions.sql`, session saving, hydration, server functions).
-3. Examine `src/components/gait/SamplePicker.tsx` (4 reference gait videos: sagittal, frontal, follow_cam, general).
-4. Examine `src/components/gait/GaitApp.tsx` (Seamless integration of all modules, state management, UI flows, video processing, analysis triggering, report rendering, saving).
-5. Identify any missing implementations, disconnected logic, TODOs, mock data, or integration gaps.
+## Authoritative Reference Inputs
+- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
+- `/Users/damian/GitHub/gait-lab/PROJECT.md`
+- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md`
 
-Output:
-Write your full findings to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md` and write a handoff report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/handoff.md`.
-Include concrete code recommendations and fix strategies.
-Notify the caller via `send_message` when done.
+## Output Requirements
+Write your detailed findings and implementation recommendations to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md` and deliver `handoff.md`.
+
+## 2026-08-09T21:07:02Z
+You are Explorer M1-3 for gait-lab.
+Your working directory is: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3
+Mandatory Reference: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
+
+Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md, /Users/damian/GitHub/gait-lab/PROJECT.md, /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md, /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/DISPATCH.md, and /Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md.
+
+Investigate `src/lib/gait/analysis.ts`, `src/lib/gait/types.ts`, and test infrastructure across `src/lib/gait/__tests__/`:
+1. Analyze where `smoothPoseFrames` should be called inside `computeGaitMetricsCore()` in `analysis.ts` prior to kinematic metric computation.
+2. Verify any updates needed in `types.ts` or interface exports for `smoothPoseFrames` and `getPoseLandmarker`.
+3. Audit existing test files in `src/lib/gait/__tests__/` to identify which tests exercise `pose.ts` and `signal.ts` or integration metrics.
+4. Detail test execution requirements (npm test, npm run typecheck, npm run lint, npm run build) and synthetic noise regression tests (`cat1_landmark_jitter_noise.test.ts`).
+
+Write your detailed technical report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md` and deliver `handoff.md`. Communicate completion via send_message to parent.
+

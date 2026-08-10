@@ -18,8 +18,8 @@ import { computeBrandWarnings } from "./brand-check.mjs";
 
 const url = checkedUrl(process.argv[2] || "http://127.0.0.1:8080/");
 const outPng = checkedOutputPath(
-  process.argv[3] || "/workspace/screenshots/app-builder-preview.png",
-  ["/workspace"],
+  process.argv[3] || `${process.cwd()}/screenshots/app-builder-preview.png`,
+  [process.cwd()],
 );
 const timeoutMs = Number(process.env.BROWSER_SMOKE_TIMEOUT_MS || 45000);
 

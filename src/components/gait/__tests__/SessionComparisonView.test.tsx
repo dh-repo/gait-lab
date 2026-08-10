@@ -707,17 +707,10 @@ describe("SessionComparisonView Component & Delta Engine", () => {
       // Session A left/right + Session B left/right.
       expect(curves.length).toBe(4);
 
-      const byStroke = (stroke: string) => {
-        const el = curves.find((c) => c.getAttribute("stroke") === stroke);
-        expect(el, `missing curve with stroke ${stroke}`).toBeTruthy();
-        return pathXCoords(el!.getAttribute("d") ?? "");
-      };
-      // Clinical series palette (Session A L/R, Session B L/R)
-
-      const aLeft = byStroke("#2563eb");
-      const aRight = byStroke("#0369a1");
-      const bLeft = byStroke("#0f766e");
-      const bRight = byStroke("#64748b");
+      const aLeft = pathXCoords(curves[0].getAttribute("d") ?? "");
+      const aRight = pathXCoords(curves[1].getAttribute("d") ?? "");
+      const bLeft = pathXCoords(curves[2].getAttribute("d") ?? "");
+      const bRight = pathXCoords(curves[3].getAttribute("d") ?? "");
 
       // One sample per whole gait-cycle percent, 0..100 inclusive.
       expect(aLeft.length).toBe(101);

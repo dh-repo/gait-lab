@@ -1,39 +1,41 @@
-# BRIEFING — 2026-08-09T12:42:43Z
+# BRIEFING — 2026-08-09T21:08:27Z
 
 ## Mission
-Explore and analyze ClinicalReportView.tsx, persistence.ts, SamplePicker.tsx, and GaitApp.tsx for Milestone 1 core engine integration, identifying missing implementations, disconnected logic, TODOs, mock data, and integration gaps.
+Investigate `src/lib/gait/analysis.ts`, `src/lib/gait/types.ts`, and test infrastructure in `src/lib/gait/__tests__/` for Milestone M1 (Computer Vision & Model Fidelity Upgrades).
 
 ## 🔒 My Identity
-- Archetype: explorer
-- Roles: Explorer 3 for Milestone 1 (M1)
+- Archetype: Explorer
+- Roles: Metrics Integration & Regression Test Specialist
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3
-- Original parent: c4f51a02-7aa3-4f8b-85a7-f91521482274
-- Milestone: M1 (Core Engine Integration & Polish)
+- Original parent: e4978e50-e48c-4d54-93a2-5d05726d31e6
+- Milestone: M1 (Computer Vision & Model Fidelity Upgrades)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in src/ or migrations/ (only write analysis/handoff in working dir)
-- Strict evidence chain (file path, line number, verbatim content)
-- Concrete fix strategies and code recommendations
+- Read-only investigation — do NOT implement codebase changes directly (no editing src/ files outside .agents/explorer_m1_3/)
+- Write detailed technical report to /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md
+- Deliver handoff report to /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/handoff.md
+- Send message to parent (ID: e4978e50-e48c-4d54-93a2-5d05726d31e6) upon completion
 
 ## Current Parent
-- Conversation ID: c4f51a02-7aa3-4f8b-85a7-f91521482274
-- Updated: 2026-08-09T12:42:43Z
+- Conversation ID: e4978e50-e48c-4d54-93a2-5d05726d31e6
+- Updated: 2026-08-09T21:08:27Z
 
 ## Investigation State
-- **Explored paths**: `src/components/gait/ClinicalReportView.tsx`, `src/lib/gait/persistence.ts`, `migrations/0002_gait_sessions.sql`, `src/components/gait/SamplePicker.tsx`, `src/components/gait/GaitApp.tsx`, `src/components/gait/ReportPanel.tsx`, `src/components/gait/CognitiveClusters.tsx`, `src/components/gait/JointAnglesChart.tsx`, `src/components/gait/SessionHistoryDrawer.tsx`, `src/lib/gait/angles.ts`, `src/lib/gait/analysis.ts`
+- **Explored paths**: `src/lib/gait/analysis.ts`, `src/lib/gait/types.ts`, `src/lib/gait/signal.ts`, `src/lib/gait/pose.ts`, `src/lib/gait/index.ts`, `src/lib/gait/__tests__/` (all 39 test files)
 - **Key findings**:
-  1. `runAnalysis` in `GaitApp.tsx` omits calling `computeGaitAngleAnalysis(frames, ...)`, leading `ReportPanel`, `ClinicalReportView`, and `CognitiveClusters` to fall back to `computeGaitAngleAnalysis([], ...)`, producing empty joint angle curves and null ROM summary metrics (`—`).
-  2. Patient metadata (`patientMeta`) edited in `ClinicalReportView` / `ReportPanel` is stored in isolated component state and is not passed to `GaitApp.tsx` or saved to PostgreSQL via `persistence.ts`.
-  3. Session persistence and hydration omit `angleAnalysis` and `patientMeta`, resetting notes and blanking joint angle charts on loaded historical sessions.
-  4. Reference sample videos in `SamplePicker.tsx` (`sagittal`, `frontal`, `follow_cam`, `general`) are 100% verified and present in `public/samples/`.
-  5. Test suite (`npm test`), typecheck (`npx tsc --noEmit`), and linter (`npx eslint .`) pass with 0 errors (296/296 tests green).
-- **Unexplored areas**: None within scope.
+  1. `smoothPoseFrames` must be called at line 246 at top of `computeGaitMetricsCore(rawFrames)` in `analysis.ts` prior to `detectViewAngle`, `detectGaitEventsZeni`, and joint angle calculation.
+  2. `types.ts` & `pose.ts` require type exports for `SmoothingMethod`, `PoseLandmarkerModelTier`, `PoseLandmarkerDelegate`, `PoseLandmarkerLike`. `index.ts` must add `export * from "./pose";`.
+  3. Audited 59 test suites (604 tests) across `src/lib/gait/__tests__/` including `signal.test.ts` and `cat1_landmark_jitter_noise.test.ts`.
+  4. Executed and confirmed 100% pass rates: `npm test` (59/59 files, 604/604 tests), `npm run typecheck` (0 errors), `npm run lint` (0 errors), `npm run build` (success).
+- **Unexplored areas**: None for Explorer M1-3 scope.
 
 ## Key Decisions Made
-- Completed full architectural audit and wrote detailed `analysis.md` and 5-component `handoff.md`.
+- Written detailed technical report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md`.
+- Written 5-component handoff report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/handoff.md`.
 
 ## Artifact Index
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/DISPATCH.md — Dispatch log
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/BRIEFING.md — Briefing state index
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md — Comprehensive findings and code fix strategies
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/handoff.md — 5-component handoff report
+- DISPATCH.md — Received dispatch instructions & timestamped prompt
+- BRIEFING.md — Persistent context index
+- progress.md — Liveness heartbeat tracking
+- analysis.md — Detailed technical analysis report
+- handoff.md — 5-component handoff report

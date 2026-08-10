@@ -1,11 +1,29 @@
-# Progress Log
+# Progress Log — worker_m1_1
 
-Last visited: 2026-08-09T16:45:00Z
+Last visited: 2026-08-09T21:11:46Z
 
-- [x] Initialized workspace and briefing.
-- [x] Task 1: Fix Kinematic Angle Pipeline Disconnect
-- [x] Task 2: Fix DTE Classification Edge Case
-- [x] Task 3: Polish DSP Filtering & Landmark Occlusion Handling
-- [x] Task 4: Patient Metadata & PostgreSQL Persistence / Hydration
-- [x] Task 5: Unit Tests
-- [x] Task 6: Verification & Handoff
+## Step 1: Initialization & Dispatch
+- DISPATCH.md written
+- BRIEFING.md created
+- Upstream handoff reports and scope specifications reviewed
+
+## Step 2: Implementation Execution
+- Modified `src/lib/gait/pose.ts`:
+  - Defined `MODEL_CANDIDATES` array with hierarchy `heavy` -> `full` -> `lite` (local paths and Google Storage CDN URLs).
+  - Refactored `getPoseLandmarker()` with triply-nested fallback loops over tiers, asset paths, and GPU/CPU delegates.
+  - Exported `loadedModelTier` and `loadedDelegate` on `PoseLandmarkerLike`.
+  - Added test-aware fast timeout protection for model loads.
+- Modified `src/lib/gait/signal.ts`:
+  - Verified `savitzkyGolay5` with reflection padding and length < 5 guard.
+  - Implemented 1D scalar state-space `kalmanFilter1D` with default Q=1e-4, R=1e-2 and occlusion coasting.
+  - Updated `smoothPoseFrames` to accept `method` ('savitzky-golay' | 'kalman' | 'none') and filter options.
+- Modified `src/lib/gait/types.ts` & `src/lib/gait/analysis.ts`:
+  - Added `SmoothingMethod` and `GaitAnalysisOptions` types.
+  - Integrated `smoothingMethod` into `computeGaitMetricsCore`, `computeGaitMetrics`, `analyzeGait`.
+- Created & updated tests:
+  - Created `src/lib/gait/__tests__/pose.test.ts` (6 tests passed).
+  - Updated `src/lib/gait/__tests__/signal.test.ts` (22 tests passed).
+  - Updated `src/lib/gait/__tests__/analysis.test.ts` (21 tests passed).
+
+## Current Status
+- Running full suite `npm test`.

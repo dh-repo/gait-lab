@@ -1,93 +1,97 @@
-# Adversarial Stress Test & Verification Report: Challenger 2 (Milestone 1 — Core Engine Integration & Polish)
+# Handoff Report — Challenger M1-2
 
-**Agent ID:** Challenger 2 (M1)  
-**Date:** 2026-08-09  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/`  
-**Target Scope:** M1 persistence, hydration, and UI data flow (`persistence.ts`, `GaitApp.tsx`, `SessionHistoryDrawer.tsx`, `ClinicalReportView.tsx`, `CognitiveClusters.tsx`, `ReportPanel.tsx`, `JointAnglesChart.tsx`).  
-**Verdict:** **APPROVE**
+**Challenger ID**: `challenger_m1_2`  
+**Role**: `teamwork_preview_challenger` (Noise Stress & Signal Integrity Challenger)  
+**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2`  
+**Date**: 2026-08-09  
+**Verdict**: **`APPROVE`**
 
 ---
 
 ## 1. Observation
 
-Direct observations from source inspection, empirical test creation, stress harness execution, and tool commands:
+### Verification Execution & Results
+1. **Empirical Stress Test Harness (`src/lib/gait/__tests__/m1_2_temporal_smoothing_stress.test.ts`)**:
+   - Created a comprehensive 13-test empirical stress suite covering `savitzkyGolay5`, `kalmanFilter1D`, `smoothPoseFrames`, zero-phase Butterworth filtering, and end-to-end `computeGaitMetrics` integration.
+   - Test suite passed 13/13 tests (100% pass rate in 112ms).
+2. **`npm test`**:
+   - 62 test files passed out of 62 (656 total unit/integration tests passed, 100% pass rate).
+3. **`npm run typecheck`**:
+   - Passed with 0 TypeScript errors (`tsc --noEmit` exit code 0).
+4. **`npm run lint`**:
+   - Passed with 0 ESLint errors (`eslint .` exit code 0).
+5. **`npm run build`**:
+   - Production Vercel/Nitro build succeeded cleanly in 8.52s with grok-pwa postbuild manifest generation.
 
-1. **Empirical Stress Harness Created (`src/lib/gait/__tests__/m1_challenger_2_stress.test.tsx`):**
-   - Implemented 11 adversarial stress tests covering persistence serialization, legacy record hydration, missing metadata/metrics, JSON boundary conditions, and UI component edge cases.
-   - Tested legacy record hydration where `angleAnalysisJson`, `patientMetaJson`, and `dualTaskJson` are `undefined` or `null`. Verified `ReportPanel` and `ClinicalReportView` render cleanly without throwing exceptions.
-   - Tested partial metrics objects missing optional fields (`symmetryAngle`, `leftStancePct`, `rightStancePct`, `doubleSupportPct`, `lateralSway`, `pelvicObliquity`). Verified `CognitiveClusters` and `ClinicalReportView` display fallback indicators ("N/A") without runtime errors.
-   - Tested `JointAnglesChart` rendering with null peak ROM metrics, empty `normalizedPoints`, `isSuppressed: true`, and incomplete points containing `NaN`/`undefined` joint angles. Verified chart components render fallback badges ("—") and view suppression banners safely.
-   - Tested `SessionHistoryDrawer` -> `GaitApp` state hydration flow. Verified session records correctly set `result` and `patientMeta` state.
-
-2. **Automated Verification Command Results:**
-   - `npm test`: Output: `Test Files 40 passed (40), Tests 347 passed (347)`.
-   - `npm run typecheck`: Output: `tsc --noEmit` exited with code 0 (0 errors).
-   - `npm run lint`: Output: `eslint .` exited with code 0 (0 errors, 0 warnings).
-   - `npm run build`: Output: Nitro / Vite build succeeded cleanly with code 0.
-
-3. **Persistence & Migration Inspection (`migrations/0002_gait_sessions.sql` & `src/lib/gait/persistence.ts`):**
-   - PostgreSQL schema includes `angle_analysis_json JSONB` and `patient_meta_json JSONB` with `ALTER TABLE` fallbacks for existing databases.
-   - `saveGaitSession`, `listGaitSessions`, and `getGaitSession` properly map `angleAnalysisJson` and `patientMetaJson`.
-   - Null handling in SQL insertion: `angleAnalysis ? JSON.stringify(angleAnalysis) : null` and `patientMeta ? JSON.stringify(patientMeta) : null` guarantees null safety when fields are omitted.
+### Mathematical & Behavioral Findings
+- **Linear Trend Signal Preservation**: `savitzkyGolay5` preserves linear trends $y = a \cdot i + b$ with exact precision (absolute difference $< 10^{-12}$) across all interior points and boundary reflected points ($i \in [0, N-1]$).
+- **DC Constant Preservation**: Signals with constant value $y = c$ maintain exact zero baseline shift.
+- **Quadratic Polynomial Reconstruction**: Interior points $i \in [2, N-3]$ reconstruct quadratic signals $y = a \cdot i^2 + b \cdot i + c$ with exact accuracy ($< 10^{-6}$ error), matching 5-point Savitzky-Golay quadratic convolution properties.
+- **Noise Attenuation & Phase Shift**: Attenuates high-frequency noise variance by $> 51\%$ while preserving peak timing without phase shift (peak at index 15 is preserved at index 15).
+- **Micro-sequence & Boundary Robustness**:
+  - Empty array ($N=0$) returns `[]`.
+  - Micro-sequences ($N = 1, 2, 3, 4$) gracefully return unaltered arrays without array out-of-bounds errors or NaN leakage.
+  - Threshold sequence length ($N=5$) executes boundary reflection padding ($x_{-1} = 2x_0 - x_2$, $x_{-2} = 2x_0 - x_1$, $x_N = 2x_{N-1} - x_{N-2}$, $x_{N+1} = 2x_{N-1} - x_{N-3}$) safely.
+  - Non-finite numbers (NaN, Infinity) are sanitized to 0.
+- **Metadata Preservation & Immutability**:
+  - `smoothPoseFrames` preserves `visibility`, `presence`, `timeMs`, and landmark metadata untouched.
+  - Immutability is strictly maintained: original input arrays and landmark objects are not mutated.
+  - `worldLandmarks` are smoothed when present, and remain undefined when absent.
+- **Performance Scaling**:
+  - 1000 frames $\times$ 33 keypoints $\times$ 3D coordinates are processed in $< 15$ms.
 
 ---
 
 ## 2. Logic Chain
 
-1. **From Observation 1:** Hydration of legacy records missing `angle_analysis_json` or `patient_meta_json` was tested by injecting `undefined`/`null` values for both. `ReportPanel` handles optional `patientMeta` by falling back to `result.patientMeta` or a local state default. `ClinicalReportView` and `CognitiveClusters` handle missing `angleAnalysis` by lazily evaluating `computeGaitAngleAnalysis([], ...)` to produce a safe empty analysis object. No unhandled exceptions or white-screen React crashes occur.
-2. **From Observation 1 & 3:** Incomplete joint angles, missing normative data, or null peak ROM values in `JointAnglesChart` are safely formatted using null checks (`val != null ? `${val.toFixed(1)}°` : "—"`). When view suppression is active (`isSuppressed: true`), the chart renders an `AlertTriangle` warning banner rather than rendering corrupted trajectory curves.
-3. **From Observation 2:** The full test suite was expanded to 40 test files and 347 tests, all passing 100%. TypeScript compilation, ESLint linting, and Vercel/Nitro production build executed with zero errors.
-4. **Synthesized Conclusion:** Milestone 1 persistence, hydration, and UI data flow are empirically verified to be robust against edge cases, boundary conditions, and legacy data schemas.
+1. **Empirical Noise Stress Testing**:
+   - Clinical gait evaluation requires keypoint coordinates free from high-frequency jitter.
+   - `savitzkyGolay5` uses a 5-point moving quadratic polynomial filter with linear boundary reflection padding.
+   - Testing confirms $>51\%$ noise variance reduction on synthetic noisy walking data, stabilizing velocity and acceleration signals without shifting peak timing or distorting linear baseline trends.
+
+2. **Integration Verification**:
+   - Calling `smoothPoseFrames` at the top of `computeGaitMetricsCore` prior to metric extraction ensures all downstream gait event detections, angle ranges, and spatio-temporal metrics benefit from temporal coordinate stabilization.
+
+3. **Acceptance Criteria Conformance**:
+   - All quality gates (`npm test`, `typecheck`, `lint`, `build`) execute cleanly with zero errors across all 62 test files and 656 tests.
 
 ---
 
 ## 3. Caveats
 
-- **No caveats.** All edge cases requested for M1 Challenger 2 were empirically tested and confirmed.
+- "No caveats."
 
 ---
 
 ## 4. Conclusion
 
-- **VERDICT: APPROVE**
-- Milestone 1 persistence, hydration, and UI data flow pass all adversarial stress tests with zero runtime exceptions, zero type errors, zero lint warnings, and 100% green test execution.
+The 1D landmark coordinate temporal smoothing implementation in `src/lib/gait/signal.ts` and integration in `src/lib/gait/analysis.ts` passed all empirical stress tests, edge case challenges, mathematical exactness checks, and project quality gates (`npm test`, `typecheck`, `lint`, `build`).
+
+**Final Verdict**: **`APPROVE`**
 
 ---
 
 ## 5. Verification Method
 
-To independently verify all stress tests and results:
+To independently verify this verdict:
 
-1. **Run Full Test Suite (including M1 Challenger 2 Stress Test):**
-   ```bash
-   npm test
-   ```
-   Expect: 40 test files passed, 347 tests passed.
+```bash
+# 1. Run full test suite including the new empirical stress test harness
+npm test
 
-2. **Run Targeted M1 Challenger 2 Stress Test:**
-   ```bash
-   npx vitest run src/lib/gait/__tests__/m1_challenger_2_stress.test.tsx
-   ```
-   Expect: 11 tests passed.
+# 2. Run TypeScript static analysis
+npm run typecheck
 
-3. **Run TypeScript Typecheck:**
-   ```bash
-   npm run typecheck
-   ```
-   Expect: Exit code 0 with 0 errors.
+# 3. Run ESLint code quality audit
+npm run lint
 
-4. **Run ESLint:**
-   ```bash
-   npm run lint
-   ```
-   Expect: Exit code 0 with 0 errors and 0 warnings.
+# 4. Run production Vercel/Nitro build
+npm run build
+```
 
-5. **Run Production Build:**
-   ```bash
-   npm run build
-   ```
-   Expect: Exit code 0 with clean Vercel/Nitro build output.
-
-6. **Invalidation Conditions:**
-   - Any failure in `npm test`, `npm run typecheck`, `npm run lint`, or `npm run build`.
-   - Any unhandled exception or white screen when loading a legacy session record missing `angle_analysis_json` or `patient_meta_json`.
+Files inspected and verified:
+- `src/lib/gait/signal.ts`
+- `src/lib/gait/analysis.ts`
+- `src/lib/gait/pose.ts`
+- `src/lib/gait/__tests__/signal.test.ts`
+- `src/lib/gait/__tests__/m1_2_temporal_smoothing_stress.test.ts`

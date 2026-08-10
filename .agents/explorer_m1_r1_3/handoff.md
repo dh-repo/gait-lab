@@ -1,137 +1,108 @@
-# Handoff Report — Explorer 3 (Milestone 1, Features 6–8)
+# Handoff Report: Keypoint Smoothing Integration Analysis (`src/lib/gait/analysis.ts`)
+
+**Agent**: explorer_m1_r1_3  
+**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3`  
+**Parent Conversation ID**: `75715ff9-9d80-47ae-bd6a-226d8bd44d8a`  
+**Date**: 2026-08-09  
+
+---
 
 ## 1. Observation
 
-### File & Contract Inspection
-- **`PROJECT.md` Interface Contracts**:
-  - Line 75-79 (`symmetry.ts`):
-    ```typescript
-    export function symmetryAngle(valLeft: number, valRight: number): number; // Returns SA in percentage [0, 100]%
-    export function gaitSymmetryIndex(valLeft: number, valRight: number): number;
-    ```
-  - Line 81-84 (`smoothness.ts`):
-    ```typescript
-    export function computeHarmonicRatio(hipY: number[], hipX: number[], fps: number): { hrVertical: number; hrLateral: number; overallHR: number };
-    ```
-  - Line 86-96 (`dte.ts`):
-    ```typescript
-    export interface DTEAnalysis {
-      cadenceDTE: number;
-      stepTimeCvDTE: number;
-      symmetryDTE: number;
-      cmiClassification: 'no_interference' | 'cognitive_prioritization' | 'motor_prioritization' | 'mutual_interference';
+### 1.1 Source Code Excerpts & File Paths
+
+- **`src/lib/gait/analysis.ts` (Lines 242–289)**:
+  `computeGaitMetricsCore` accepts `frames: PoseFrame[]`. Currently, raw `frames` are passed directly into `detectViewAngle(frames)`, `series` extraction, and `detectGaitEventsZeni(frames, fpsEffective)` without prior coordinate temporal smoothing:
+  ```typescript
+  function computeGaitMetricsCore(frames: PoseFrame[]): GaitMetrics {
+    if (frames.length < 5) {
+      return emptyMetrics(frames);
     }
 
-    export function calculateDTE(baseline: GaitMetrics, dualTask: GaitMetrics): DTEAnalysis;
-    ```
-- **Existing File State**:
-  - `src/lib/gait/symmetry.ts` — Not present yet (to be implemented in M1).
-  - `src/lib/gait/smoothness.ts` — Not present yet (to be implemented in M1).
-  - `src/lib/gait/dte.ts` — Not present yet (to be implemented in M1).
-  - `src/lib/gait/analysis.ts` — Line 58-65 contains legacy `asymmetryRatio(a: number, b: number): number` which uses raw relative absolute difference `|a - b| / max(a, b)`.
+    const { angle, confidence } = detectViewAngle(frames);
+    const t0 = frames[0].timeMs;
+    const durationSec = Math.max(0.001, (frames[frames.length - 1].timeMs - t0) / 1000);
+    const fpsEffective = (frames.length - 1) / durationSec;
+    const fps = Math.max(1, fpsEffective);
 
-### Scientific Literature & Mathematical Formulations
+    const series = frames.map((f) => {
+      const lm = f.landmarks;
+      ...
+    });
 
-#### Feature 6: Zifchock's Symmetry Angle ($SA$) & Gait Symmetry Index ($GSI$)
-- **Literature**: Zifchock, R. A., Davis, I., Higginson, J., & Royer, T. (2008). *The symmetry angle: a novel, robust method of quantifying asymmetry*. Gait & Posture, 27(4), 622-627.
-- **Zifchock Symmetry Angle Equation**:
-  $$SA = \frac{\left|45^\circ - \arctan\left(\frac{X_L}{X_R}\right)\right|}{90^\circ} \times 100\%$$
-- **Angle Handling**:
-  - When $X_L = X_R > 0$, $\theta = \arctan(1) = 45^\circ$, yielding $SA = 0\%$.
-  - When $X_L / X_R > 1$, $\theta = \arctan(X_L / X_R) > 45^\circ$. Taking $|45^\circ - \theta|$ ensures $SA(X_L, X_R) = SA(X_R, X_L)$ (reference-limb independence).
-  - When both $X_L, X_R < 10^{-6}$, $SA = 0\%$ (perfect symmetry).
-  - When one value is zero, $SA = 50\%$ (quadrant bound).
-  - Result is clamped to $[0, 100]\%$.
-- **Gait Symmetry Index ($GSI$) Equation**:
-  $$GSI = \left( \frac{\min(|X_L|, |X_R|)}{\max(|X_L|, |X_R|)} \right) \times 100\%$$
-  - Yields $100\%$ for perfect symmetry and $0\%$ when one side has zero magnitude.
+    // Zero-phase 4th-order Butterworth low-pass filtering (fc = 6.0 Hz) on landmark trajectories
+    const midHipX = zeroPhaseButterworth(series.map((s) => s.midHipX), fps, 6.0);
+    const midHipY = zeroPhaseButterworth(series.map((s) => s.midHipY), fps, 6.0);
+    ...
+    const zeniBreakdown = detectGaitEventsZeni(frames, fpsEffective);
+  ```
 
-#### Feature 7: Trunk Harmonic Ratio ($HR$) via FFT (`smoothness.ts`)
-- **Literature**:
-  - Menz, H. B., Lord, S. R., & Fitzpatrick, R. C. (2003). *Acceleration patterns of the head and pelvis when walking on level and irregular surfaces*. Gait & Posture, 18(1), 35-46.
-  - Bellanca, J. L., et al. (2013). *Harmonic ratio: a review of methodologic variations in gait analysis*. Journal of Biomechanics, 46(11), 1805-1810.
-  - Pasciuto, I., et al. (2015). *Harmonic ratio calculation for gait smoothness assessment*. Results in Physics, 5, 203-204.
-- **Biomechanical Mechanism**:
-  - In 1 full stride (2 steps), vertical trunk displacement (`hipY`) completes 2 cycles. Even harmonics (2nd, 4th, 6th...) represent step-to-step symmetry and rhythmicity, while odd harmonics represent step asymmetry.
-    $$HR_{vertical} = \frac{\sum P_{\text{even}}}{\sum P_{\text{odd}}} = \frac{\text{evenSum}}{\text{oddSum}}$$
-  - In 1 full stride, lateral trunk displacement (`hipX`) completes 1 cycle (swaying left then right). Odd harmonics (1st, 3rd, 5th...) represent stride rhythmicity, while even harmonics represent lateral wobble/asymmetry.
-    $$HR_{lateral} = \frac{\sum P_{\text{odd}}}{\sum P_{\text{even}}} = \frac{\text{oddSum}}{\text{evenSum}}$$
-  - **Overall HR**:
-    $$HR_{overall} = \sqrt{HR_{vertical} \times HR_{lateral}}$$ (Geometric mean).
+- **`PROJECT.md` & `SCOPE.md` Interface Contracts**:
+  - `src/lib/gait/signal.ts`: Exports `savitzkyGolay5(signal: number[])`, `kalmanFilter1D(signal: number[])`, and `smoothPoseFrames(frames: PoseFrame[], method?: 'savitzky-golay' | 'kalman'): PoseFrame[]`.
+  - `src/lib/gait/analysis.ts`: `computeGaitMetricsCore(...)` must smooth raw keypoints prior to metric computation.
 
-#### Feature 8: Standardized Dual-Task Effect ($DTE$) & Cognitive-Motor Interference (`dte.ts`)
-- **Literature**:
-  - Kelly, V. E., Eusterbrock, A. J., & Shumway-Cook, A. (2010). *A review of dual-task walking deficits in people with Parkinson's disease*. Parkinson's Disease, 2010.
-  - Plummer, P., & Eskes, G. (2015). *Measuring cognitive-motor interference in recovery and rehabilitation*. Frontiers in Human Neuroscience, 9, 22.
-- **DTE Formulas**:
-  - For metrics where **higher is better** (e.g. Cadence, Symmetry Score):
-    $$DTE = \frac{\text{DualTask} - \text{Baseline}}{\text{Baseline}} \times 100\%$$
-  - For metrics where **lower is better** (e.g. Step Time CV, Asymmetry):
-    $$DTE = -\frac{\text{DualTask} - \text{Baseline}}{\text{Baseline}} \times 100\%$$
-- **Cognitive-Motor Interference (CMI) Classification**:
-  Using Plummer & Eskes (2015) 4-band taxonomy based on composite motor DTE threshold ($\pm 5.0\%$):
-  - `'no_interference'`: $|DTE_{\text{motor}}| \le 5\%$
-  - `'motor_prioritization'`: $DTE_{\text{motor}} > +5\%$
-  - `'cognitive_prioritization'`: $DTE_{\text{motor}} < -5\%$ (motor performance declined while cognitive task was prioritized)
-  - `'mutual_interference'`: $cadenceDTE < -5\%$ AND $stepTimeCvDTE < -5\%$ (severe dual-task degradation across both pace and variability).
+- **`src/lib/gait/__tests__/analysis.test.ts` (Lines 51–149)**:
+  Contains unit tests for `computeGaitMetrics`, view angle detection, stationary clips, split-half CI, and metric suppression.
+
+- **`src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts` (Lines 6–61)**:
+  Stress tests single-frame coordinate pops and joint-correlated high-frequency noise.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Step 1 (Symmetry)**:
-   - *Observation*: `PROJECT.md` specifies `symmetryAngle(valLeft, valRight): number` returning $SA \in [0, 100]\%$, and `gaitSymmetryIndex(valLeft, valRight): number`.
-   - *Reasoning*: Standard ratio asymmetry ($|a - b| / a$) suffers from reference limb selection bias. Zifchock's $SA$ maps $(X_L, X_R)$ into angular space $\theta = \arctan(X_L / X_R)$.
-   - *Derivation*: $|45^\circ - \theta| / 90^\circ \times 100\%$ converts angular deviation into a normalized percentage, preserving reference-limb invariance regardless of whether $X_L > X_R$ or $X_R > X_L$.
-
-2. **Step 2 (Smoothness)**:
-   - *Observation*: `PROJECT.md` specifies `computeHarmonicRatio(hipY: number[], hipX: number[], fps: number)` returning `{ hrVertical, hrLateral, overallHR }`.
-   - *Reasoning*: Vertical motion has double the fundamental frequency of stride (2 steps per stride), whereas lateral motion has single stride fundamental frequency.
-   - *Derivation*: Vertical HR requires even/odd harmonic ratio, Lateral HR requires odd/even harmonic ratio. `computeFFTHarmonics` from `signal.ts` computes the harmonic power sums. Geometric mean $\sqrt{HR_{vert} \cdot HR_{lat}}$ provides overall gait smoothness.
-
-3. **Step 3 (Dual-Task Effect)**:
-   - *Observation*: `PROJECT.md` specifies `calculateDTE(baseline: GaitMetrics, dualTask: GaitMetrics)` returning `DTEAnalysis` with `cadenceDTE`, `stepTimeCvDTE`, `symmetryDTE`, and `cmiClassification`.
-   - *Reasoning*: DTE must be direction-aware so that performance degradation produces a negative percentage. Cadence and Symmetry Score increase with better performance ($DTE = (DT - BL)/BL \times 100$), whereas Step Time CV increases with worse performance ($DTE = -(DT - BL)/BL \times 100$).
-   - *Derivation*: Plummer & Eskes (2015) classification categorizes CMI based on motor DTE thresholds: no interference ($|DTE| \le 5\%$), motor prioritization ($DTE > 5\%$), cognitive prioritization ($DTE < -5\%$), and mutual interference (multivariate decline in both cadence and step time CV).
+1. **Observation 1.1**: `computeGaitMetricsCore` receives raw `frames: PoseFrame[]`. It uses raw landmarks for `detectViewAngle`, `series` coordinate extraction, torso normalization (`torsoHeight`), and `detectGaitEventsZeni`.
+2. **Inference 1**: Single-frame tracking pops or high-frequency MediaPipe landmark jitter directly pollute `detectViewAngle`, `torsoHeight` normalization, spatial step width, pelvic obliquity, and Zeni heel strike peak detection.
+3. **Observation 1.2**: `PROJECT.md` and `SCOPE.md` specify that `smoothPoseFrames(frames: PoseFrame[], method?: 'savitzky-golay' | 'kalman')` in `signal.ts` must filter keypoint coordinates across frames prior to metric computation.
+4. **Inference 2**: Pre-filtering `frames` at the entry point of `computeGaitMetricsCore` (via `const smoothedFrames = smoothPoseFrames(frames, smoothingMethod)`) guarantees that all downstream consumers (`detectViewAngle`, `series` extraction, `detectGaitEventsZeni`, `computeGaitAngleAnalysis`) receive clean, temporally smoothed landmark trajectories.
+5. **Inference 3**: Savitzky-Golay 5-point quadratic filtering (`'savitzky-golay'`) is the optimal default method because it suppresses high-frequency coordinate noise while preserving peak amplitudes and timing of human limb movements better than moving averages.
 
 ---
 
 ## 3. Caveats
 
-- **Minimum Trajectory Length for FFT**: In `smoothness.ts`, computing FFT harmonics requires at least 16 frames of trajectory data. For shorter clips, fallback HR values of `1.0` are returned to prevent numerical instability.
-- **Baseline Division Safety**: In `dte.ts`, baseline values close to 0 ($< 10^{-6}$) return `0.0` to prevent division by zero or infinite DTE values.
-- **Source Code Creation**: The proposed files `proposed_symmetry.ts`, `proposed_smoothness.ts`, and `proposed_dte.ts` have been authored in `.agents/explorer_m1_r1_3/`. The implementer agent will copy/integrate them into `src/lib/gait/`.
+1. **Short Clips Guard**: Clips with `frames.length < 5` cannot be smoothed by a 5-point filter stencil. `smoothPoseFrames` must safely return a shallow copy of `frames` without filtering when `frames.length < 5`.
+2. **NaN / Non-Finite Coordinate Handling**: Keypoint smoothing must sanitize non-finite values (`NaN`, `Infinity`) prior to filtering to prevent numerical corruption across the smoothed trajectory.
+3. **Execution Order**: `smoothPoseFrames` must be executed after validating `frames.length >= 5` and before calculating effective FPS or invoking `detectViewAngle`.
 
 ---
 
 ## 4. Conclusion
 
-The scientific specifications, mathematical formulas, and TypeScript interface contracts for Features 6–8 (`symmetry.ts`, `smoothness.ts`, `dte.ts`) are fully established and validated against literature (Zifchock et al. 2008, Menz et al. 2003, Bellanca et al. 2013, Kelly et al. 2010, Plummer & Eskes 2015).
+Keypoint coordinate temporal smoothing must be integrated into `src/lib/gait/analysis.ts` at the beginning of `computeGaitMetricsCore(frames: PoseFrame[])` by applying `smoothPoseFrames(frames)`.
 
-Proposed implementations are available in:
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/proposed_symmetry.ts`
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/proposed_smoothness.ts`
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/proposed_dte.ts`
+This change affects all downstream temporal, spatial, kinematic, and symmetry metrics as well as joint angle ensemble calculations, protecting the entire gait engine against MediaPipe landmark tracking jitter and coordinate noise.
+
+Full detailed findings, metric catalog, and test specifications are documented in:
+`/Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_3/analysis.md`.
 
 ---
 
 ## 5. Verification Method
 
-To verify these implementations once written to `src/lib/gait/`:
+To verify the integration of keypoint smoothing after implementation:
 
-1. **Type Checking**:
-   ```bash
-   npm run typecheck
-   ```
-   *Expected*: Passes with 0 errors.
+### 5.1 Project Verification Commands
+```bash
+# 1. Verify TypeScript static typecheck (must pass with 0 compilation errors)
+npm run typecheck
 
-2. **Unit Testing**:
-   Create unit tests in `src/lib/gait/__tests__/` (Feature 13 in M3):
-   - `symmetry.test.ts`: Verify $SA(10, 10) = 0\%$, $SA(10, 5) = SA(5, 10) \approx 20.48\%$, $GSI(10, 8) = 80\%$.
-   - `smoothness.test.ts`: Verify pure sinusoidal vertical trajectory yields high $HR_{vertical}$, pure lateral sinusoid yields high $HR_{lateral}$.
-   - `dte.test.ts`: Verify baseline (100 spm, 4% CV) vs dual-task (90 spm, 8% CV) yields negative `cadenceDTE` (-10%) and negative `stepTimeCvDTE` (-100%) classified as `mutual_interference`.
+# 2. Verify ESLint compliance (must pass with 0 errors / warnings)
+npm run lint
 
-3. **Invalidation Conditions**:
-   - $SA(X_L, X_R) \neq SA(X_R, X_L)$ (violates reference limb invariance).
-   - $HR_{vertical}$ uses odd/even instead of even/odd (violates biomechanical step frequency harmonic ratio).
-   - `stepTimeCvDTE` increases when variability worsens under dual task (violates standardized sign adjustment where negative DTE = cost).
+# 3. Run full Vitest unit & integration test suite (must pass 100%)
+npm test
+
+# 4. Verify production build
+npm run build
+```
+
+### 5.2 Specific Test Files to Inspect / Execute
+- `npm test src/lib/gait/__tests__/analysis.test.ts`
+- `npm test src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts`
+- `npm test src/lib/gait/__tests__/signal.test.ts`
+
+### 5.3 Invalidation Conditions
+- Any test failure in `analysis.test.ts` or `cat1_landmark_jitter_noise.test.ts`.
+- `computeGaitMetricsCore` failing to smooth `frames` before passing to `detectViewAngle` or `detectGaitEventsZeni`.
+- `stepTimeCV` or `stepWidthVariability` being artificially inflated by un-smoothed landmark tracking noise.

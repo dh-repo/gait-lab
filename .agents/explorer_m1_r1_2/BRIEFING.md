@@ -1,38 +1,36 @@
-# BRIEFING — 2026-08-09T03:24:25Z
+# BRIEFING — 2026-08-09T21:07:14Z
 
 ## Mission
-Investigate Signal Processing & Gait Event Detection (Features 4-5) for gait-lab Milestone 1. Produce detailed algorithmic designs, mathematical formulas, implementation specifications for zero-phase filtering, linear detrending, FFT harmonic decomposition, Zeni gait event detection, and gait metric calculations, ensuring compliance with PROJECT.md contracts.
+Investigate 1D Landmark Coordinate Temporal Smoothing Filters in `src/lib/gait/signal.ts` for Milestone M1 (F2), including Savitzky-Golay, Kalman 1D, and smoothPoseFrames.
 
 ## 🔒 My Identity
-- Archetype: Explorer
-- Roles: Signal Processing & Gait Event Detection Specialist
+- Archetype: explorer
+- Roles: read-only investigation, evidence gathering, implementation design
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_2
-- Original parent: 9fa0c177-add2-4b10-b1ff-21a45d75ca2c
-- Milestone: Milestone 1
+- Original parent: 75715ff9-9d80-47ae-bd6a-226d8bd44d8a
+- Milestone: M1 (F2 - Signal & Filter Utilities)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in src/
-- Follow Handoff Protocol (5 components: Observation, Logic Chain, Caveats, Conclusion, Verification Method)
-- Check compliance with PROJECT.md contracts
-- Output report in /Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_2/handoff.md
+- Read-only investigation — do NOT implement or modify source files outside .agents/explorer_m1_r1_2
+- Provide thorough analysis and design for savitzkyGolay5, kalmanFilter1D, and smoothPoseFrames
 
 ## Current Parent
-- Conversation ID: 9fa0c177-add2-4b10-b1ff-21a45d75ca2c
-- Updated: 2026-08-09T03:24:25Z
+- Conversation ID: 75715ff9-9d80-47ae-bd6a-226d8bd44d8a
+- Updated: 2026-08-09T21:07:51Z
 
 ## Investigation State
-- **Explored paths**: `src/lib/gait/types.ts`, `src/lib/gait/landmarks.ts`, `src/lib/gait/pose.ts`, `src/lib/gait/analysis.ts`, `PROJECT.md`, `.agents/teamwork_sub_orch_m1/SCOPE.md`, `.agents/ORIGINAL_REQUEST.md`
-- **Key findings**: Complete mathematical algorithms and interface specifications for `src/lib/gait/signal.ts` and `src/lib/gait/events.ts` documented in `handoff.md`.
-- **Unexplored areas**: None for Features 4-5 scope.
+- **Explored paths**: ORIGINAL_REQUEST.md, PROJECT.md, SCOPE.md, src/lib/gait/signal.ts, src/lib/gait/types.ts, src/lib/gait/analysis.ts, src/lib/gait/__tests__/
+- **Key findings**: Complete math & code designs formulated for savitzkyGolay5 (kernel [-3,12,17,12,-3]/35 with reflection padding), kalmanFilter1D (scalar state update with occlusion coasting), and smoothPoseFrames (immutable 2D/3D landmark trajectory extraction & filtering).
+- **Unexplored areas**: None for this task scope.
 
 ## Key Decisions Made
-- Formulated zero-phase 4th-order low-pass Butterworth filter via cascaded biquads (SOS) with reflection padding.
-- Specified linear detrending via OLS line fitting.
-- Specified FFT harmonic decomposition for Harmonic Ratio ($HR$).
-- Designed Zeni kinematic event detection algorithm for Heel Strike (IC) and Toe Off (TO) with direction auto-detection.
-- Defined Stance %, Swing %, and Double Support % calculations.
+- Formulated reflection boundary padding strategy for Savitzky-Golay 5-point filter.
+- Formulated 1D scalar state model for Kalman filtering with default Q=1e-4 and R=1e-2.
+- Designed immutable trajectory extraction and batch smoothing for PoseFrame[].
 
 ## Artifact Index
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_2/DISPATCH.md — Dispatch log
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_2/BRIEFING.md — Working state index
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_r1_2/handoff.md — Complete Handoff Report
+- DISPATCH.md — Task dispatch log
+- BRIEFING.md — Working memory state
+- progress.md — Task progress tracking
+- analysis.md — Detailed technical investigation and proposed code design
+- handoff.md — Self-contained 5-component handoff report

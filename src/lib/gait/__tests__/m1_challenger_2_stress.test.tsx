@@ -190,7 +190,7 @@ describe("Milestone 1 Empirical Stress Test Suite (Challenger M1-2)", () => {
           patientMeta={samplePatientMeta}
         />
       );
-      expect(htmlView).toContain("Gait analysis summary");
+      expect(htmlView).toContain("Executive Summary");
     });
 
     it("handles JSON stringification boundary conditions where JSON fields are raw strings", () => {

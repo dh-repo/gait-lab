@@ -1,18 +1,13 @@
-# DISPATCH — Reviewer 1 (Code Quality & Component Architecture Review)
+## 2026-08-09T17:30:00Z
+You are Reviewer 1 for Milestone 2: High-Density Tabbed Clinical Analytics & Recharts Trajectory Charts.
+Working directory for your metadata: /Users/damian/GitHub/gait-lab/.agents/reviewer_m2_1
+Please read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`, `/Users/damian/GitHub/gait-lab/PROJECT.md`, and `/Users/damian/GitHub/gait-lab/.agents/worker_m2/handoff.md`.
 
-## Task Objective
-Independently review the code quality, TypeScript type safety, design patterns, component modularity, and metric delta calculations of `SessionComparisonView.tsx` and UI integrations (`GaitApp.tsx`, `WorkflowHeader.tsx`, `SessionHistoryDrawer.tsx`).
+Task:
+Perform code review on Milestone 2 changes:
+1. Review `JointAnglesChart.tsx` for Recharts curves (`#1A73E8`, `#34A853`), normative range polygon (`#E8F0FE`), gridlines (`#DADCE0`), dark popover tooltip (`#202124`), and ROM metric chips.
+2. Review `MetricsPanel.tsx` for `.clinical-table` high-density table conversion, provenance bands, and ScoreRings.
+3. Review `CognitiveClusters.tsx`, `GuessesPanel.tsx`, `GuidePanel.tsx` for Google Workspace card styling and Material status badges.
+4. Run `npm run typecheck`, `npm run lint`, and `npm test`.
 
-## Primary References
-- Authoritative User Request: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-- Scope Document: /Users/damian/GitHub/gait-lab/.agents/sub_orch_m2/SCOPE.md
-- Worker Handoff: /Users/damian/GitHub/gait-lab/.agents/worker_m2_1/handoff.md
-
-## Review Criteria
-1. Verify `SessionComparisonView.tsx` code clean structure, readability, and performance.
-2. Verify metric delta formulas ($\Delta$ and $\% \Delta$), noise immunity thresholds ($\epsilon$), and favorability classification rules (green/red/gray badges).
-3. Verify Recharts joint trajectory curve implementation (Knee, Hip, Ankle) and Perry & Burnfield normative range band overlays.
-4. Verify execution of tests and builds (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`).
-5. Render a clear verdict: `APPROVE` or `REQUEST_CHANGES`.
-
-Write your full review report to /Users/damian/GitHub/gait-lab/.agents/reviewer_m2_1/handoff.md and report back.
+Write your review report to `/Users/damian/GitHub/gait-lab/.agents/reviewer_m2_1/handoff.md` with explicit verdict: `APPROVE` or `REQUEST_CHANGES`. Update progress.md in your directory and notify parent.

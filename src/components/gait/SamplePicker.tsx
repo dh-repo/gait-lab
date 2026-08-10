@@ -116,7 +116,7 @@ export function SamplePicker({ onSelectSample, onCustomUploadClick, isLoading }:
     <div className="space-y-4">
       <div className="flex items-baseline justify-between gap-3">
         <div>
-          <h3 className="text-[13px] font-semibold tracking-tight text-[var(--color-fg)]">
+          <h3 className="text-[11px] font-medium uppercase tracking-wider text-[#5F6368]">
             Reference clips
           </h3>
           <p className="mt-0.5 text-[12px] text-[var(--color-muted)]">
@@ -147,32 +147,27 @@ export function SamplePicker({ onSelectSample, onCustomUploadClick, isLoading }:
                 disabled={busy}
                 onClick={() => void handleLoadSample(sample)}
                 className={cn(
-                  "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors",
-                  "hover:bg-[var(--color-surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]",
+                  "flex w-full items-center gap-3 px-4 h-[48px] text-left transition-colors duration-150",
+                  "hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]",
                   "disabled:opacity-60",
                 )}
               >
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-[var(--color-fg)]">
                   {busy ? (
-                    <Loader2 className="size-3.5 animate-spin text-[var(--color-primary)]" />
+                    <Loader2 className="size-[20px] animate-spin text-[var(--color-primary)]" />
                   ) : (
-                    <Play className="size-3.5 fill-current" />
+                    <Play className="size-[20px] fill-current" />
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <span className="text-[13px] font-medium text-[var(--color-fg)]">
-                      {sample.title}
-                    </span>
-                    <span className="text-[11px] tabular text-[var(--color-subtle)] font-mono">
-                      {sample.duration}
-                    </span>
+                  <span className="block text-[14px] font-medium text-[var(--color-fg)]">
+                    {sample.title}
                   </span>
-                  <span className="mt-0.5 block truncate text-[12px] text-[var(--color-muted)]">
-                    {sample.viewBadge} · {sample.features.slice(0, 2).join(" · ")}
+                  <span className="mt-0.5 block truncate text-[12px] text-[#5F6368]">
+                    {sample.viewBadge} · {sample.duration} · {sample.features.slice(0, 2).join(" · ")}
                   </span>
                 </span>
-                <span className="shrink-0 text-[12px] font-medium text-[var(--color-muted)]">
+                <span className="shrink-0 text-[12px] font-medium text-[#1A73E8]">
                   {busy ? "Loading…" : "Load"}
                 </span>
               </button>

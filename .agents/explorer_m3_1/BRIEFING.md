@@ -1,33 +1,37 @@
-# BRIEFING — 2026-08-09T12:47:58Z
+# BRIEFING — 2026-08-09T21:38:05Z
 
 ## Mission
-Investigate and design `PoseTracker.ts` webcam stream acquisition, MediaPipe video pose detection (`runningMode: "VIDEO"` with `detectForVideo`), frame processing loop (`requestAnimationFrame`), stream resource cleanup, error handling, and unit testing strategy for Milestone 3.
+Formulate an exact technical blueprint for `src/components/gait/SkeletonCanvas.tsx` to upgrade 2D canvas pose rendering to Google AR/CV style while preserving layout, responsiveness, and prop interfaces.
 
 ## 🔒 My Identity
 - Archetype: Explorer
-- Roles: Technical Investigator / Systems Designer
+- Roles: Explorer 1 for Milestone 3 (Real-Time AR/CV Pose Canvas Blueprint)
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m3_1
-- Original parent: 7f68613b-b2a9-47d7-8560-81a78f0fea82
-- Milestone: Milestone 3 (Live WebCam Real-Time Gait Capture Mode)
+- Original parent: 8e9e6af1-3d51-4143-bad5-f38a5c021929
+- Milestone: M3 (Real-Time AR/CV Pose Canvas, Session Comparison & A4 PDF Document Export)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in `src/` (reports and proposals in `.agents/explorer_m3_1/` only)
-- Produce complete, self-contained handoff report (`handoff.md`) with 5 components
-- Ensure code snippets and proposals are production-ready and fully tested/mockable
+- Read-only investigation — do NOT implement project source code directly
+- Upgrade 2D canvas pose rendering to Google AR/CV style
+- High-contrast joint nodes: Cyan `#00E5FF` outer ring, Google Blue `#1A73E8` core
+- Limb skeleton connections: High-contrast cyan `#00E5FF` lines (`strokeWidth={3}`)
+- AR target reticles & confidence meters: Sleek circular reticles with confidence percentage text in Google Sans font
+- View angle & tracking HUD: Top HUD overlay with dark surface pill (`bg-[#202124]/80`, white Google Sans text, status indicator)
+- Preserve all canvas rendering functions, aspect ratios, responsive container sizing, and prop interfaces
 
 ## Current Parent
-- Conversation ID: 7f68613b-b2a9-47d7-8560-81a78f0fea82
-- Updated: 2026-08-09T12:47:58Z
+- Conversation ID: 8e9e6af1-3d51-4143-bad5-f38a5c021929
+- Updated: 2026-08-09T21:38:05Z
 
 ## Investigation State
-- **Explored paths**: `src/lib/gait/pose.ts`, `src/lib/gait/types.ts`, `src/components/gait/GaitApp.tsx`, `src/components/gait/SkeletonCanvas.tsx`, `src/lib/gait/__tests__/testHelpers.ts`, `src/components/gait/__tests__/SkeletonCanvas.test.tsx`
-- **Key findings**: Designed complete `PoseTracker` class architecture, MediaPipe `runningMode: "VIDEO"` mode switching, monotonic timestamp management (`performance.now()`), FPS throttling (~30 FPS), rolling buffer management (max 900 frames), clean media track teardown, DOMException error classification (`NotAllowedError`, `NotFoundError`, `NotReadableError`, `OverconstrainedError`), async session ID race condition mitigation, and Vitest mocking strategy.
-- **Unexplored areas**: None for Explorer 1 scope.
+- **Explored paths**: `src/components/gait/SkeletonCanvas.tsx`, `src/components/gait/__tests__/SkeletonCanvas.test.tsx`, `PROJECT.md`, `ORIGINAL_REQUEST.md`
+- **Key findings**: Complete technical blueprint formulated and written to `handoff.md`.
+- **Unexplored areas**: None.
 
 ## Key Decisions Made
-- Provided complete technical handoff report in `handoff.md` with exact code snippets, class structures, error handling matrix, and Vitest mocking examples.
+- Written handoff report `handoff.md` with detailed observation, logic chain, caveats, conclusion, verification method, and exact replacement code for `src/components/gait/SkeletonCanvas.tsx`.
 
 ## Artifact Index
-- `.agents/explorer_m3_1/DISPATCH.md` — Initial task dispatch
-- `.agents/explorer_m3_1/BRIEFING.md` — Agent working memory
-- `.agents/explorer_m3_1/handoff.md` — Comprehensive 5-component technical handoff report
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/DISPATCH.md` — Dispatch log
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/BRIEFING.md` — Explorer briefing state
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/handoff.md` — Final technical blueprint report

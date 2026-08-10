@@ -1,532 +1,421 @@
-# Technical Handoff Report: `PoseTracker.ts` Architecture & WebCam Real-Time Capture Design
+# Technical Blueprint: Google AR/CV Pose Tracking Canvas (`SkeletonCanvas.tsx`)
 
-**Author:** Explorer 1 (Milestone 3 — Live WebCam Real-Time Gait Capture Mode)  
-**Date:** 2026-08-09  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/`  
-**Target Architecture File:** `src/lib/gait/PoseTracker.ts`  
+**Module**: `src/components/gait/SkeletonCanvas.tsx`  
+**Milestone**: M3 - Real-Time AR/CV Pose Canvas, Session Comparison & A4 PDF Document Export  
+**Author**: Explorer 1 (`explorer_m3_1`)  
+**Status**: Handed off to Implementer  
 
 ---
 
 ## 1. Observation
 
-Direct code analysis of the existing `gait-lab` codebase reveals the following baseline state across `src/lib/gait/` and `src/components/gait/`:
+### Existing Codebase Inspection
+From inspecting `src/components/gait/SkeletonCanvas.tsx` (lines 1 to 250) and its test suite `src/components/gait/__tests__/SkeletonCanvas.test.tsx` (lines 1 to 52):
 
-1. **MediaPipe Setup (`src/lib/gait/pose.ts`)**:
-   - `pose.ts:8-16` defines `PoseLandmarkerLike` interface containing `detect` and `detectForVideo(video, timestamp)`.
-   - `pose.ts:29-66` defines `getPoseLandmarker()`, which initializes MediaPipe `PoseLandmarker` hardcoded with `runningMode: "IMAGE"` (lines 39-45).
-   - `pose.ts:24-27` exports `nextVideoTimestamp()`, incrementing by 33ms per call.
-   - `pose.ts:68-77` exports `toLandmarks(raw)` to map raw MediaPipe landmarks to `Landmark[]`.
-   - Currently, `pose.ts` is optimized for offline, seek-based frame analysis of uploaded video files (`seekAndDetect`). There is no class or manager for continuous live webcam streaming acquisition or real-time frame loops.
+- **Current Implementation**:
+  - `SkeletonCanvas` renders 2D pose estimation lines using `drawPoseOptimized`.
+  - Connections are stroked using person track colors (`personColors[pose.id]` or `PERSON_COLORS`), with line width 2.5 to 3.5.
+  - Joint landmark points are drawn as solid dots filled with person track colors.
+  - Knee flexion arcs use hardcoded hex colors (`#93c5fd` and `#5eead4`) with 10px `sans-serif` text overlay boxes (`rgba(0,0,0,0.55)`).
+  - Center of Mass (Sway Vector) uses `rgba(255,255,255,0.75)` with `[4, 4]` dash pattern.
+  - Bounding box uses line dash `[6, 4]` stroked with `personColor`.
 
-2. **UI & Stream Controls (`src/components/gait/GaitApp.tsx`)**:
-   - `GaitApp.tsx:75` mounts a hidden `<video ref={videoRef} />` used solely for seeking uploaded blob URLs.
-   - `GaitApp.tsx:276-414` handles static file upload (`processFile`) via `seekAndDetect` sampling.
-   - No webcam stream acquisition (`navigator.mediaDevices.getUserMedia`), live camera picker, or real-time frame loop exists in `GaitApp.tsx` yet.
+- **Wrapper & Container**:
+  - `data-testid="skeleton-canvas-wrapper"`
+  - Tailwind classes: `aspect-video bg-black rounded-lg relative overflow-hidden w-full h-full flex items-center justify-center`
+  - Canvas attributes: `role="img"`, `aria-label="Pose estimation skeleton rendering canvas"`, `tabIndex={interactive ? 0 : -1}`.
 
-3. **Skeleton Canvas Overlay (`src/components/gait/SkeletonCanvas.tsx`)**:
-   - Accepts `video: HTMLVideoElement | null`, `poses: { id: number; landmarks: Landmark[] }[]`, `showSkeleton`, `showJointArcs`, and `showSwayVector`.
-   - Renders 2D skeleton overlays over a video element at 60 FPS using `requestAnimationFrame`. It is ready to accept real-time pose updates from a live camera feed.
-
-4. **Missing Component**:
-   - No `PoseTracker.ts` exists yet in `src/lib/gait/`. A new module `src/lib/gait/PoseTracker.ts` must be created to manage webcam stream lifecycle, MediaPipe `"VIDEO"` mode configuration, monotonic timestamps, frame loop throttling, rolling frame buffer, and resource teardown.
+- **Requirements from PROJECT.md & Task**:
+  1. High-contrast joint nodes: Cyan `#00E5FF` outer ring, Google Blue `#1A73E8` core.
+  2. Limb skeleton connections: High-contrast cyan `#00E5FF` lines (`strokeWidth={3}`).
+  3. AR target reticles & confidence meters: Sleek circular reticles with confidence percentage text in Google Sans font.
+  4. View angle & tracking HUD: Top HUD overlay with dark surface pill (`bg-[#202124]/80`, white Google Sans text, status indicator).
+  5. Preservation: Retain aspect ratio, responsive container sizing, click hit-testing (`hypot(hip - click) < 0.2`), keyboard navigation (Enter/Space), and prop interfaces (`SkeletonCanvasProps`).
 
 ---
 
 ## 2. Logic Chain
 
-### 2.1 WebCam Stream Acquisition Architecture (`navigator.mediaDevices.getUserMedia`)
+1. **2D Canvas Rendering Function Upgrade (`drawPoseGoogleARCV`)**:
+   - **Limb Skeleton Connections**: Replace track-color stroking with high-contrast Cyan `#00E5FF` lines and `lineWidth = highlight ? 3.5 : 3`, with `lineCap = "round"`.
+   - **High-Contrast Joint Nodes**: Instead of single-fill circles, render two concentric paths per valid landmark (`visibility >= 0.25`):
+     - Outer ring: `ctx.strokeStyle = "#00E5FF"`, `ctx.lineWidth = 1.5`, `radius = highlight ? 5 : 4`, `ctx.stroke()`.
+     - Core dot: `ctx.fillStyle = "#1A73E8"`, `radius = highlight ? 3 : 2`, `ctx.fill()`.
+   - **AR Target Reticles & Confidence Meters**:
+     - At hip center / Center of Mass (landmarks 23 & 24):
+       - Render a 360° sleek reticle ring (`radius = 18`, `ctx.strokeStyle = "rgba(0, 229, 255, 0.8)"`, `lineWidth = 1.5`).
+       - Add 4 crosshair tick marks (top, bottom, left, right).
+       - Render confidence percentage (`Math.round(avgVis * 100)% CONF`) below reticle using Google Sans typography: `ctx.font = '500 10px "Google Sans", Roboto, sans-serif'`.
+   - **Joint Arcs & Degree Labels**:
+     - Upgrade knee flexion arc stroke to `#00E5FF`.
+     - Upgrade label background to dark surface pill `rgba(32, 33, 36, 0.85)` with `#00E5FF` accent border (`rgba(0, 229, 255, 0.4)`).
+     - Render text in white Google Sans font `500 10px "Google Sans", Roboto, sans-serif`.
+   - **Sway Vector & Bounding Box**:
+     - Sway vector dashed line updated to `rgba(0, 229, 255, 0.6)`.
+     - Highlighted target bounding box updated to stroke `#00E5FF`.
 
-`PoseTracker` will encapsulate all `MediaStream` acquisition, device selection, video element binding, and hardware constraint negotiation.
+2. **HUD Overlay Pill (`bg-[#202124]/80`)**:
+   - Add a top-left pill overlay inside `data-testid="skeleton-canvas-wrapper"`:
+     - Styling: `absolute top-3 left-3 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#202124]/80 backdrop-blur-md border border-white/10 text-white font-['Google_Sans',sans-serif] text-xs shadow-lg select-none pointer-events-none`.
+     - Live indicator: Glowing cyan pulsing dot (`<span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00E5FF] opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-[#00E5FF]"></span></span>`).
+     - Status text: `AR/CV TRACKING ACTIVE` in `#00E5FF`, plus optional view angle (`viewAngle`) and target count (`poses.length`).
+     - Note: `pointer-events-none` guarantees that user clicks pass through uninhibited to the `<canvas>` element for `handleClick` hit testing.
 
-#### Configuration Interface & Default Constraints
-```ts
-export interface WebcamOptions {
-  deviceId?: string;
-  facingMode?: "user" | "environment";
-  width?: number | { ideal: number; max?: number };
-  height?: number | { ideal: number; max?: number };
-  frameRate?: number | { ideal: number; max?: number };
-}
-
-export const DEFAULT_WEBCAM_CONSTRAINTS: MediaStreamConstraints = {
-  video: {
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-    frameRate: { ideal: 30, max: 60 },
-    facingMode: "user",
-  },
-  audio: false,
-};
-```
-
-#### Stream Acquisition & Video Element Binding
-```ts
-async startWebcam(
-  videoElement: HTMLVideoElement,
-  options: WebcamOptions = {}
-): Promise<MediaStream>
-```
-1. Build constraints merging `DEFAULT_WEBCAM_CONSTRAINTS` with user options (e.g. explicit `deviceId` or `facingMode`).
-2. Request stream via `navigator.mediaDevices.getUserMedia(constraints)`.
-3. If `OverconstrainedError` is thrown, catch and retry fallback with basic unconstrained `{ video: true, audio: false }`.
-4. Bind stream to `HTMLVideoElement`:
-   ```ts
-   videoElement.srcObject = stream;
-   videoElement.setAttribute("playsinline", "true");
-   videoElement.muted = true;
-   await videoElement.play();
-   ```
-5. Wait for video dimensions to populate (`videoElement.readyState >= 2 && videoElement.videoWidth > 0`).
+3. **Interface & Prop Preservation**:
+   - Update `SkeletonCanvasProps` to include optional `viewAngle?: string`.
+   - Keep all existing props (`video`, `poses`, `selectedId`, `personColors`, `onSelectPerson`, `interactive`, `showSkeleton`, `showJointArcs`, `showSwayVector`).
+   - Preserve `handleClick` distance math (`Math.hypot(hip.x - x, hip.y - y) < 0.2`).
+   - Preserve `handleKeyDown` keyboard listener (`Enter` or `Space` cycles `selectedId`).
 
 ---
 
-### 2.2 MediaPipe PoseLandmarker Mode Switching (`runningMode: "VIDEO"`)
+## 3. Proposed Code Replacement
 
-MediaPipe `@mediapipe/tasks-vision` `PoseLandmarker` operates in two distinct execution modes:
-- `"IMAGE"` mode: Used for static images or offline seek-based video frames.
-- `"VIDEO"` mode: Enables internal temporal smoothing and predictive landmark tracking across consecutive frames.
+Below is the complete, drop-in technical specification for `src/components/gait/SkeletonCanvas.tsx`:
 
-To support live webcam streaming, `PoseTracker` must ensure the underlying landmarker instance is configured for `"VIDEO"` mode.
+```tsx
+import type { MouseEvent } from "react";
+import { useEffect, useRef } from "react";
+import { POSE_CONNECTIONS, PERSON_COLORS } from "@/lib/gait/landmarks";
+import { calculateKneeFlexion } from "@/lib/gait/angles";
+import type { Landmark } from "@/lib/gait/types";
 
-#### Mode Switching Mechanism
-```ts
-export async function getPoseLandmarkerForVideo(): Promise<PoseLandmarkerLike> {
-  const landmarker = await getPoseLandmarker();
-  if (landmarker.setOptions) {
-    await landmarker.setOptions({ runningMode: "VIDEO" });
-  }
-  return landmarker;
+export interface SkeletonCanvasProps {
+  video: HTMLVideoElement | null;
+  poses: { id: number; landmarks: Landmark[] }[];
+  selectedId: number | null;
+  personColors: Record<number, string>;
+  onSelectPerson?: (id: number) => void;
+  interactive?: boolean;
+  showSkeleton?: boolean;
+  showJointArcs?: boolean;
+  showSwayVector?: boolean;
+  viewAngle?: string;
 }
-```
-*Note:* When switching back to offline video processing, `landmarker.setOptions({ runningMode: "IMAGE" })` is called to restore seek compatibility.
 
----
+export function SkeletonCanvas({
+  video,
+  poses,
+  selectedId,
+  personColors,
+  onSelectPerson,
+  interactive = false,
+  showSkeleton = true,
+  showJointArcs = true,
+  showSwayVector = true,
+  viewAngle,
+}: SkeletonCanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
-### 2.3 Real-Time Frame Loop (`requestAnimationFrame` & `detectForVideo`)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !video) return;
 
-`detectForVideo(videoElement, timestampMs)` requires a **strictly monotonically increasing integer timestamp** (in milliseconds). If a timestamp is smaller than or equal to the previous frame's timestamp, MediaPipe throws an invalid timestamp error.
+    let isSubscribed = true;
 
-#### Monotonic Timestamp Management & Frame Throttling
-1. Keep track of `lastTimestampMs = -1`.
-2. Use high-resolution timer `performance.now()` (or `nowMs` supplied by `requestAnimationFrame`).
-3. Compute `currentTimestamp = Math.max(Math.floor(performance.now()), lastTimestampMs + 1)`.
-4. Implement frame rate throttling to avoid over-executing detection on high-refresh monitors (120Hz/144Hz):
-   - Target FPS: 30 FPS (target frame interval `~33.3ms`).
-   - If `(currentTimestamp - lastProcessedFrameTimeMs) < targetIntervalMs`, skip detection on that animation tick.
+    const renderFrame = () => {
+      if (!isSubscribed || !canvas || !video) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-#### Frame Processing Loop Design
-```ts
-private loop = (nowMs: DOMHighResTimeStamp) => {
-  if (!this.isActive || !this.videoElement || !this.landmarker) return;
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 360;
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
 
-  const timestampMs = Math.max(Math.floor(performance.now()), this.lastTimestampMs + 1);
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(video, 0, 0, w, h);
 
-  // Throttle frame processing to target FPS (~30 FPS = 33ms interval)
-  if (timestampMs - this.lastProcessedTimeMs >= this.targetIntervalMs) {
-    if (
-      this.videoElement.readyState >= 2 &&
-      !this.videoElement.paused &&
-      !this.videoElement.ended &&
-      this.videoElement.videoWidth > 0
-    ) {
-      this.lastTimestampMs = timestampMs;
-      this.lastProcessedTimeMs = timestampMs;
-
-      try {
-        const result = this.landmarker.detectForVideo(this.videoElement, timestampMs);
-        let poseFrame: PoseFrame | null = null;
-
-        if (result && result.landmarks && result.landmarks.length > 0) {
-          const rawLandmarks = result.landmarks[0];
-          poseFrame = {
-            timeMs: timestampMs,
-            landmarks: toLandmarks(rawLandmarks),
-            worldLandmarks: result.worldLandmarks?.[0] ? toLandmarks(result.worldLandmarks[0]) : undefined,
-          };
-          this.addFrameToBuffer(poseFrame);
-        }
-
-        // Update live FPS counter
-        this.updateFps(timestampMs);
-
-        // Execute frame listener callback
-        this.onFrameCallback?.(poseFrame, result, this.effectiveFps);
-      } catch (err) {
-        console.warn("[PoseTracker] Frame detection error:", err);
+      for (const pose of poses) {
+        const color = personColors[pose.id] ?? PERSON_COLORS[pose.id % PERSON_COLORS.length];
+        const isSel = selectedId === null || selectedId === pose.id;
+        const alpha = isSel ? 1 : 0.28;
+        drawPoseGoogleARCV(
+          ctx,
+          pose.landmarks,
+          w,
+          h,
+          color,
+          alpha,
+          isSel && selectedId === pose.id,
+          showSkeleton,
+          showJointArcs,
+          showSwayVector,
+        );
       }
-    }
-  }
 
-  this.animFrameId = requestAnimationFrame(this.loop);
-};
-```
-
----
-
-### 2.4 Resource Teardown & Rolling Buffer Memory Management
-
-#### Memory Management (Rolling Frame Buffer)
-To prevent memory inflation during extended live camera streaming (e.g. 10 minutes continuous session):
-- Maintain a bounded array `rollingBuffer: PoseFrame[]`.
-- Cap maximum buffer size (e.g., `MAX_BUFFER_FRAMES = 900` frames = 30 seconds of video at 30 FPS).
-- Truncate buffer when limit is reached: `if (rollingBuffer.length > MAX_BUFFER_FRAMES) rollingBuffer.shift()`.
-
-#### Clean Resource Teardown (`stopWebcam`)
-1. Set `this.isActive = false` to break the frame loop immediately.
-2. Cancel active `requestAnimationFrame`:
-   ```ts
-   if (this.animFrameId !== null) {
-     cancelAnimationFrame(this.animFrameId);
-     this.animFrameId = null;
-   }
-   ```
-3. Stop all media tracks on the `MediaStream`:
-   ```ts
-   if (this.stream) {
-     this.stream.getTracks().forEach((track) => track.stop());
-     this.stream = null;
-   }
-   ```
-4. Reset `videoElement`:
-   ```ts
-   if (this.videoElement) {
-     this.videoElement.pause();
-     this.videoElement.srcObject = null;
-     this.videoElement = null;
-   }
-   ```
-5. Reset timestamp tracking variables (`lastTimestampMs = -1`).
-
----
-
-### 2.5 Error Handling & Robustness
-
-#### Hardware & Permission Error Classification
-`PoseTracker` will throw standardized, user-friendly `WebcamError` objects wrapping native DOMExceptions:
-
-| Native DOM Error | Root Cause | Clinical/User Guidance | Recovery Action |
-|------------------|------------|------------------------|-----------------|
-| `NotAllowedError` / `PermissionDeniedError` | User or browser policy denied camera access | "Camera access was denied. Please allow camera permissions in your browser address bar settings." | Prompt user to change browser settings |
-| `NotFoundError` / `DevicesNotFoundError` | No webcam hardware connected | "No video input camera detected on your device." | Ask user to connect USB webcam |
-| `NotReadableError` / `TrackStartError` | Camera locked by another app (Zoom, Meet, FaceTime) | "Camera is currently in use by another application." | Prompt user to close other apps |
-| `OverconstrainedError` | Device constraints (resolution/FPS) unsupported | "Camera resolution constraints not supported." | Automatic fallback to `{ video: true }` |
-| `SecurityError` | Page served over insecure HTTP | "Webcam access requires an HTTPS connection or localhost." | Redirect / warn secure context required |
-
-#### Re-Entrancy & Async Race Condition Protection
-If `startWebcam()` is called multiple times in rapid succession, or if `stopWebcam()` is called while `startWebcam()` is awaiting permission:
-- Maintain an internal `sessionId: number` counter.
-- Increment `sessionId` at the start of `startWebcam()` and `stopWebcam()`.
-- After `await getUserMedia(...)` or `await setOptions(...)`, check if `this.sessionId !== currentSessionId`.
-- If canceled during `await`, immediately call `.stop()` on the acquired stream tracks and abort without starting the frame loop.
-
----
-
-### 2.6 Unit Testing Strategy (Vitest Infrastructure)
-
-To test `PoseTracker.ts` in Vitest/JSDOM without physical hardware:
-
-#### 1. Mocking `navigator.mediaDevices`
-```ts
-const mockTrack = {
-  stop: vi.fn(),
-  kind: "video",
-  enabled: true,
-  getSettings: vi.fn().mockReturnValue({ width: 1280, height: 720, frameRate: 30 }),
-};
-
-const mockStream = {
-  getTracks: vi.fn().mockReturnValue([mockTrack]),
-  getVideoTracks: vi.fn().mockReturnValue([mockTrack]),
-};
-
-vi.stubGlobal("navigator", {
-  mediaDevices: {
-    getUserMedia: vi.fn().mockResolvedValue(mockStream),
-    enumerateDevices: vi.fn().mockResolvedValue([
-      { deviceId: "cam1", kind: "videoinput", label: "FaceTime HD Camera" },
-    ]),
-  },
-});
-```
-
-#### 2. Mocking `HTMLVideoElement`
-```ts
-function createMockVideoElement(): HTMLVideoElement {
-  const video = document.createElement("video");
-  Object.defineProperty(video, "readyState", { value: 4, writable: true }); // HAVE_ENOUGH_DATA
-  Object.defineProperty(video, "videoWidth", { value: 1280, writable: true });
-  Object.defineProperty(video, "videoHeight", { value: 720, writable: true });
-  video.play = vi.fn().mockResolvedValue(undefined);
-  video.pause = vi.fn();
-  return video;
-}
-```
-
-#### 3. Mocking MediaPipe `PoseLandmarker.detectForVideo`
-```ts
-const mockLandmarker: PoseLandmarkerLike = {
-  detect: vi.fn(),
-  detectForVideo: vi.fn().mockImplementation((video, ts) => ({
-    landmarks: [generateSyntheticWalkingFrames({ durationSec: 0.1 })[0].landmarks],
-    worldLandmarks: [generateSyntheticWalkingFrames({ durationSec: 0.1 })[0].landmarks],
-  })),
-  setOptions: vi.fn().mockResolvedValue(undefined),
-  close: vi.fn(),
-};
-```
-
----
-
-## 3. Caveats
-
-1. **Browser Permission Behavior**: Safari macOS/iOS handles camera permissions strictly per session. Rapid toggle of stream acquisition may cause Safari to display permission banners repeatedly if tracks are stopped too quickly.
-2. **MediaPipe WASM Delegate Fallback**: On low-end systems or mobile devices where WebGL/GPU acceleration fails, MediaPipe falls back to CPU WASM. Detection time may increase from ~8ms to ~35ms per frame. The 30 FPS throttle in `PoseTracker` prevents frame backlog under CPU fallback.
-3. **Monotonic Clock Reset**: Browsers may suspend `performance.now()` when tabs are backgrounded. Resuming a tab while webcam mode is active must ensure `lastTimestampMs` resets to avoid timestamp jump errors in `detectForVideo`.
-
----
-
-## 4. Conclusion & Proposed Implementation Specification
-
-### Proposed Class Structure for `src/lib/gait/PoseTracker.ts`
-
-```ts
-import { getPoseLandmarker, toLandmarks, type PoseLandmarkerLike } from "./pose";
-import type { Landmark, PoseFrame } from "./types";
-
-export interface WebcamOptions {
-  deviceId?: string;
-  facingMode?: "user" | "environment";
-  width?: number;
-  height?: number;
-  targetFps?: number;
-}
-
-export type FrameCallback = (
-  frame: PoseFrame | null,
-  rawResult: unknown,
-  fps: number
-) => void;
-
-export class PoseTracker {
-  private landmarker: PoseLandmarkerLike | null = null;
-  private videoElement: HTMLVideoElement | null = null;
-  private stream: MediaStream | null = null;
-  private animFrameId: number | null = null;
-  private isActive = false;
-
-  private lastTimestampMs = -1;
-  private lastProcessedTimeMs = 0;
-  private targetIntervalMs = 33.3; // Default 30 FPS throttle
-
-  private rollingBuffer: PoseFrame[] = [];
-  private maxBufferFrames = 900; // 30s at 30 FPS
-
-  private frameCount = 0;
-  private fpsStartTime = 0;
-  private effectiveFps = 0;
-
-  private sessionId = 0;
-  private onFrameCallback: FrameCallback | null = null;
-
-  constructor(targetFps = 30, maxBufferFrames = 900) {
-    this.targetIntervalMs = 1000 / targetFps;
-    this.maxBufferFrames = maxBufferFrames;
-  }
-
-  public async startWebcam(
-    videoElement: HTMLVideoElement,
-    options: WebcamOptions = {}
-  ): Promise<MediaStream> {
-    const currentSession = ++this.sessionId;
-
-    // 1. Initialize / switch MediaPipe landmarker to VIDEO mode
-    if (!this.landmarker) {
-      this.landmarker = await getPoseLandmarker();
-    }
-    if (this.landmarker.setOptions) {
-      await this.landmarker.setOptions({ runningMode: "VIDEO" });
-    }
-
-    if (this.sessionId !== currentSession) {
-      throw new Error("Webcam initialization aborted due to rapid state change.");
-    }
-
-    // 2. Request user media with constraints & fallback
-    let stream: MediaStream;
-    const constraints: MediaStreamConstraints = {
-      video: {
-        deviceId: options.deviceId ? { exact: options.deviceId } : undefined,
-        facingMode: options.facingMode || "user",
-        width: options.width ? { ideal: options.width } : { ideal: 1280 },
-        height: options.height ? { ideal: options.height } : { ideal: 720 },
-        frameRate: { ideal: 30, max: 60 },
-      },
-      audio: false,
+      if (!video.paused && !video.ended) {
+        animationFrameRef.current = requestAnimationFrame(renderFrame);
+      }
     };
 
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "OverconstrainedError") {
-        console.warn("[PoseTracker] OverconstrainedError, falling back to basic video stream.");
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      } else {
-        throw err;
+    renderFrame();
+
+    return () => {
+      isSubscribed = false;
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
-    }
+    };
+  }, [video, poses, selectedId, personColors, showSkeleton, showJointArcs, showSwayVector]);
 
-    if (this.sessionId !== currentSession) {
-      stream.getTracks().forEach((track) => track.stop());
-      throw new Error("Webcam stream acquisition aborted.");
-    }
-
-    // 3. Bind to HTMLVideoElement
-    this.stopWebcam(); // Clean up previous session
-    this.stream = stream;
-    this.videoElement = videoElement;
-    this.videoElement.srcObject = stream;
-    this.videoElement.setAttribute("playsinline", "true");
-    this.videoElement.muted = true;
-
-    await this.videoElement.play();
-
-    // 4. Reset telemetry & start animation frame loop
-    this.isActive = true;
-    this.lastTimestampMs = -1;
-    this.lastProcessedTimeMs = 0;
-    this.frameCount = 0;
-    this.fpsStartTime = performance.now();
-    this.loop(performance.now());
-
-    return stream;
-  }
-
-  public stopWebcam(): void {
-    this.sessionId++;
-    this.isActive = false;
-
-    if (this.animFrameId !== null) {
-      cancelAnimationFrame(this.animFrameId);
-      this.animFrameId = null;
-    }
-
-    if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
-      this.stream = null;
-    }
-
-    if (this.videoElement) {
-      this.videoElement.pause();
-      this.videoElement.srcObject = null;
-      this.videoElement = null;
-    }
-
-    this.lastTimestampMs = -1;
-  }
-
-  public setCallback(callback: FrameCallback | null): void {
-    this.onFrameCallback = callback;
-  }
-
-  public getRollingFrames(): PoseFrame[] {
-    return [...this.rollingBuffer];
-  }
-
-  public clearBuffer(): void {
-    this.rollingBuffer = [];
-  }
-
-  public getEffectiveFps(): number {
-    return this.effectiveFps;
-  }
-
-  public isRunning(): boolean {
-    return this.isActive;
-  }
-
-  private addFrameToBuffer(frame: PoseFrame): void {
-    this.rollingBuffer.push(frame);
-    if (this.rollingBuffer.length > this.maxBufferFrames) {
-      this.rollingBuffer.shift();
-    }
-  }
-
-  private updateFps(nowMs: number): void {
-    this.frameCount++;
-    const elapsed = nowMs - this.fpsStartTime;
-    if (elapsed >= 1000) {
-      this.effectiveFps = Math.round((this.frameCount * 1000) / elapsed);
-      this.frameCount = 0;
-      this.fpsStartTime = nowMs;
-    }
-  }
-
-  private loop = (nowMs: DOMHighResTimeStamp) => {
-    if (!this.isActive || !this.videoElement || !this.landmarker) return;
-
-    const timestampMs = Math.max(Math.floor(performance.now()), this.lastTimestampMs + 1);
-
-    if (timestampMs - this.lastProcessedTimeMs >= this.targetIntervalMs) {
-      if (
-        this.videoElement.readyState >= 2 &&
-        !this.videoElement.paused &&
-        !this.videoElement.ended &&
-        this.videoElement.videoWidth > 0
-      ) {
-        this.lastTimestampMs = timestampMs;
-        this.lastProcessedTimeMs = timestampMs;
-
-        try {
-          const result = this.landmarker.detectForVideo(this.videoElement, timestampMs);
-          let poseFrame: PoseFrame | null = null;
-
-          if (result && result.landmarks && result.landmarks.length > 0) {
-            const rawLandmarks = result.landmarks[0];
-            poseFrame = {
-              timeMs: timestampMs,
-              landmarks: toLandmarks(rawLandmarks),
-              worldLandmarks: result.worldLandmarks?.[0]
-                ? toLandmarks(result.worldLandmarks[0])
-                : undefined,
-            };
-            this.addFrameToBuffer(poseFrame);
+  function handleClick(e: MouseEvent<HTMLCanvasElement>) {
+    if (!interactive || !onSelectPerson || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    let best: { id: number; d: number } | null = null;
+    for (const pose of poses) {
+      const hip = pose.landmarks[23] && pose.landmarks[24]
+        ? {
+            x: (pose.landmarks[23].x + pose.landmarks[24].x) / 2,
+            y: (pose.landmarks[23].y + pose.landmarks[24].y) / 2,
           }
-
-          this.updateFps(timestampMs);
-          this.onFrameCallback?.(poseFrame, result, this.effectiveFps);
-        } catch (err) {
-          console.warn("[PoseTracker] detectForVideo execution error:", err);
-        }
-      }
+        : null;
+      if (!hip) continue;
+      const d = Math.hypot(hip.x - x, hip.y - y);
+      if (!best || d < best.d) best = { id: pose.id, d };
     }
+    if (best && best.d < 0.2) onSelectPerson(best.id);
+  }
 
-    this.animFrameId = requestAnimationFrame(this.loop);
-  };
+  function handleKeyDown(e: React.KeyboardEvent<HTMLCanvasElement>) {
+    if (!interactive || !onSelectPerson || poses.length === 0) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      const ids = poses.map((p) => p.id);
+      const currIdx = selectedId !== null ? ids.indexOf(selectedId) : -1;
+      const nextIdx = (currIdx + 1) % ids.length;
+      onSelectPerson(ids[nextIdx]);
+    }
+  }
+
+  return (
+    <div
+      data-testid="skeleton-canvas-wrapper"
+      className="aspect-video bg-black rounded-lg relative overflow-hidden w-full h-full flex items-center justify-center"
+    >
+      {/* Top HUD Overlay Pill (Google AR/CV Style) */}
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#202124]/80 backdrop-blur-md border border-white/10 text-white font-['Google_Sans',sans-serif] text-xs shadow-lg select-none pointer-events-none">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00E5FF] opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00E5FF]"></span>
+        </span>
+        <span className="font-medium tracking-wide uppercase text-[11px] text-[#00E5FF]">AR/CV TRACKING ACTIVE</span>
+        {viewAngle && (
+          <>
+            <span className="text-white/30">|</span>
+            <span className="text-white/90 capitalize">{viewAngle} View</span>
+          </>
+        )}
+        {poses.length > 0 && (
+          <>
+            <span className="text-white/30">|</span>
+            <span className="text-white/75">{poses.length} {poses.length === 1 ? "Target" : "Targets"}</span>
+          </>
+        )}
+      </div>
+
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label="Pose estimation skeleton rendering canvas"
+        tabIndex={interactive ? 0 : -1}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        className="h-full w-full object-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+        style={{ cursor: interactive ? "pointer" : "default" }}
+      />
+    </div>
+  );
+}
+
+function drawPoseGoogleARCV(
+  ctx: CanvasRenderingContext2D,
+  lm: Landmark[],
+  w: number,
+  h: number,
+  personColor: string,
+  alpha: number,
+  highlight: boolean,
+  showSkeleton: boolean,
+  showJointArcs: boolean,
+  showSwayVector: boolean,
+) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.lineCap = "round";
+
+  if (showSkeleton) {
+    // 1. Limb skeleton connections: High-contrast Cyan (#00E5FF) lines (strokeWidth={3})
+    ctx.strokeStyle = "#00E5FF";
+    ctx.lineWidth = highlight ? 3.5 : 3;
+    ctx.beginPath();
+    for (const [a, b] of POSE_CONNECTIONS) {
+      if (!lm[a] || !lm[b]) continue;
+      if ((lm[a].visibility ?? 1) < 0.25 || (lm[b].visibility ?? 1) < 0.25) continue;
+      ctx.moveTo(lm[a].x * w, lm[a].y * h);
+      ctx.lineTo(lm[b].x * w, lm[b].y * h);
+    }
+    ctx.stroke();
+
+    // 2. High-contrast joint nodes: Cyan #00E5FF outer ring, Google Blue #1A73E8 core
+    const outerRadius = highlight ? 5 : 4;
+    const coreRadius = highlight ? 3 : 2;
+    for (const p of lm) {
+      const vis = p.visibility ?? 1;
+      if (vis < 0.25) continue;
+
+      const px = p.x * w;
+      const py = p.y * h;
+
+      // Cyan outer ring
+      ctx.strokeStyle = "#00E5FF";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(px, py, outerRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Google Blue core
+      ctx.fillStyle = "#1A73E8";
+      ctx.beginPath();
+      ctx.arc(px, py, coreRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 3. AR Target Reticles & Confidence Meters (Center of Mass / Hips)
+  if (lm[23] && lm[24]) {
+    const hipX = ((lm[23].x + lm[24].x) / 2) * w;
+    const hipY = ((lm[23].y + lm[24].y) / 2) * h;
+    const avgVis = ((lm[23].visibility ?? 1) + (lm[24].visibility ?? 1)) / 2;
+    const confPct = Math.round(avgVis * 100);
+
+    // Sleek reticle outer ring & tick crosshairs
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.8)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(hipX, hipY, 18, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Tick crosshairs
+    ctx.beginPath();
+    ctx.moveTo(hipX - 22, hipY); ctx.lineTo(hipX - 18, hipY);
+    ctx.moveTo(hipX + 18, hipY); ctx.lineTo(hipX + 22, hipY);
+    ctx.moveTo(hipX, hipY - 22); ctx.lineTo(hipX, hipY - 18);
+    ctx.moveTo(hipX, hipY + 18); ctx.lineTo(hipX, hipY + 22);
+    ctx.stroke();
+
+    // Confidence percentage text in Google Sans font
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = '500 10px "Google Sans", Roboto, sans-serif';
+    ctx.textAlign = "center";
+    ctx.fillText(`${confPct}% CONF`, hipX, hipY + 32);
+  }
+
+  // 4. Sway Vector (Center of Mass vertical reference line)
+  if (showSwayVector && lm[23] && lm[24]) {
+    const hipX = ((lm[23].x + lm[24].x) / 2) * w;
+    const hipY = ((lm[23].y + lm[24].y) / 2) * h;
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.6)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(hipX, hipY - 40);
+    ctx.lineTo(hipX, hipY + 40);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 5. Joint Arcs & Degree Labels (Knee Flexion)
+  if (showJointArcs && lm[23] && lm[25] && lm[27]) {
+    const kx = lm[25].x * w;
+    const ky = lm[25].y * h;
+    ctx.strokeStyle = "#00E5FF";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(kx, ky, 14, 0, Math.PI * 1.2);
+    ctx.stroke();
+
+    const leftKneeDeg = Math.round(calculateKneeFlexion(lm[23], lm[25], lm[27]));
+    ctx.fillStyle = "rgba(32, 33, 36, 0.85)";
+    ctx.fillRect(kx - 24, ky - 24, 48, 16);
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.4)";
+    ctx.strokeRect(kx - 24, ky - 24, 48, 16);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = '500 10px "Google Sans", Roboto, sans-serif';
+    ctx.textAlign = "center";
+    ctx.fillText(`L: ${leftKneeDeg}°`, kx, ky - 12);
+  }
+  if (showJointArcs && lm[24] && lm[26] && lm[28]) {
+    const kx = lm[26].x * w;
+    const ky = lm[26].y * h;
+    ctx.strokeStyle = "#00E5FF";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(kx, ky, 14, 0, Math.PI * 1.2);
+    ctx.stroke();
+
+    const rightKneeDeg = Math.round(calculateKneeFlexion(lm[24], lm[26], lm[28]));
+    ctx.fillStyle = "rgba(32, 33, 36, 0.85)";
+    ctx.fillRect(kx - 24, ky - 24, 48, 16);
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.4)";
+    ctx.strokeRect(kx - 24, ky - 24, 48, 16);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = '500 10px "Google Sans", Roboto, sans-serif';
+    ctx.textAlign = "center";
+    ctx.fillText(`R: ${rightKneeDeg}°`, kx, ky - 12);
+  }
+
+  // 6. Highlighted Bounding Box
+  if (highlight && lm[23] && lm[24]) {
+    const validLandmarks = lm.filter((p) => (p.visibility ?? 1) > 0.25);
+    if (validLandmarks.length > 0) {
+      const minX = Math.min(...validLandmarks.map((p) => p.x));
+      const maxX = Math.max(...validLandmarks.map((p) => p.x));
+      const minY = Math.min(...validLandmarks.map((p) => p.y));
+      const maxY = Math.max(...validLandmarks.map((p) => p.y));
+      ctx.strokeStyle = "#00E5FF";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(minX * w - 8, minY * h - 8, (maxX - minX) * w + 16, (maxY - minY) * h + 16);
+      ctx.setLineDash([]);
+    }
+  }
+
+  ctx.restore();
 }
 ```
 
 ---
 
-## 5. Verification Method
+## 4. Caveats
 
-To verify the implementation of `PoseTracker.ts` and its test suite:
+- **No caveats**: The blueprint strictly preserves container layout, 16:9 aspect ratio (`aspect-video`), DOM attributes (`data-testid="skeleton-canvas-wrapper"`, `role="img"`, `aria-label`), keyboard navigation, click hit-testing, and all existing unit test assertions.
 
-1. **Automated Unit Testing**:
-   Run Vitest against the `PoseTracker` unit test suite:
-   ```bash
-   npx vitest run src/lib/gait/__tests__/PoseTracker.test.ts
-   ```
-   *Expected Outcome:* 100% pass rate across stream start, frame processing loop, buffer rollover, error handling (`NotAllowedError`, `NotFoundError`), and teardown cleanly.
+---
 
-2. **Full Workspace Code Quality Checks**:
-   ```bash
-   npm run typecheck
-   npm run lint
-   npm test
-   ```
-   *Expected Outcome:* 0 TypeScript errors, 0 ESLint warnings, 100% test pass rate across all existing unit, UI, and stress tests.
+## 5. Conclusion
 
-3. **Manual UI Verification**:
-   - Open browser preview, switch protocol mode to "Live WebCam Mode".
-   - Allow camera access: verify live webcam feed appears, skeleton overlay renders over live user at ~30 FPS, and real-time FPS gauge displays.
-   - Click "Stop & Analyze": verify webcam tracks stop (camera indicator LED turns off), and full gait analysis report generates from rolling buffer frames.
+The technical blueprint for `src/components/gait/SkeletonCanvas.tsx` is ready for implementation. Applying this blueprint will upgrade the pose tracking canvas to a high-contrast Google AR/CV aesthetic with cyan skeleton lines (`#00E5FF`), cyan outer ring / Google Blue core joint nodes (`#00E5FF` / `#1A73E8`), AR target reticles with Google Sans confidence percentages, and a dark surface HUD pill (`bg-[#202124]/80`).
+
+---
+
+## 6. Verification Method
+
+1. **Automated Unit Tests**:
+   - Run: `npm test src/components/gait/__tests__/SkeletonCanvas.test.tsx`
+   - Run: `npm test src/components/gait/__tests__/m4_1_ui_keyboard_cls_challenger.test.tsx`
+   - Verify all tests pass with 0 failures.
+
+2. **TypeScript & Lint Verification**:
+   - Run: `npm run typecheck`
+   - Run: `npm run lint`
+
+3. **Visual & UI Verification**:
+   - Inspect rendered DOM to confirm:
+     - `data-testid="skeleton-canvas-wrapper"` contains the HUD overlay pill with `bg-[#202124]/80` and `AR/CV TRACKING ACTIVE`.
+     - Joints render cyan outer rings (`#00E5FF`) and Google Blue cores (`#1A73E8`).
+     - Skeleton lines render cyan (`#00E5FF`) with 3px stroke width.

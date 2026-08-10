@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  ShieldAlert,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -37,6 +38,7 @@ const SIDE_NAV_SECTIONS = [
       { id: "spatiotemporal", label: "Findings", icon: Activity, section: "ANALYTICS & KINEMATICS", stageTarget: 3 as WorkflowStage },
       { id: "trajectories", label: "Charts", icon: TrendingUp, section: "ANALYTICS & KINEMATICS", stageTarget: 3 as WorkflowStage },
       { id: "dualtask", label: "Dual-task", icon: Brain, section: "ANALYTICS & KINEMATICS", stageTarget: 3 as WorkflowStage },
+      { id: "fallrisk", label: "Fall Risk", icon: ShieldAlert, section: "ANALYTICS & KINEMATICS", stageTarget: 3 as WorkflowStage },
     ],
   },
   {
@@ -109,7 +111,7 @@ export function SideNavRail({
           onClick={onToggleCollapse}
           data-testid="side-nav-toggle"
           aria-label={isCollapsed ? "Expand navigation rail" : "Collapse navigation rail"}
-          className="size-8 p-0 text-[var(--color-muted)]"
+          className="size-8 rounded-full p-0 text-[var(--color-muted)] transition-colors duration-150 hover:bg-[var(--color-surface-2)]"
         >
           {isCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
         </Button>
@@ -120,7 +122,7 @@ export function SideNavRail({
           group.items.length === 0 ? null : (
             <div key={group.title} className="px-2">
               {!isCollapsed && (
-                <h3 className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-subtle)]">
+                <h3 className="px-2 pb-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-subtle)]">
                   {group.title}
                 </h3>
               )}
@@ -135,14 +137,14 @@ export function SideNavRail({
                         onClick={() => handleItemClick(item)}
                         title={isCollapsed ? item.label : undefined}
                         className={cn(
-                          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] transition-colors",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] transition-all duration-200 ease-out",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A73E8]",
                           isActive
-                            ? "bg-[var(--color-surface-2)] font-semibold text-[var(--color-fg)]"
+                            ? "bg-[#E8F0FE] font-semibold text-[#1A73E8]"
                             : "font-medium text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-fg)]",
                         )}
                       >
-                        <Icon className="size-4 shrink-0" />
+                        <Icon className="size-5 shrink-0" />
                         {!isCollapsed && <span className="truncate">{item.label}</span>}
                       </button>
                     </li>

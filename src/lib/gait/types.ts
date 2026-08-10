@@ -16,6 +16,7 @@ export type Landmark = {
   y: number;
   z: number;
   visibility?: number;
+  presence?: number;
 };
 
 export type PoseFrame = {
@@ -24,12 +25,21 @@ export type PoseFrame = {
   worldLandmarks?: Landmark[];
 };
 
+export type LandmarkFrame = PoseFrame;
+
+export type BiometricSignature = {
+  aspectRatio: number;
+  torsoLegRatio: number;
+  shoulderHipRatio: number;
+};
+
 export type TrackedPerson = {
   id: number;
   color: string;
   sampleBox: { x: number; y: number; w: number; h: number };
   sampleFrameIndex: number;
   frameCount: number;
+  biometrics?: BiometricSignature;
 };
 
 /** How the user labeled the recording protocol. */
@@ -105,7 +115,11 @@ export type GaitMetrics = {
     rightWristX: number;
     leftKneeAngle: number;
     rightKneeAngle: number;
+    kneeAngleLeft?: number;
+    kneeAngleRight?: number;
   }[];
+  /** Explicit gait speed in m/s (optional calibrated metric). */
+  gaitSpeedMps?: number | null;
   /** Classified gait events (Heel Strike & Toe Off) with side and timestamp */
   stepEvents: GaitEvent[];
 };
@@ -167,6 +181,12 @@ export type AnalysisProgress = {
   message: string;
 };
 
+export type SmoothingMethod = "savitzky-golay" | "kalman" | "none";
+
+export type GaitAnalysisOptions = {
+  smoothingMethod?: SmoothingMethod;
+};
+
 /** Static ladder content for the UI. */
 export type DeterminationLayer = {
   id: string;
@@ -174,3 +194,27 @@ export type DeterminationLayer = {
   can: string[];
   cannot: string[];
 };
+
+export type {
+  RiskCategory,
+  FallRiskModelAFlags,
+  FallRiskModelAFlagValues,
+  FallRiskModelAResult,
+  FallRiskModelBSubScores,
+  FallRiskModelBResult,
+  AgreementStatus,
+  PredictiveAgreementResult,
+  FallRiskAnalysis,
+  MetricBaselineStats,
+  PatientBaseline,
+  AcuteSpikeRuleId,
+  AcuteDeteriorationFlag,
+  CardSeverity,
+  ClinicalWarningCard,
+  AcuteWeaknessAnomalyResult,
+} from "./fallrisk";
+
+export type { PoseDetectionResult } from "./pose";
+
+
+

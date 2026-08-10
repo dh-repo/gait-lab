@@ -1,12 +1,12 @@
-# BRIEFING — 2026-08-09T16:40:43Z
+# BRIEFING — 2026-08-10T01:14:00Z
 
 ## Mission
-Sentinel monitoring and lifecycle management for gait-lab full-spectrum polish, side-by-side session comparison, live webcam streaming mode, database persistence, and test suite pass rate verification.
+Sentinel monitoring and lifecycle management for maximizing person identification accuracy and minimizing false positives/negatives in gait video analysis and live webcam streaming in gait-lab.
 
 ## 🔒 My Identity
 - Archetype: sentinel
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/sentinel
-- Orchestrator: d1ec1083-2d60-429a-9f15-484f0050dc21
+- Orchestrator: af82c884-6102-41a9-89f6-28ed51dead77
 - Victory Auditor: TBD
 
 ## 🔒 Key Constraints
@@ -15,9 +15,9 @@ Sentinel monitoring and lifecycle management for gait-lab full-spectrum polish, 
 - Must not write code, analyze problems, or make technical decisions
 
 ## User Context
-- **Last user request**: Perform a complete, full-spectrum end-to-end implementation and polish pass on gait-lab — integrating Side-by-Side Session Comparison, Live Webcam Streaming Mode, complete database persistence, 100% test suite pass rate, and publication-grade clinical usability.
+- **Last user request**: Maximize person identification accuracy (R1: Person Tracking & Re-ID, R2: Transient Background Suppression, R3: Empirical Benchmarks & Stress Tests).
 - **Pending clarifications**: none
-- **Delivered results**: Recorded user request in ORIGINAL_REQUEST.md. Spawned Project Orchestrator (d1ec1083-2d60-429a-9f15-484f0050dc21).
+- **Delivered results**: Recorded user request in ORIGINAL_REQUEST.md. Spawning Project Orchestrator.
 
 ## Project Status
 - **Phase**: in progress
