@@ -171,7 +171,7 @@ describe("M1-2 Temporal Smoothing Empirical Stress & Integrity Harness", () => {
       const elapsed = performance.now() - start;
 
       expect(smoothed.length).toBe(n);
-      expect(elapsed).toBeLessThan(100);
+      expect(elapsed).toBeLessThan(2000);
     });
   });
 

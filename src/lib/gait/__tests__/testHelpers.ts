@@ -1,3 +1,4 @@
+import { expect } from 'vitest';
 import type { GaitMetrics, Landmark, PoseFrame } from '../types';
 
 export function createMockMetrics(overrides: Partial<GaitMetrics> = {}): GaitMetrics {
@@ -570,4 +571,319 @@ function generateSinglePersonLandmarks(
 
   return landmarks;
 }
+
+/**
+ * Box-Muller transform for zero-mean Gaussian random numbers with standard deviation sigma.
+ */
+export function generateGaussianNoise(sigma: number = 0.05): number {
+  let u1 = Math.random();
+  const u2 = Math.random();
+  while (u1 === 0) u1 = Math.random(); // Avoid log(0)
+  const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+  return z * sigma;
+}
+
+export interface AsymmetricNoiseOptions {
+  fps?: number;
+  durationSec?: number;
+  targetLimb?: 'right' | 'left';
+  noiseSigma?: number;
+}
+
+export function generateAsymmetricLimbNoiseFrames(opts: AsymmetricNoiseOptions = {}): PoseFrame[] {
+  const baseFrames = generateSyntheticWalkingFrames({
+    fps: opts.fps ?? 30,
+    durationSec: opts.durationSec ?? 4.0,
+    viewAngle: 'sagittal',
+  });
+  const sigma = opts.noiseSigma ?? 0.03;
+  const targetLimb = opts.targetLimb ?? 'right';
+
+  const targetIndices = targetLimb === 'right' ? [26, 28, 30, 32] : [25, 27, 29, 31];
+
+  return baseFrames.map((frame) => {
+    const copyLms = frame.landmarks.map((lm, idx) => {
+      if (targetIndices.includes(idx)) {
+        return {
+          ...lm,
+          x: lm.x + generateGaussianNoise(sigma),
+          y: lm.y + generateGaussianNoise(sigma),
+          z: lm.z + generateGaussianNoise(sigma * 0.5),
+        };
+      }
+      return { ...lm };
+    });
+    return { timeMs: frame.timeMs, landmarks: copyLms };
+  });
+}
+
+export interface BlackoutOptions {
+  fps?: number;
+  durationSec?: number;
+  blackoutStartSec?: number;
+  blackoutEndSec?: number;
+}
+
+export function generateBlackoutDropRecoveryFrames(opts: BlackoutOptions = {}): PoseFrame[] {
+  const fps = opts.fps ?? 30;
+  const totalDuration = opts.durationSec ?? 10.0;
+  const bStart = opts.blackoutStartSec ?? 3.0;
+  const bEnd = opts.blackoutEndSec ?? 5.5;
+
+  const rawFrames = generateSyntheticWalkingFrames({ fps, durationSec: totalDuration });
+
+  const activeFrames = rawFrames.filter((f) => {
+    const tSec = f.timeMs / 1000;
+    return tSec < bStart || tSec >= bEnd;
+  });
+
+  let accumulatedMs = bEnd * 1000;
+  let postBlackoutIndex = 0;
+
+  return activeFrames.map((f) => {
+    const tSec = f.timeMs / 1000;
+    if (tSec < bStart) {
+      return f;
+    }
+    const currentMs = accumulatedMs;
+    const vfrJitter = postBlackoutIndex % 2 === 0 ? 15 : 80;
+    accumulatedMs += vfrJitter;
+    postBlackoutIndex++;
+    return {
+      timeMs: currentMs,
+      landmarks: f.landmarks,
+    };
+  });
+}
+
+export function generateUTurnSelfOcclusionFrames(fps = 30, durationSec = 6.0): PoseFrame[] {
+  const totalFrames = Math.floor(fps * durationSec);
+  const frames: PoseFrame[] = [];
+  const turnStartFrame = Math.floor(fps * 2.5);
+  const turnEndFrame = Math.floor(fps * 3.5);
+  const speed = 0.12;
+
+  for (let f = 0; f < totalFrames; f++) {
+    const t = f / fps;
+    const timeMs = t * 1000;
+
+    let dir = 1;
+    let posX = 0.2 + speed * t;
+    let headingAngle = 0;
+    let visibility = 0.90;
+
+    if (f >= turnStartFrame && f <= turnEndFrame) {
+      const u = (f - turnStartFrame) / (turnEndFrame - turnStartFrame);
+      headingAngle = Math.PI * u;
+      posX = 0.2 + speed * (turnStartFrame / fps) + 0.03 * Math.sin(headingAngle);
+      visibility = 0.15;
+    } else if (f > turnEndFrame) {
+      dir = -1;
+      const turnX = 0.2 + speed * (turnStartFrame / fps);
+      posX = turnX - speed * ((f - turnEndFrame) / fps);
+      headingAngle = Math.PI;
+    }
+
+    const midHipX = posX;
+    const midHipY = 0.5 + 0.02 * Math.sin(2 * Math.PI * 1.6 * t);
+    const legPhase = 2 * Math.PI * 1.6 * t;
+
+    const legSeparation = 0.08 * Math.cos(headingAngle);
+    const leftAnkleX = midHipX + 0.12 * Math.sin(legPhase) * Math.cos(headingAngle) - legSeparation;
+    const rightAnkleX = midHipX + 0.12 * Math.sin(legPhase + Math.PI) * Math.cos(headingAngle) + legSeparation;
+
+    const landmarks: Landmark[] = new Array(33).fill(null).map(() => ({ x: 0.5, y: 0.5, z: 0, visibility }));
+    landmarks[0]  = { x: midHipX, y: 0.2, z: 0, visibility };
+    landmarks[11] = { x: midHipX - 0.05 * Math.cos(headingAngle), y: 0.3, z: 0.05 * Math.sin(headingAngle), visibility };
+    landmarks[12] = { x: midHipX + 0.05 * Math.cos(headingAngle), y: 0.3, z: -0.05 * Math.sin(headingAngle), visibility };
+    landmarks[23] = { x: midHipX - 0.05 * Math.cos(headingAngle), y: midHipY, z: 0.05 * Math.sin(headingAngle), visibility };
+    landmarks[24] = { x: midHipX + 0.05 * Math.cos(headingAngle), y: midHipY, z: -0.05 * Math.sin(headingAngle), visibility };
+    landmarks[27] = { x: leftAnkleX, y: 0.85 - 0.04 * Math.max(0, Math.sin(legPhase)), z: 0, visibility };
+    landmarks[28] = { x: rightAnkleX, y: 0.85 - 0.04 * Math.max(0, Math.sin(legPhase + Math.PI)), z: 0, visibility };
+    landmarks[29] = { x: leftAnkleX - 0.02 * dir, y: 0.85, z: 0, visibility };
+    landmarks[30] = { x: rightAnkleX - 0.02 * dir, y: 0.85, z: 0, visibility };
+    landmarks[31] = { x: leftAnkleX + 0.03 * dir, y: 0.86, z: 0, visibility };
+    landmarks[32] = { x: rightAnkleX + 0.03 * dir, y: 0.86, z: 0, visibility };
+
+    frames.push({ timeMs, landmarks });
+  }
+
+  return frames;
+}
+
+export function generateAntalgicLimpingFrames(fps = 30, durationSec = 6.0): PoseFrame[] {
+  const totalFrames = Math.floor(fps * durationSec);
+  const frames: PoseFrame[] = [];
+  const cycleDurationSec = 1.0;
+
+  for (let f = 0; f < totalFrames; f++) {
+    const t = f / fps;
+    const timeMs = t * 1000;
+    const cyclePos = (t % cycleDurationSec) / cycleDurationSec;
+
+    const midHipX = 0.2 + (t / durationSec) * 0.5;
+    const midHipY = 0.5 + 0.015 * Math.sin(2 * Math.PI * (t / cycleDurationSec));
+
+    let leftAnkleOffset = 0;
+    let rightAnkleOffset = 0;
+    let leftAnkleY = 0.85;
+    let rightAnkleY = 0.85;
+
+    if (cyclePos < 0.70) {
+      const pL = cyclePos / 0.70;
+      leftAnkleOffset = -0.15 + 0.30 * pL;
+      leftAnkleY = 0.85 - 0.05 * Math.sin(Math.PI * pL);
+      rightAnkleOffset = 0.15 - 0.30 * pL;
+    } else {
+      const pR = (cyclePos - 0.70) / 0.30;
+      rightAnkleOffset = -0.15 + 0.30 * pR;
+      rightAnkleY = 0.85 - 0.03 * Math.sin(Math.PI * pR);
+      leftAnkleOffset = 0.15 - 0.30 * pR;
+    }
+
+    const leftAnkleX = midHipX + leftAnkleOffset;
+    const rightAnkleX = midHipX + rightAnkleOffset;
+
+    const landmarks: Landmark[] = new Array(33).fill(null).map(() => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+    landmarks[0]  = { x: midHipX, y: 0.2, z: 0, visibility: 0.9 };
+    landmarks[11] = { x: midHipX - 0.05, y: 0.3, z: 0, visibility: 0.9 };
+    landmarks[12] = { x: midHipX + 0.05, y: 0.3, z: 0, visibility: 0.9 };
+    landmarks[23] = { x: midHipX - 0.05, y: midHipY, z: 0, visibility: 0.9 };
+    landmarks[24] = { x: midHipX + 0.05, y: midHipY, z: 0, visibility: 0.9 };
+    landmarks[25] = { x: (midHipX + leftAnkleX) / 2, y: 0.68, z: 0, visibility: 0.9 };
+    landmarks[26] = { x: (midHipX + rightAnkleX) / 2, y: 0.68, z: 0, visibility: 0.9 };
+    landmarks[27] = { x: leftAnkleX, y: leftAnkleY, z: 0, visibility: 0.9 };
+    landmarks[28] = { x: rightAnkleX, y: rightAnkleY, z: 0, visibility: 0.9 };
+    landmarks[29] = { x: leftAnkleX - 0.02, y: leftAnkleY, z: 0, visibility: 0.9 };
+    landmarks[30] = { x: rightAnkleX - 0.02, y: rightAnkleY, z: 0, visibility: 0.9 };
+    landmarks[31] = { x: leftAnkleX + 0.04, y: leftAnkleY + 0.01, z: 0, visibility: 0.9 };
+    landmarks[32] = { x: rightAnkleX + 0.04, y: rightAnkleY + 0.01, z: 0, visibility: 0.9 };
+
+    frames.push({ timeMs, landmarks });
+  }
+
+  return frames;
+}
+
+export function generateUltraHighCadenceParkinsonianFrames(fps = 60, durationSec = 4.0): PoseFrame[] {
+  const totalFrames = Math.floor(fps * durationSec);
+  const frames: PoseFrame[] = [];
+  const stepFreqHz = 5.0;
+  const stepAmp = 0.015;
+
+  for (let f = 0; f < totalFrames; f++) {
+    const t = f / fps;
+    const timeMs = t * 1000;
+
+    const midHipX = 0.5 + (t / durationSec) * 0.03;
+    const midHipY = 0.5 + 0.0015 * Math.sin(2 * Math.PI * stepFreqHz * 2 * t);
+
+    const leftPhase = 2 * Math.PI * stepFreqHz * t;
+    const rightPhase = leftPhase + Math.PI;
+
+    const leftAnkleOffset = stepAmp * Math.sin(leftPhase);
+    const rightAnkleOffset = stepAmp * Math.sin(rightPhase);
+
+    const leftAnkleX = midHipX + leftAnkleOffset;
+    const rightAnkleX = midHipX + rightAnkleOffset;
+
+    const leftAnkleY = 0.85 - 0.003 * Math.max(0, Math.sin(leftPhase));
+    const rightAnkleY = 0.85 - 0.003 * Math.max(0, Math.sin(rightPhase));
+
+    const landmarks: Landmark[] = new Array(33).fill(null).map(() => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+    landmarks[0]  = { x: midHipX, y: 0.2, z: 0, visibility: 0.9 };
+    landmarks[11] = { x: midHipX - 0.05, y: 0.3, z: 0, visibility: 0.9 };
+    landmarks[12] = { x: midHipX + 0.05, y: 0.3, z: 0, visibility: 0.9 };
+    landmarks[23] = { x: midHipX - 0.05, y: midHipY, z: 0, visibility: 0.9 };
+    landmarks[24] = { x: midHipX + 0.05, y: midHipY, z: 0, visibility: 0.9 };
+    landmarks[25] = { x: (midHipX + leftAnkleX) / 2, y: 0.68, z: 0, visibility: 0.9 };
+    landmarks[26] = { x: (midHipX + rightAnkleX) / 2, y: 0.68, z: 0, visibility: 0.9 };
+    landmarks[27] = { x: leftAnkleX, y: leftAnkleY, z: 0, visibility: 0.9 };
+    landmarks[28] = { x: rightAnkleX, y: rightAnkleY, z: 0, visibility: 0.9 };
+    landmarks[29] = { x: leftAnkleX - 0.01, y: leftAnkleY, z: 0, visibility: 0.9 };
+    landmarks[30] = { x: rightAnkleX - 0.01, y: rightAnkleY, z: 0, visibility: 0.9 };
+    landmarks[31] = { x: leftAnkleX + 0.01, y: leftAnkleY, z: 0, visibility: 0.9 };
+    landmarks[32] = { x: rightAnkleX + 0.01, y: rightAnkleY, z: 0, visibility: 0.9 };
+
+    frames.push({ timeMs, landmarks });
+  }
+
+  return frames;
+}
+
+export function generateCombined3DCameraMotionFrames(fps = 30, durationSec = 4.0): PoseFrame[] {
+  const baseFrames = generateSyntheticWalkingFrames({ fps, durationSec, viewAngle: 'sagittal' });
+  const centerX = 0.5;
+  const centerY = 0.5;
+
+  return baseFrames.map((frame, fIdx) => {
+    const t = fIdx / fps;
+
+    const dx = 0.06 * Math.sin(2.3 * t) + 0.04 * Math.cos(7.1 * t);
+    const dy = 0.05 * Math.cos(3.1 * t) + 0.03 * Math.sin(5.7 * t);
+
+    const rollAngleRad = (15 * Math.PI / 180) * Math.sin(1.2 * t);
+    const cosR = Math.cos(rollAngleRad);
+    const sinR = Math.sin(rollAngleRad);
+
+    const scale = 1.0 + 0.5 * Math.sin(0.8 * t);
+
+    const transformedLms = frame.landmarks.map((lm) => {
+      const rx = lm.x - centerX;
+      const ry = lm.y - centerY;
+
+      const sx = rx * scale;
+      const sy = ry * scale;
+
+      const rotX = sx * cosR - sy * sinR;
+      const rotY = sx * sinR + sy * cosR;
+
+      return {
+        ...lm,
+        x: centerX + rotX + dx,
+        y: centerY + rotY + dy,
+        z: lm.z * scale,
+      };
+    });
+
+    return {
+      timeMs: frame.timeMs,
+      landmarks: transformedLms,
+    };
+  });
+}
+
+/**
+ * Recursively asserts that every numeric property within a GaitMetrics object is a finite number
+ * (i.e. not NaN, Infinity, or -Infinity) and that score values fall within [0, 100].
+ */
+export function assertAllMetricsFinite(metrics: GaitMetrics): void {
+  expect(metrics).toBeDefined();
+  expect(metrics).not.toBeNull();
+
+  for (const [key, value] of Object.entries(metrics)) {
+    if (typeof value === 'number') {
+      expect(Number.isFinite(value), `Property '${key}' must be a finite number, received ${value}`).toBe(true);
+      expect(Number.isNaN(value), `Property '${key}' must not be NaN`).toBe(false);
+
+      if (key.endsWith('Score')) {
+        expect(value, `Score property '${key}' must be >= 0`).toBeGreaterThanOrEqual(0);
+        expect(value, `Score property '${key}' must be <= 100`).toBeLessThanOrEqual(100);
+      }
+    } else if (Array.isArray(value)) {
+      value.forEach((item, idx) => {
+        if (typeof item === 'number') {
+          expect(Number.isFinite(item), `Array item '${key}[${idx}]' must be finite`).toBe(true);
+        } else if (item && typeof item === 'object') {
+          for (const [subKey, subVal] of Object.entries(item)) {
+            if (typeof subVal === 'number') {
+              expect(Number.isFinite(subVal), `Object property '${key}[${idx}].${subKey}' must be finite`).toBe(true);
+            }
+          }
+        }
+      });
+    }
+  }
+}
+
 

@@ -1,82 +1,65 @@
-# Handoff Report — Challenger M1-1 (Milestone M1)
+# Milestone 1 Adversarial Challenge Handoff Report
 
-**Role**: `teamwork_preview_challenger` (Empirical Model Fallback & Stress Testing Specialist)  
-**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_1`  
-**Date**: 2026-08-09  
-**Verdict**: **APPROVE**
+**Agent**: `challenger_m1_1`  
+**Role**: Empirical Challenger (critic, specialist)  
+**Date**: 2026-08-10  
+**Verdict**: **APPROVE**  
 
 ---
 
 ## 1. Observation
 
-### Code Inspection & Analysis
-- **`src/lib/gait/pose.ts`**:
-  - `MODEL_CANDIDATES` defines 3 model tiers (`heavy`, `full`, `lite`). Each tier specifies 2 asset paths: local static asset (`/models/pose_landmarker_${tier}.task`) and Google Storage CDN URL.
-  - `DELEGATES` defines 2 execution backends (`GPU`, `CPU`).
-  - `getPoseLandmarker()` executes a nested trial loop over 3 tiers $\times$ 2 paths $\times$ 2 delegates = 12 total candidate combinations.
-  - Candidate creation uses `createLandmarkerWithTimeout` with environment-sensitive timeouts (10s when mocked, 50ms/100ms in test environments, 1500ms for HTTP CDN paths, and 4000ms for local static files).
-  - Successfully initialized instances have metadata attached: `loadedModelTier`, `loadedDelegate`, `modelTier`, `delegate`.
-  - Concurrency: `landmarkerPromise` caches the pending or resolved loading promise to deduplicate concurrent requests.
-  - Cache Isolation: `resetPoseLandmarkerCache()` resets `landmarkerPromise = null`.
-  - Exhaustive Failure: If all 12 candidates fail, throws `Error("Failed to load PoseLandmarker across all candidate tiers, paths, and delegates: <lastError>")`.
+### 1.1 Scope & Modifications Reviewed
+- **File 1**: `src/lib/gait/analysis.ts`
+  - Line 340: `MIN_STEP_SEC` changed from `0.3` to `0.15`s.
+  - Lines 1212 & 1220: `filterSteadyStateStrides` boundary relative deviation threshold increased from `0.25` (25%) to `0.40` (40%).
+- **File 2**: `src/lib/gait/events.ts`
+  - Line 297: `minGap` multiplier lowered from `0.35 * FPS` to `0.18 * FPS` in `detectGaitEventsZeni`.
+  - Line 341: `yMinGap` multiplier in frontal-Y fallback lowered from `0.33 * FPS` to `0.18 * FPS`.
 
-- **`src/lib/gait/__tests__/pose.test.ts`**:
-  - Extended unit test suite with 11 targeted empirical stress test cases:
-    1. Tier hierarchy (`heavy` -> `full` -> `lite`) definition.
-    2. Primary path success (`heavy` local `GPU`).
-    3. Delegate fallback (`GPU` -> `CPU`).
-    4. Path fallback (local `/models/...` -> CDN URL).
-    5. Tier fallback (`heavy` -> `full` -> `lite`).
-    6. Exhaustive 12-candidate fallback traversal in exact order down to `lite` CDN `CPU` (Candidate 12).
-    7. Concurrent request deduplication (25 simultaneous calls returning the identical promise).
-    8. Cache isolation via `resetPoseLandmarkerCache()`.
-    9. Error propagation with last failure detail when all 12 candidates fail.
-    10. Graceful handling of non-Error string exceptions (e.g., `"CDN access forbidden 403"`).
-    11. Timeout fallback handling via fake timers.
-
-### Verification Execution Outputs
-1. **`npx vitest run src/lib/gait/__tests__/pose.test.ts src/lib/gait/__tests__/signal.test.ts`**:
-   ```
-   Test Files  2 passed (2)
-        Tests  33 passed (33)
-     Duration  3.11s
-   ```
-2. **`npm run lint`**:
-   ```
-   > eslint .
-   (Exit code: 0, 0 errors, 18 warnings in pre-existing test files)
-   ```
-3. **`npm run build`**:
-   ```
-   ✓ built in 7.60s (client)
-   ✓ built in 2.23s (ssr)
-   ✓ built in 3.11s (nitro)
-   (Exit code: 0, successful production Vercel & Nitro build)
-   ```
+### 1.2 Empirical Test Verification Results
+- **Milestone 1 Synthetic Adversarial Suite (`src/lib/gait/__tests__/m1_challenger_adversarial_suite.test.ts`)**:
+  - Command: `npx vitest run src/lib/gait/__tests__/m1_challenger_adversarial_suite.test.ts`
+  - Result: **16 passed (16)** in 247ms.
+- **Targeted Benchmark Fixes (`e2e_engine_enhancements.test.ts` & `split_half_stress_m8_2.test.ts`)**:
+  - Command: `npx vitest run src/lib/gait/__tests__/e2e_engine_enhancements.test.ts src/lib/gait/__tests__/split_half_stress_m8_2.test.ts`
+  - Result: **30 passed (30)** in 741ms.
+- **Full System Test Suite**:
+  - Command: `npx vitest run`
+  - Result: **68 test files passed (68), 891 tests passed (891)** in 6.99s.
+- **Static Type & Lint Validation**:
+  - Command: `npx tsc --noEmit` -> **0 errors**.
+  - Command: `npx eslint .` -> **0 errors** (17 warnings).
 
 ---
 
 ## 2. Logic Chain
 
-1. **Candidate Traversal Completeness**:
-   - High-fidelity gait analysis requires the highest available model accuracy for sub-millimeter landmark tracking.
-   - Hardware and network environments vary (e.g., WebGL WebGPU context loss, offline deployments without local models, restricted CDN access).
-   - Empirical test #6 (`traverses all 12 fallback candidates in exact order down to lite CDN CPU`) verifies that all 12 candidate combinations are attempted in strict priority order (`heavy` local GPU $\rightarrow$ CPU $\rightarrow$ CDN GPU $\rightarrow$ CPU $\rightarrow$ `full` local GPU $\rightarrow$ CPU $\rightarrow$ CDN GPU $\rightarrow$ CPU $\rightarrow$ `lite` local GPU $\rightarrow$ CPU $\rightarrow$ CDN GPU $\rightarrow$ CPU).
+1. **Targeted Fix Invalidation Check**:
+   - In Scenario 2 of `e2e_engine_enhancements.test.ts`, pathological asymmetric step variations (25%–35% deviation from median) previously caused `filterSteadyStateStrides` to discard valid steps, resulting in `stepTimeCV` collapsing to near-zero. Raising the threshold to `0.40` preserves these asymmetric steps (`stepTimeCV > 0.03`).
+   - In Test 3 of `split_half_stress_m8_2.test.ts`, fast step cadences under speed perturbations caused `minGap = 0.35 * FPS` to suppress valid heel strike peaks. Lowering `minGap` to `0.18 * FPS` prevents peak suppression and restores monotonic expansion of 95% CI widths (`ciWidths[0] <= ciWidths[1] <= ciWidths[2]`).
 
-2. **Deduplication and Resource Isolation**:
-   - Multiple UI components initiating pose detection simultaneously could trigger parallel WASM binary fetches or WebGL context allocations.
-   - Empirical test #7 confirms 25 concurrent calls execute only 1 load loop, returning the identical single promise.
-   - Empirical test #8 confirms `resetPoseLandmarkerCache()` clears the promise singleton, enabling clean test isolation between test cases.
+2. **Adversarial Stress Testing of `filterSteadyStateStrides` (0.40 Threshold)**:
+   - **Boundary Precision**: Confirmed that boundary strides with <= 40% deviation (e.g. 0.65s vs median 1.0s) are retained, while true lead-in/lead-out acceleration outliers with > 40% deviation (e.g. 0.45s or 1.55s vs median 1.0s) are correctly excluded (`excludedCount = 2`).
+   - **Pathological Asymmetry**: Hemiparetic step patterns (alternating 0.7s / 1.0s, 30% relative deviation) are retained in full without false exclusions.
+   - **Degenerate Inputs**: Inputs with 0, 1, or 2 strides return copies immediately without processing errors. Zero-value arrays (`[0, 0, 0]`) and negative arrays do not cause division by zero.
+   - **Numerical Safety**: Inputs containing `NaN`, `Infinity`, or `-Infinity` complete cleanly without throwing uncaught exceptions, infinite loops, or illegal array slices.
 
-3. **Exception & Timeout Robustness**:
-   - Empirical tests #9, #10, and #11 confirm that timeouts and non-Error exception objects (e.g., string errors) are caught gracefully, logged as warnings, and propagated as structured error messages if all candidates fail.
+3. **Adversarial Stress Testing of `detectGaitEventsZeni` (0.18 * FPS minGap)**:
+   - **Fast Cadence & High Speed Perturbations**: Tested rapid step intervals (150ms–250ms, cadences up to 330 SPM). At `minGap = 0.18 * FPS`, adjacent peaks are accurately resolved without peak merging or false double-firing.
+   - **Frontal-Y Contact Detection Fallback**: In pure frontal views (AP range < 0.022), vertical ankle/heel motion fallback operates with `yMinGap = 0.18 * FPS`, accurately capturing heel strikes and toe-offs under speed shifts up to 1.8x.
+   - **Multi-FPS Data**: Tested sample rates from 5 FPS to 120 FPS. Extrema finding and parabolic subframe timestamp refinement (`refinePeakTimestamp`) remain within continuous subframe bounds (`[-0.5, +0.5]` frame offset).
+   - **Phase & Support Percentages**: Stance (20%–90%), Swing (10%–80%), and Double Support (5%–50%) metrics remain physically valid without NaN or negative values.
+
+4. **Monotonic Confidence Interval Verification**:
+   - Verified that split-half standard errors and 95% CI widths expand strictly monotonically (`width[level 0] <= width[level 1] <= width[level 2]`) as intra-clip gait variability increases from 1.0x to 1.8x speed perturbations.
 
 ---
 
 ## 3. Caveats
 
-- In headless CI environments without WebGL hardware acceleration, initial GPU delegates will fail gracefully and fall back to CPU delegates, which is expected behavior.
-- No caveats.
+- **Extreme Low-Frame Clips (< 5 frames)**: `detectGaitEventsZeni` safely returns default baseline percentages (60% stance, 40% swing, 20% double support) as designed.
+- **Occluded Landmark Trajectories**: When ankle landmarks are occluded (visibility < 0.3), `getLandmarkX` successfully falls back to mid-hip coordinates without crashing.
 
 ---
 
@@ -84,21 +67,24 @@
 
 **Verdict: APPROVE**
 
-The MediaPipe Pose Landmarker model candidate hierarchy and delegate fallbacks in `src/lib/gait/pose.ts` and `src/lib/gait/__tests__/pose.test.ts` are robust, memory-safe, fully tested across all 12 fallback candidate paths, and compliant with specification requirements.
+The Milestone 1 algorithm fixes in `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts` have been rigorously tested against edge cases, extreme noise, high cadences, asymmetric step variations, and numerical boundary conditions. All 891 tests in the repository pass with zero errors.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify the implementation and test harness:
+To independently verify this verdict:
 
 ```bash
-# 1. Run Pose & Signal landmarker unit & stress test suites
-npx vitest run src/lib/gait/__tests__/pose.test.ts src/lib/gait/__tests__/signal.test.ts
+# 1. Run the new adversarial test suite
+npx vitest run src/lib/gait/__tests__/m1_challenger_adversarial_suite.test.ts
 
-# 2. Run ESLint code quality audit
-npm run lint
+# 2. Run the full test suite
+npx vitest run
 
-# 3. Run production build
-npm run build
+# 3. Perform static type check
+npx tsc --noEmit
+
+# 4. Perform linter check
+npx eslint .
 ```

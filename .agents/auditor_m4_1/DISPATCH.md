@@ -1,20 +1,7 @@
-## 2026-08-09T17:07:48Z
-
-You are Forensic Auditor M4-1 (teamwork_preview_auditor).
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/auditor_m4_1.
-
-You MUST read:
-1. /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-2. /Users/damian/GitHub/gait-lab/.agents/sub_orch_m4/SCOPE.md
-3. /Users/damian/GitHub/gait-lab/.agents/worker_m4_1/handoff.md
-
-Objective:
-Perform forensic integrity verification across all codebase additions in `gait-lab`.
-- Verify that all algorithms, signal processing logic, UI components, and test harnesses are genuinely implemented.
-- Check for hardcoded test outputs, dummy/facade implementations, unauthentic mocks, or cheat mechanisms.
-- Audit static analysis modifications made by Worker M4-1.
-
-Output:
-Write your forensic audit report to `/Users/damian/GitHub/gait-lab/.agents/auditor_m4_1/handoff.md`.
-You MUST state your explicit verdict clearly in your handoff report: `CLEAN` or `INTEGRITY VIOLATION`.
-Send a completion message back with the path to your handoff report.
+## 2026-08-10T07:51:04Z
+Perform a forensic integrity audit on worker_m4_1's work for Milestone 4 (Download & Integrate Reference Gait Video Data R4).
+Project root: /Users/damian/GitHub/gait-lab
+Working directory: /Users/damian/GitHub/gait-lab/.agents/auditor_m4_1
+Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md, /Users/damian/GitHub/gait-lab/.agents/worker_m4_1/report_m4.md, src/components/gait/SamplePicker.tsx, src/lib/gait/__tests__/sample_picker.test.ts, and public/samples/.
+Run static analysis and runtime verification. Check that the new video MP4 files exist, are genuine MP4 media assets (>10KB), are correctly registered in SamplePicker.tsx, and contain zero hardcoded test shortcuts, facades, or suppressed assertions.
+Deliver handoff.md in /Users/damian/GitHub/gait-lab/.agents/auditor_m4_1 with your verdict (CLEAN or INTEGRITY VIOLATION).

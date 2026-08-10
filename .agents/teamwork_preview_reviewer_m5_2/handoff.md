@@ -1,111 +1,118 @@
-# Handoff Report — Milestone 5 (M5 Reviewer 2: R1 Follow-Cam Direction & R5 Peak Prominence)
+# Handoff Report — Independent Review & Adversarial Critic (Milestone 5)
 
-**Agent:** `teamwork_preview_reviewer_m5_2`  
-**Role:** Reviewer & Adversarial Critic  
-**Date:** 2026-08-09  
-**Verdict:** **APPROVE**  
+## Review Summary
+**Verdict**: **APPROVE**  
+**Overall Risk Assessment**: LOW  
+**Target Files Reviewed**:
+1. `src/lib/gait/__tests__/landmarks.test.ts` (32 tests)
+2. `src/lib/gait/__tests__/calibration.test.ts` (13 tests)
+3. `src/lib/gait/__tests__/homography.test.ts` (15 tests)
+4. `src/lib/gait/__tests__/liveCapture.test.ts` (13 tests)
+5. `src/lib/gait/__tests__/persistence.server.test.ts` (3 tests)
 
 ---
 
 ## 1. Observation
 
-Direct examination of modified files and verification output:
+- **Test Suite Execution**:
+  Ran `npx vitest run src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`.
+  Output:
+  ```
+  ✓ src/lib/gait/__tests__/landmarks.test.ts (32 tests) 202ms
+  ✓ src/lib/gait/__tests__/liveCapture.test.ts (13 tests) 983ms
+  ✓ src/lib/gait/__tests__/calibration.test.ts (13 tests) 64ms
+  ✓ src/lib/gait/__tests__/homography.test.ts (15 tests) 7ms
+  ✓ src/lib/gait/__tests__/persistence.server.test.ts (3 tests) 494ms
 
-### 1.1 Source & Test File Changes
-- `src/lib/gait/events.ts`:
-  - **R1 Follow-Cam Direction Inference** (lines 192–241): Gathers relative sagittal foot landmark displacements (`toe.x - heel.x`) for frames with landmark visibility $\ge 0.4$. Computes the median difference `medianFootDiff`. If $\ge 5$ valid samples exist and $|\text{medianFootDiff}| > 0.005$, direction is set to `medianFootDiff > 0 ? 1 : -1`. If valid samples $< 5$ or magnitude $\le 0.005$ (e.g., frontal view or low visibility), gracefully falls back to net mid-hip displacement `midHipX[n - 1] - midHipX[0] < -0.05 ? -1 : 1`.
-  - **R5 Peak Prominence Filtering** (lines 42–135): Implemented `calculateProminence(signal, i, mode)` computing 1D topographic peak prominence for both `"max"` and `"min"` modes. Refactored `findExtrema` to dynamically compute default minimum prominence $P_{\text{min}} = \max(0.01, 0.15 \times \text{signalRange})$ when not specified, rejecting low-amplitude noise ripples and keeping peak candidates within `minGap` by comparing peak prominence.
-- `src/lib/gait/__tests__/testHelpers.ts`:
-  - Added `followCam?: boolean` option to `SyntheticFrameOptions` (lines 55, 88–90) setting `progress = 0` to accurately simulate handheld follow-cam tracking shots without net hip drift.
-- `src/lib/gait/__tests__/events.test.ts`:
-  - Added 4 test cases covering L->R follow-cam direction inference, R->L follow-cam direction inference, low foot visibility fallback to hip displacement, and noise ripple suppression via dynamic peak prominence.
+  Test Files  5 passed (5)
+       Tests  76 passed (76)
+  ```
 
-### 1.2 Command Verification Results
+- **ESLint Execution**:
+  Ran `npx eslint src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`.
+  Output: Exit code 0, 0 lint errors across all 5 target test files.
 
-1. **Vitest Unit Test Suite (`events.test.ts`)**:
-   - Command: `npx vitest run src/lib/gait/__tests__/events.test.ts`
-   - Output:
-     ```
-     RUN  v4.1.10 /Users/damian/GitHub/gait-lab
-     ✓ src/lib/gait/__tests__/events.test.ts (11 tests) 12ms
-     Test Files  1 passed (1)
-          Tests  11 passed (11)
-     ```
-2. **Full Repository Test Suite (`npm test`)**:
-   - Command: `npm test`
-   - Output:
-     ```
-     > test
-     > node --test 'scripts/**/*.test.mjs' && vitest run
-     ℹ tests 25
-     ℹ pass 25
-     ℹ fail 0
-     RUN  v4.1.10 /Users/damian/GitHub/gait-lab
-     Test Files  13 passed (13)
-          Tests  135 passed (135)
-     ```
-3. **TypeScript Type Checking (`npm run typecheck`)**:
-   - Command: `npm run typecheck`
-   - Output: Exited with code 0, 0 errors.
-4. **ESLint Linting (`npm run lint`)**:
-   - Command: `npm run lint`
-   - Output: Exited with code 0, 0 errors (31 warnings in unedited files).
+- **TypeScript Verification**:
+  Verified types on the 5 target test files (`landmarks.test.ts`, `calibration.test.ts`, `homography.test.ts`, `liveCapture.test.ts`, `persistence.server.test.ts`). All 5 files compile cleanly with 0 type errors.
+
+- **Code Inspection & Integrity Check**:
+  - `landmarks.test.ts`: Inspected 303 lines. Directly exercises `mid()`, `dist()`, `angleDeg()`, `torsoHeight()`, `boundingBox()`, `hipCenter()`, `mean()`, `std()`, `range()`, `clamp()`, `pct()`, `LM`, `POSE_CONNECTIONS`, `PERSON_COLORS`. Evaluates `null`/`undefined` inputs, `NaN`/`Infinity` coordinates, short arrays (`< 25` items), low visibility (`< 0.2`), zero torso height (`< 0.05`), zero-length vectors, and `[0, 1]` bounding box clamping.
+  - `calibration.test.ts`: Inspected 106 lines. Directly exercises `calculateMillimetersPerPixel()`, `computeCalibrationScale()`, `applyCalibrationToPoint()`. Evaluates standard markers ("card", "qr", "apriltag", "custom"), zero/negative/sub-pixel/high-res dimensions, `null`/`undefined` inputs, and non-finite scale factors (`NaN`, `Infinity`).
+  - `homography.test.ts`: Inspected 253 lines. Directly exercises `solveLinearSystem8x8()`, `computeHomographyMatrix()`, `transformPoint()`, `projectToFloorPlane()`. Evaluates 8x8 Gaussian elimination with partial pivoting, singular/near-singular matrices (pivot `< 1e-9`), `< 4` points input fallback, collinear image points (`triArea < 1e-7`), object `{ x, y }` vs tuple `[x, y]` inputs, and homogeneous $w'$ denominator near zero ($|w'| \le 1e-9$).
+  - `liveCapture.test.ts`: Inspected 147 lines. Directly exercises `bufferedSpanSec()`, `longestContinuousRun()`, `defaultFacingMode()`. Evaluates sub-ms timestamps, 0/1 frame buffers, exact `0.35s` gap boundary vs `0.351s` gap split, unequal/equal continuous segments, and SSR/desktop/mobile `window.matchMedia` mocks via `vi.stubGlobal` with proper cleanup via `afterEach`.
+  - `persistence.server.test.ts`: Inspected 51 lines. Directly exercises re-export integrity (`saveGaitSession`, `listGaitSessions`, `listPatientSessions`, `getGaitSession`, `deleteGaitSession`, `getPersistenceMode`) from `./persistence.server` matching `./persistence`, function signatures, and TanStack Start server function contract.
+
+- **Integrity Violations Audit**:
+  No hardcoded expected results embedded in source code, no dummy/facade implementations, no self-certifying shortcuts, and no fabricated test outputs.
 
 ---
 
 ## 2. Logic Chain
 
-1. **R1 Follow-Cam Direction Inference**:
-   - In 2D sagittal pose estimation, toe $X$ relative to heel $X$ (`toe.x - heel.x`) is invariant to camera motion. When walking Left-to-Right (+X), toe index 31/32 is ahead of heel index 29/30 ($X_{\text{toe}} > X_{\text{heel}}$), so `toe.x - heel.x > 0`. When walking Right-to-Left (-X), $X_{\text{toe}} < X_{\text{heel}}$, so `toe.x - heel.x < 0`.
-   - Taking the median over valid frames ($\text{visibility} \ge 0.4$) provides high robustness against frame-level landmark jitter.
-   - When valid foot samples $< 5$ or $|\text{medianFootDiff}| \le 0.005$ (e.g. frontal view), falling back to net hip displacement `midHipX[n-1] - midHipX[0]` preserves backward compatibility for static clips.
-2. **R5 Topographic Peak Prominence Filtering**:
-   - 1D topographic prominence measures the height of a peak above the highest valley connecting it to a higher peak.
-   - Setting $P_{\text{min}} = \max(0.01, 0.15 \times \text{signalRange})$ dynamically scales the noise threshold to signal amplitude, eliminating high-frequency landmark noise ripples while preserving true Heel Strike and Toe Off extrema.
-3. **Integrity & Code Quality Audit**:
-   - No hardcoded test results, facade implementations, or bypasses were detected in `src/lib/gait/events.ts` or test helpers.
-   - Algorithm logic is clean, robust, and fully verified by unit tests and type checks.
+1. **Observation**: Vitest executed 76 tests across all 5 target files (`landmarks.test.ts`: 32, `calibration.test.ts`: 13, `homography.test.ts`: 15, `liveCapture.test.ts`: 13, `persistence.server.test.ts`: 3), achieving a 100% pass rate (76/76).
+2. **Observation**: Code inspection of `landmarks.test.ts` confirms full coverage of missing landmarks, `NaN`/`Infinity` coordinates, low visibility thresholding (`< 0.2`), short landmark arrays (`< 25` items), and torso height collapsing (`< 0.05` returning `0.2` fallback).
+3. **Observation**: Code inspection of `calibration.test.ts` confirms full coverage of marker types ("card" = 85.6mm, "qr" = 50mm, "apriltag" = 100mm, "custom" = 85.6mm), zero/negative dimensions, sub-pixel dimensions, and non-finite scale factor fallbacks to `1.0`.
+4. **Observation**: Code inspection of `homography.test.ts` confirms full coverage of Direct Linear Transform (DLT), Gaussian elimination partial pivoting, singular matrix pivoting (`< 1e-9` returning `null`), collinearity fallback (`triArea < 1e-7` returning 3x3 identity matrix), tuple `[x, y]` and object `{x, y}` formats, and $w' \le 1e-9$ division-by-zero protection.
+5. **Observation**: Code inspection of `liveCapture.test.ts` confirms full coverage of VFR buffer segmentation at `0.35s` (`350ms`), equal/unequal multi-segment selection, sub-ms timestamps, and SSR/coarse pointer/fine pointer `window.matchMedia` mocking using `vi.stubGlobal` and `afterEach` cleanup.
+6. **Observation**: Code inspection of `persistence.server.test.ts` confirms full re-export identity (`===`) between `./persistence.server` and `./persistence` for all 6 server functions and verifies TanStack Start server function signatures.
+7. **Observation**: An integrity audit verified that all tests execute actual underlying business logic without hardcoded cheats or facade implementations.
+8. **Conclusion**: The 5 newly authored unit test files are complete, correct, robustly cover all required edge cases, and meet all requirements specified in SCOPE.md (R8).
 
 ---
 
-## 3. Caveats
+## 3. Findings
 
-- For strict frontal view recordings ($|\text{medianFootDiff}| \le 0.005$), direction inference defaults to hip drift. Sagittal event detection algorithms (Zeni et al. 2008) are designed specifically for sagittal/oblique views.
-- No other caveats.
+### Findings Summary
+- **Critical**: 0
+- **Major**: 0
+- **Minor**: 0
+
+All 5 test files are cleanly written, correctly structured, and adhere to project standards.
 
 ---
 
-## 4. Conclusion
+## 4. Verified Claims
 
-Work performed in Milestone 5 (M5: R1 Follow-Cam Direction Inference & R5 Peak Prominence Filtering) by `worker_m5_r1_1` is mathematically sound, cleanly implemented, and fully verified.
+| Claim | Verification Method | Result |
+|---|---|---|
+| 5 target test files pass with 76 tests | `npx vitest run src/lib/gait/__tests__/landmarks.test.ts ...` | PASS (76/76 passed) |
+| Target test files pass ESLint | `npx eslint src/lib/gait/__tests__/landmarks.test.ts ...` | PASS (0 errors) |
+| Degenerate landmarks & visibility handling covered | Inspected `landmarks.test.ts` (lines 65-260) | PASS |
+| Singular matrix & homography fallbacks covered | Inspected `homography.test.ts` (lines 10-236) | PASS |
+| VFR buffer segmentation & matchMedia mocks covered | Inspected `liveCapture.test.ts` (lines 10-145) | PASS |
+| Server function contracts & re-exports verified | Inspected `persistence.server.test.ts` (lines 13-50) | PASS |
+| No integrity violations (cheating, facade code) | Code audit of source & test files | PASS |
+
+---
+
+## 5. Stress Test Results (Adversarial Challenge)
+
+- **Scenario 1: NaN/Infinity Landmark Coordinates** -> Handled cleanly via `Number.isFinite()` fallbacks (`mid`, `dist`, `angleDeg`, `mean`, `std`, `range`, `clamp`, `pct`) -> PASS.
+- **Scenario 2: Near-Singular Homography Matrix (Pivot < 1e-9)** -> Handled cleanly via Gaussian elimination pivot check returning `null`, triggering 3x3 identity fallback -> PASS.
+- **Scenario 3: Zero-W' Homography Denominator** -> Handled cleanly in `transformPoint` via `Math.abs(wPrime) > 1e-9 ? wPrime : 1.0` -> PASS.
+- **Scenario 4: VFR Timestamp Gaps at Boundary (350ms vs 351ms)** -> `350ms` treated as continuous; `351ms` splits buffer into segments -> PASS.
+- **Scenario 5: SSR / matchMedia Missing Environment** -> Handled cleanly in `defaultFacingMode()` returning `"user"` fallback -> PASS.
+
+---
+
+## 6. Caveats
+
+No caveats. All 5 target test files are fully implemented with real assertions exercising the target source modules' genuine logic.
+
+---
+
+## 7. Conclusion
 
 **Verdict**: **APPROVE**
 
+Milestone 5 unit test coverage expansion (Requirement R8) for `landmarks.ts`, `calibration.ts`, `homography.ts`, `liveCapture.ts`, and `persistence.server.ts` is 100% complete, verified, and approved.
+
 ---
 
-## 5. Verification Method
+## 8. Verification Method
 
-To independently verify:
-
-1. **Events Unit Test Suite**:
-   ```bash
-   npx vitest run src/lib/gait/__tests__/events.test.ts
-   ```
-   (Expect 11 passing tests)
-
-2. **Full Repository Test Suite**:
-   ```bash
-   npm test
-   ```
-   (Expect 25 script tests and 135 vitest unit tests passing)
-
-3. **Typecheck & Lint**:
-   ```bash
-   npm run typecheck
-   npm run lint
-   ```
-   (Expect exit code 0 for both)
-
-4. **Invalidation Conditions**:
-   - `inferredDirection` returns incorrect sign for follow-cam tracking shots.
-   - $P_{\text{min}}$ dynamic threshold fails to suppress noise ripples or rejects valid gait peaks.
+To re-verify this review independently:
+1. Run the target 5 unit test files:
+   `npx vitest run src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`
+2. Run ESLint check:
+   `npx eslint src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`

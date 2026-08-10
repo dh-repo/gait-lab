@@ -1,20 +1,13 @@
-# Dispatch for Challenger M1-2
+## 2026-08-10T07:35:43Z
+You are challenger_m1_2.
+Your working directory is: /Users/damian/GitHub/gait-lab/.agents/challenger_m1_2
+Project scope path: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
+Original request path: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
+Worker report path: /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/report_m1.md
 
-**Role**: teamwork_preview_challenger (Noise Stress & Signal Integrity Challenger)
-**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/challenger_m1_2
+OBJECTIVE:
+Adversarially challenge the Milestone 1 algorithm fixes in `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts`.
+1. Run `npx vitest run`.
+2. Inspect the test suite for split-half stress tests and e2e enhancements to confirm robustness under extreme speed variations and high asymmetry.
 
-## Objective
-Empirically stress-test and challenge the 1D landmark coordinate temporal smoothing filter in `src/lib/gait/signal.ts` and integration in `src/lib/gait/analysis.ts`:
-1. Verify `savitzkyGolay5` and `smoothPoseFrames` against high-frequency Gaussian noise, impulse noise spikes, zero-length signals, micro-clips ($N = 1, 2, 3, 4$), and $N \ge 500$ frame clips.
-2. Verify linear trend signal preservation ($y = ax + b$) across all frames including endpoints $0, 1, N-2, N-1$.
-3. Run synthetic noise regression tests (`cat1_landmark_jitter_noise.test.ts`) and confirm >50% noise variance reduction without peak phase shift.
-4. Run `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
-
-## Authoritative Reference Inputs
-- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
-- `/Users/damian/GitHub/gait-lab/PROJECT.md`
-- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
-- `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`
-
-## Output Requirements
-Deliver `handoff.md` with explicit Verdict (`APPROVE` or `REJECT`) and test verification evidence. Communicate completion via `send_message`.
+OUTPUT: Deliver handoff.md in your working directory containing your explicit verdict (APPROVE or REJECT) and empirical evidence. Send a message to parent.

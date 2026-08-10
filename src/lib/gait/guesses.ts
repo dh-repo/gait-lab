@@ -1,5 +1,11 @@
-import type { DualTaskCost, EducatedGuess, GaitMetrics, TaskMode } from "./types";
+import type { DualTaskCost, EducatedGuess, GaitMetrics, PatientMetadata, TaskMode } from "./types";
 import { clamp } from "./landmarks";
+import {
+  calculateGDI,
+  evaluateGaitNormatives,
+  type PatientMetaInput,
+  type SexCategory,
+} from "./normatives";
 
 /**
  * Heuristic, non-diagnostic interpretations of gait features.
@@ -31,11 +37,18 @@ export function resolveDteValues(dtc: DualTaskCost): {
 
 export function buildEducatedGuesses(
   m: GaitMetrics,
-  opts?: { taskMode?: TaskMode; dualTaskCost?: DualTaskCost },
+  opts?: {
+    taskMode?: TaskMode;
+    dualTaskCost?: DualTaskCost;
+    patientMeta?: PatientMetaInput;
+    age?: number;
+    sex?: SexCategory | string;
+  },
 ): EducatedGuess[] {
   const guesses: EducatedGuess[] = [];
   const taskMode = opts?.taskMode ?? "single";
   const dtc = opts?.dualTaskCost;
+  const patientMeta = opts?.patientMeta ?? { age: opts?.age, sex: opts?.sex };
 
   // View
   guesses.push({
@@ -619,6 +632,80 @@ export function buildEducatedGuesses(
       confidence: 0.55,
       severity: "low",
       category: "general",
+    });
+  }
+
+  // --- M6: Gait Deviation Index (GDI) Deviation Rules ---
+  const gdiResult = calculateGDI(m, patientMeta);
+  if (gdiResult.gdiScore < 80) {
+    guesses.push({
+      id: "gdi-severe-deviation",
+      title: "Severe Gait Deviation Index (GDI < 80)",
+      summary:
+        "Overall gait kinematics and temporal metrics deviate significantly (>2 SD) from population normative reference values (Schwartz & Rozumalski 2008).",
+      evidence: [
+        `GDI Score: ${gdiResult.gdiScore.toFixed(1)} / 130`,
+        `Root Mean Square Z-Score: ${gdiResult.zRms.toFixed(2)}`,
+        `Evaluated parameters: ${gdiResult.evaluatedCount}`,
+      ],
+      confidence: clamp(0.65 + (80 - gdiResult.gdiScore) * 0.01, 0.65, 0.95),
+      severity: "elevated",
+      category: "pattern",
+      patternTag: "GDI Severe Deviation (<80)",
+      alternatives: [
+        "Multi-joint gait pathology",
+        "Severe pain / antalgic walking",
+        "Neurological impairment",
+        "Tracking artifacts",
+      ],
+    });
+  } else if (gdiResult.gdiScore < 90) {
+    guesses.push({
+      id: "gdi-moderate-deviation",
+      title: "Moderate Gait Deviation Index (GDI 80–89)",
+      summary:
+        "Gait mechanics show moderate deviation (1–2 SD) from normative population benchmarks.",
+      evidence: [
+        `GDI Score: ${gdiResult.gdiScore.toFixed(1)} / 130`,
+        `Root Mean Square Z-Score: ${gdiResult.zRms.toFixed(2)}`,
+        `Evaluated parameters: ${gdiResult.evaluatedCount}`,
+      ],
+      confidence: 0.6,
+      severity: "moderate",
+      category: "pattern",
+      patternTag: "GDI Moderate Deviation (80-89)",
+      alternatives: [
+        "Mild structural asymmetry",
+        "Subtle joint stiffness",
+        "Environment / footwear effect",
+      ],
+    });
+  }
+
+  // --- M6: Extreme Normative Percentile Rule ---
+  const normEval = evaluateGaitNormatives(m, patientMeta);
+  const extremeEv = normEval.evaluations.filter(
+    (e) => e.percentile < 5.0 || e.percentile > 95.0,
+  );
+  if (extremeEv.length > 0) {
+    guesses.push({
+      id: "normative-percentile-extreme",
+      title: "Extreme normative metric percentile deviation",
+      summary:
+        "One or more gait metrics fall outside the 5th–95th percentile normative population range.",
+      evidence: extremeEv.map(
+        (e) =>
+          `${e.label}: ${e.percentile.toFixed(1)}th percentile (observed: ${e.observedValue.toFixed(1)}${e.unit}, Z: ${e.zScore > 0 ? "+" : ""}${e.zScore.toFixed(2)})`,
+      ),
+      confidence: 0.7,
+      severity: "moderate",
+      category: "variability",
+      patternTag: "normative percentile extreme (<5th or >95th)",
+      alternatives: [
+        "Individual athletic / anatomical variation",
+        "Measurement noise",
+        "Age-related adaptation",
+      ],
     });
   }
 

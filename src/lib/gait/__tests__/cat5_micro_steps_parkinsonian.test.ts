@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGaitMetrics } from '../analysis';
+import { generateUltraHighCadenceParkinsonianFrames, assertAllMetricsFinite } from './testHelpers';
 import type { PoseFrame } from '../types';
 
 describe('Category 5: Micro-Steps & Parkinsonian Gait Stress Tests', () => {
@@ -171,5 +172,19 @@ describe('Category 5: Micro-Steps & Parkinsonian Gait Stress Tests', () => {
     expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
     expect(Number.isFinite(metrics.stepTimeCV)).toBe(true);
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
+    assertAllMetricsFinite(metrics);
+  });
+
+  it('Gap 5: detects ultra-high cadence Parkinsonian micro-steps (300 SPM, 100ms step time)', () => {
+    const frames = generateUltraHighCadenceParkinsonianFrames(60, 4.0);
+    const metrics = computeGaitMetrics(frames);
+
+    expect(metrics).toBeDefined();
+    expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
+    expect(metrics.cadenceSpm).toBeGreaterThan(180); // Captures high-cadence shuffling
+    expect(Number.isFinite(metrics.verticalBounce)).toBe(true);
+    expect(metrics.verticalBounce).toBeLessThan(0.015); // Confirms minimal vertical bounce
+    assertAllMetricsFinite(metrics);
   });
 });
+

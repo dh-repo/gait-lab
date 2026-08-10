@@ -246,4 +246,158 @@ describe("Kinematic Gait Event Detection (events.ts)", () => {
       expect(subframeCorrectionCount).toBeGreaterThan(0);
     });
   });
+
+  describe("180° U-Turn Walk Protocols & Frontal-Y Contact Disambiguation", () => {
+    it("detects heel strikes and stance phases across both directions of a 180° U-turn walk (sagittal)", () => {
+      const fps = 30;
+      const totalFrames = 210; // 7 seconds
+      const frames: PoseFrame[] = [];
+      const turnStart = 90;
+      const turnEnd = 120;
+      const freq = 1.6;
+
+      for (let f = 0; f < totalFrames; f++) {
+        const t = f / fps;
+        const timeMs = t * 1000;
+
+        let heading = 0; // 0 = L->R, PI = R->L
+        let posX = 0.15;
+        if (f < turnStart) {
+          heading = 0;
+          posX = 0.15 + 0.10 * t;
+        } else if (f >= turnStart && f <= turnEnd) {
+          const u = (f - turnStart) / (turnEnd - turnStart);
+          heading = Math.PI * u;
+          posX = 0.45;
+        } else {
+          heading = Math.PI;
+          posX = 0.45 - 0.10 * ((f - turnEnd) / fps);
+        }
+
+        const midHipX = posX;
+        const midHipY = 0.5 + 0.01 * Math.sin(2 * Math.PI * freq * 2 * t);
+        const legPhase = 2 * Math.PI * freq * t;
+        const rightPhase = legPhase + Math.PI;
+
+        const dirCos = Math.cos(heading);
+        const leftAnkleOffset = 0.15 * Math.sin(legPhase) * dirCos;
+        const rightAnkleOffset = 0.15 * Math.sin(rightPhase) * dirCos;
+
+        const leftAnkleX = midHipX + leftAnkleOffset;
+        const rightAnkleX = midHipX + rightAnkleOffset;
+        const leftAnkleY = 0.85 - 0.05 * Math.max(0, Math.sin(legPhase));
+        const rightAnkleY = 0.85 - 0.05 * Math.max(0, Math.sin(rightPhase));
+
+        const footOffset = 0.04 * (dirCos >= 0 ? 1 : -1);
+
+        const landmarks = new Array(33).fill(null).map(() => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+        landmarks[0] = { x: midHipX, y: 0.2, z: 0, visibility: 0.9 };
+        landmarks[11] = { x: midHipX - 0.03, y: 0.3, z: 0, visibility: 0.9 };
+        landmarks[12] = { x: midHipX + 0.03, y: 0.3, z: 0, visibility: 0.9 };
+        landmarks[23] = { x: midHipX - 0.03, y: midHipY, z: 0, visibility: 0.9 };
+        landmarks[24] = { x: midHipX + 0.03, y: midHipY, z: 0, visibility: 0.9 };
+        landmarks[27] = { x: leftAnkleX, y: leftAnkleY, z: 0, visibility: 0.9 };
+        landmarks[28] = { x: rightAnkleX, y: rightAnkleY, z: 0, visibility: 0.9 };
+        landmarks[29] = { x: leftAnkleX - footOffset * 0.3, y: leftAnkleY, z: 0, visibility: 0.9 };
+        landmarks[30] = { x: rightAnkleX - footOffset * 0.3, y: rightAnkleY, z: 0, visibility: 0.9 };
+        landmarks[31] = { x: leftAnkleX + footOffset, y: leftAnkleY + 0.01, z: 0, visibility: 0.9 };
+        landmarks[32] = { x: rightAnkleX + footOffset, y: rightAnkleY + 0.01, z: 0, visibility: 0.9 };
+
+        frames.push({ timeMs, landmarks });
+      }
+
+      const result = detectGaitEventsZeni(frames, fps);
+
+      const outboundEvents = result.stepEvents.filter((e) => e.frame < 90);
+      const returnEvents = result.stepEvents.filter((e) => e.frame > 120);
+
+      expect(outboundEvents.length).toBeGreaterThanOrEqual(3);
+      expect(returnEvents.length).toBeGreaterThanOrEqual(3);
+      expect(result.leftStancePct).toBeGreaterThanOrEqual(40);
+      expect(result.leftStancePct).toBeLessThanOrEqual(80);
+      expect(result.rightStancePct).toBeGreaterThanOrEqual(40);
+      expect(result.rightStancePct).toBeLessThanOrEqual(80);
+      expect(result.doubleSupportPct).toBeGreaterThanOrEqual(5.0);
+      expect(result.doubleSupportPct).toBeLessThanOrEqual(45.0);
+    });
+
+    it("correctly identifies right-foot initial contact in frontal walking using lateral ankle elevation", () => {
+      const fps = 30;
+      const totalFrames = 90;
+      const frames: PoseFrame[] = [];
+      const freq = 1.6;
+
+      for (let f = 0; f < totalFrames; f++) {
+        const t = f / fps;
+        const timeMs = t * 1000;
+
+        // Frontal view: AP motion is zero, depth motion along Z
+        // Right foot makes FIRST ground contact at f=10 (legPhase = rightPhase contact)
+        // Right leg contact phase starts at t=0, so right ankle reaches maximum Y first
+        const rightPhase = 2 * Math.PI * freq * t;
+        const leftPhase = rightPhase + Math.PI;
+
+        const leftAnkleY = 0.85 - 0.05 * Math.max(0, Math.sin(leftPhase));
+        const rightAnkleY = 0.85 - 0.05 * Math.max(0, Math.sin(rightPhase));
+
+        const landmarks = new Array(33).fill(null).map(() => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+        landmarks[23] = { x: 0.45, y: 0.5, z: 0, visibility: 0.9 };
+        landmarks[24] = { x: 0.55, y: 0.5, z: 0, visibility: 0.9 };
+        landmarks[27] = { x: 0.45, y: leftAnkleY, z: 0, visibility: 0.9 };
+        landmarks[28] = { x: 0.55, y: rightAnkleY, z: 0, visibility: 0.9 };
+        landmarks[29] = { x: 0.45, y: leftAnkleY, z: 0, visibility: 0.9 };
+        landmarks[30] = { x: 0.55, y: rightAnkleY, z: 0, visibility: 0.9 };
+        landmarks[31] = { x: 0.45, y: leftAnkleY + 0.01, z: 0, visibility: 0.9 };
+        landmarks[32] = { x: 0.55, y: rightAnkleY + 0.01, z: 0, visibility: 0.9 };
+
+        frames.push({ timeMs, landmarks });
+      }
+
+      const result = detectGaitEventsZeni(frames, fps);
+
+      expect(result.stepEvents.length).toBeGreaterThan(0);
+      const heelStrikes = result.stepEvents.filter((e) => e.type === "heel_strike");
+      expect(heelStrikes.length).toBeGreaterThan(0);
+      // First contact should be assigned to right foot because rightAnkle reaches max Y first
+      expect(heelStrikes[0].side).toBe("right");
+    });
+
+    it("handles occluded ankle landmarks in frontal view via Tier 2 and Tier 3 fallbacks gracefully", () => {
+      const fps = 30;
+      const totalFrames = 90;
+      const frames: PoseFrame[] = [];
+      const freq = 1.6;
+
+      for (let f = 0; f < totalFrames; f++) {
+        const t = f / fps;
+        const timeMs = t * 1000;
+
+        const leftPhase = 2 * Math.PI * freq * t;
+        const rightPhase = leftPhase + Math.PI;
+
+        const leftAnkleY = 0.85 - 0.05 * Math.max(0, Math.sin(leftPhase));
+        const rightAnkleY = 0.85 - 0.05 * Math.max(0, Math.sin(rightPhase));
+
+        // Right foot landmarks have low visibility (< 0.3)
+        const landmarks = new Array(33).fill(null).map(() => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+        landmarks[23] = { x: 0.45, y: 0.5, z: 0, visibility: 0.9 };
+        landmarks[24] = { x: 0.55, y: 0.5, z: 0, visibility: 0.9 };
+        landmarks[27] = { x: 0.45, y: leftAnkleY, z: 0, visibility: 0.9 };
+        landmarks[28] = { x: 0.55, y: rightAnkleY, z: 0, visibility: 0.1 }; // low vis
+        landmarks[29] = { x: 0.45, y: leftAnkleY, z: 0, visibility: 0.9 };
+        landmarks[30] = { x: 0.55, y: rightAnkleY, z: 0, visibility: 0.1 };
+        landmarks[31] = { x: 0.45, y: leftAnkleY + 0.01, z: 0, visibility: 0.9 };
+        landmarks[32] = { x: 0.55, y: rightAnkleY + 0.01, z: 0, visibility: 0.1 };
+
+        frames.push({ timeMs, landmarks });
+      }
+
+      const result = detectGaitEventsZeni(frames, fps);
+
+      expect(result.stepEvents.length).toBeGreaterThan(0);
+      expect(result.leftStancePct).toBeGreaterThan(0);
+      expect(result.rightStancePct).toBeGreaterThan(0);
+      expect(Number.isNaN(result.leftStancePct)).toBe(false);
+    });
+  });
 });

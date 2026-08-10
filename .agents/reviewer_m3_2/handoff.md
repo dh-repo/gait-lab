@@ -1,89 +1,99 @@
-# Handoff Report: Milestone 3 Independent Review & Adversarial Audit
+# Handoff Report: Milestone 3 Independent Review (Adversarial Test Suite Expansion)
 
-**Author:** Reviewer 2 (Milestone 3 Independent Reviewer & Adversarial Critic)  
-**Date:** 2026-08-09  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/reviewer_m3_2`  
-**Verdict:** **APPROVE**
+**Reviewer Agent:** reviewer_m3_2  
+**Date:** 2026-08-10  
+**Verdict:** **APPROVE**  
+**Target Work Product:** `worker_m3_1` implementation of Milestone 3 adversarial test suite expansion across 6 gap categories.
 
 ---
 
 ## 1. Observation
 
-Direct code examination, static analysis, and independent execution of test and build commands were performed on Milestone 3 deliverables.
+### 1.1 Command Execution Results
+1. **Vitest Unit & Integration Suite (`npx vitest run`)**:
+   ```text
+   Test Files  71 passed (71)
+        Tests  932 passed (932)
+     Start at  03:47:03
+     Duration  18.92s
+   ```
+   - 100% pass rate across 71 test files and 932 total tests. Zero failures, zero skipped.
 
-### Component Inspection Findings
+2. **TypeScript Compilation (`npx tsc --noEmit`)**:
+   ```text
+   Command exited with code 0.
+   0 errors.
+   ```
 
-1. **`src/components/gait/SkeletonCanvas.tsx`**:
-   - **Google AR/CV Styling & Reticles**: Implements Electric Cyan (`#00E5FF`) skeleton lines with dynamic stroke width (`3.0` standard / `3.5` highlighted), inner Google Blue (`#1A73E8`) joint core nodes, outer cyan confidence rings, and multi-ring confidence arcs for high-confidence joints (`vis > 0.8`).
-   - **Center of Mass & AR Target Reticles**: Implements vertical sway vector line (`[4, 4]` stroke-dash array) and AR Center of Mass target reticle with crosshairs at hip midpoint, alongside AR corner brackets for highlighted target selection.
-   - **Live HUD Overlay Badge**: Positioned at `top-3 left-3` with backdrop blur (`bg-[#202124]/80`), pulsing cyan status indicator (`#00E5FF`), and Google Sans typography.
-   - **Accessibility & Contracts**: Preserved `data-testid="skeleton-canvas-wrapper"`, canvas `role="img"`, descriptive `aria-label`, interactive tabIndex (`0` when interactive, `-1` when non-interactive), and mouse/keyboard selection event handlers.
+3. **ESLint Static Analysis (`npx eslint .`)**:
+   ```text
+   Command exited with code 0.
+   0 errors (23 pre-existing warnings in test/script files).
+   ```
 
-2. **`src/components/gait/SessionComparisonView.tsx`**:
-   - **Google Workspace Card Layout**: Styled with `#1A73E8` accent header bar, Baseline Session A (`#1A73E8`) and Target Session B (`#188038`) dropdown selectors, and Material status chips (`.chip-success`, `.chip-danger`, `.chip-info`).
-   - **High-Density Clinical Tables & Deltas**: Spatio-temporal and symmetry parameters tables styled with `.clinical-table`. Calculates absolute and percentage deltas, assigning favorability badges based on clinically grounded thresholds (e.g., `EPS_CV_PCT = 2.4` percentage points for step-time CV). Correctly handles context-only metrics (`durationSec`, `stepCount`).
-   - **Recharts Kinematic Trajectory Overlay**: Overlays 0–100% gait cycle trajectories across 101 resampled grid points using `resampleAngleCurve` and `resampleNormativeCurve`. Includes `#DADCE0` gridlines and Perry & Burnfield (2010) `#E8F0FE` normative range band.
-   - **Data TestIDs & Fallbacks**: Preserved all 21 test IDs (`session-comparison-view`, `selector-session-a`, `selector-session-b`, `same-session-warning`, `comparison-load-error`, `fallback-0-sessions`, `fallback-1-session`, `view-suppression-banner`, `joint-tab-knee`, `joint-tab-hip`, `joint-tab-ankle`, `joint-rom-badges`, `rom-left-a`, `rom-left-b`, `rom-right-a`, `rom-right-b`, `asymmetry-comp`, `delta-threshold-footnote`, etc.).
+### 1.2 Inspected File Paths and Implementations
+- **`src/lib/gait/__tests__/testHelpers.ts`**:
+  - `generateGaussianNoise(sigma)` (lines 578-584): Box-Muller transform for zero-mean Gaussian noise.
+  - `generateAsymmetricLimbNoiseFrames(opts)` (lines 593-618): Applies Gaussian noise ($\sigma = 0.01 - 0.05$) to single limb keypoints (right leg 26, 28, 30, 32).
+  - `generateBlackoutDropRecoveryFrames(opts)` (lines 627-657): Removes frames between $t=3.0\text{s}$ and $5.5\text{s}$ (2.5s blackout) and simulates irregular VFR recovery sampling (15ms/80ms delta-t).
+  - `generateUTurnSelfOcclusionFrames(fps, durationSec)` (lines 659-712): Simulates 180° U-turn with leg depth crossover ($z$), heading angle transition, and degraded landmark visibility ($0.15$).
+  - `generateAntalgicLimpingFrames(fps, durationSec)` (lines 714-766): Simulates 70/30 asymmetric stance phase split (asymmetry factor 2.0).
+  - `generateUltraHighCadenceParkinsonianFrames(fps, durationSec)` (lines 768-812): Simulates 300 SPM (5.0 Hz) micro-stepping with step amplitude $0.015$ and vertical bounce $<0.003$.
+  - `generateCombined3DCameraMotionFrames(fps, durationSec)` (lines 814-854): Combines 2D high-frequency translation jitter, 15° roll rotation, and dynamic scale zoom ($1.0 \pm 0.5$).
+  - `assertAllMetricsFinite(metrics)` (lines 860-887): Recursive verification asserting all numeric fields in `GaitMetrics` are finite (`!isNaN`, `isFinite`) and score fields are within $[0, 100]$.
 
-3. **`src/components/gait/ClinicalReportView.tsx`**:
-   - **Google Workspace Document Layout**: Features top `#1A73E8` header banner with document metadata and an explicit print button calling `onPrint`.
-   - **Patient Metadata Form Card**: Form inputs with explicit `<label htmlFor="...">` associations (`patient-id-input`, `assessment-date-input`, `assessment-condition-input`, `clinician-notes-input`).
-   - **Clinical Visualizations & Print Optimization**: Includes 5-Domain Gait Health Radar Chart (`#1A73E8`), Zeni gait phase progress bars, joint ROM summary table (`rom-summary-table`), JointAnglesChart, Dual-Task Cost tiles, key gait metric ratings with 95% CIs, ranked clinical hypotheses board, and clinician sign-off block (`clinician-signoff-block`).
-   - **`@media print` Rules**: Implements print utility classes (`print-card`, `print:hidden`, `print:bg-white`, `print:text-black`, `no-print`) optimizing page breaks and color contrast for A4 document export.
+- **Consolidated Test Suite**: `src/lib/gait/__tests__/adversarial_gaps.test.ts` (152 lines)
+  - Covers Category 1 through Category 6 with explicit boundary assertions and recursive `assertAllMetricsFinite` checks.
+
+- **Individual Category Test Modules**:
+  - `src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts`
+  - `src/lib/gait/__tests__/cat2_variable_frame_rate.test.ts`
+  - `src/lib/gait/__tests__/cat3_landmark_occlusion.test.ts`
+  - `src/lib/gait/__tests__/cat4_extreme_gait_asymmetry.test.ts`
+  - `src/lib/gait/__tests__/cat5_micro_steps_parkinsonian.test.ts`
+  - `src/lib/gait/__tests__/cat6_camera_shake_motion.test.ts`
 
 ---
 
 ## 2. Logic Chain
 
-1. **Design Tokens & Workstation Layout**:
-   - All three components consistently apply the Google Workspace & Cloud Console color tokens (`#1A73E8`, `#00E5FF`, `#202124`, `#DADCE0`, `#F8F9FA`, `#5F6368`), Google Sans typography, compact clinical tables, and Material status chips.
-
-2. **Integrity & Zero-Cheat Verification**:
-   - Source code inspection confirms real calculation logic: `computeDelta` computes actual metric differences, `drawPoseOptimized` performs actual canvas arc/line drawing, `resampleAngleCurve` projects curves onto a 101-point gait cycle grid, and `ClinicalReportView` maps directly from `AnalysisResult` and `GaitAngleAnalysis`.
-   - Zero hardcoded test outputs, facade implementations, or bypassed checks were found.
-
-3. **Backward Compatibility & Verification Commands**:
-   - `npm run typecheck`: Exited 0 with 0 TypeScript compilation errors.
-   - `npm run lint`: Exited 0 with 0 ESLint warnings or errors.
-   - `npm test`: Exited 0 with 55 test files passed out of 55 (530 tests passed in 14.26s).
-   - `npm run build`: Exited 0 with clean Vercel Nitro production build.
+1. **Requirement Mapping**: `ORIGINAL_REQUEST.md` (Requirement 3, Milestone 3) specifies adding synthetic test scenarios covering 6 gap categories: landmark jitter/noise, variable frame rate, landmark occlusion, extreme gait asymmetry, micro-steps/Parkinsonian, camera shake.
+2. **Implementation Verification**:
+   - `testHelpers.ts` provides realistic, mathematically grounded frame generators for each of the 6 gap categories.
+   - The test files execute `computeGaitMetrics` against these synthetic streams and assert both domain-specific metric bounds (e.g. `cadenceSpm`, `stepTimeCV`, `symmetryAngle`, `verticalBounce`) and global finiteness (`assertAllMetricsFinite`).
+   - `cat2_variable_frame_rate.test.ts` and `adversarial_gaps.test.ts` explicitly verify that 0 phantom step events are created during the 2.5s blackout window ($t=3.0\text{s}$ to $5.5\text{s}$).
+3. **Integrity Violation Analysis**:
+   - **No Hardcoded Outputs**: Tests invoke the live engine (`computeGaitMetrics`) on dynamic frame arrays.
+   - **No Facades or Shortcuts**: Synthetic generators produce full 33-landmark `PoseFrame` sequences with realistic kinematic physics and noise parameters.
+   - **No Self-Certifying Work**: Verification commands (`vitest`, `tsc`, `eslint`) were executed independently by this reviewer agent with 100% green results.
 
 ---
 
 ## 3. Caveats
 
-- **No Caveats**: Independent static typechecking, linting, unit testing, UI rendering tests, and production build verification all passed cleanly with zero errors or regressions.
+- **No Caveats**: All 6 gap categories are thoroughly covered with both individual category test modules and a consolidated test suite `adversarial_gaps.test.ts`.
 
 ---
 
 ## 4. Conclusion
 
-**Final Verdict**: **APPROVE**
+`worker_m3_1`'s implementation for Milestone 3 meets all requirements and acceptance criteria specified in `ORIGINAL_REQUEST.md`. The test suite expansion is mathematically sound, cleanly structured, free of TypeScript/ESLint errors, and achieves 100% green test pass rate across all 932 tests.
 
-Milestone 3 (Real-Time AR/CV Pose Canvas, Session Comparison & A4 PDF Document Export) satisfies all design token, layout, styling, correctness, accessibility, print, and backward-compatibility requirements with zero integrity violations.
+**Verdict:** **APPROVE**
 
 ---
 
 ## 5. Verification Method
 
-To independently verify this review:
+To independently verify this assessment, run the following commands from the workspace root:
 
 ```bash
-# 1. TypeScript static analysis
-npm run typecheck
+# 1. Run full Vitest suite (932/932 passing expected)
+npx vitest run
 
-# 2. ESLint static analysis
-npm run lint
+# 2. Check TypeScript compilation (0 errors expected)
+npx tsc --noEmit
 
-# 3. Full unit, UI, and stress test suite
-npm test
-
-# 4. Production build
-npm run build
+# 3. Check ESLint rules (0 errors expected)
+npx eslint .
 ```
-
-### Executed Verification Results
-- `npm run typecheck`: **PASSED** (0 errors)
-- `npm run lint`: **PASSED** (0 warnings/errors)
-- `npm test`: **PASSED** (55 test files, 530 tests passed)
-- `npm run build`: **PASSED** (Vercel Nitro build completed cleanly)

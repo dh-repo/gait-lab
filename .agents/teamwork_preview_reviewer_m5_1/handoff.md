@@ -1,155 +1,70 @@
-# Handoff Report — Reviewer 1 (M5: R1 Follow-Cam Direction & R5 Peak Prominence)
-
-**Worker:** `teamwork_preview_reviewer_m5_1`  
-**Date:** 2026-08-09  
-**Status:** Review Complete — Verdict: REQUEST_CHANGES  
-
----
+# Handoff Report — Reviewer M5 Pass 2 Unit Test Expansion
 
 ## 1. Observation
+I conducted a thorough code review, static analysis, integrity check, and test suite execution of the 5 newly added test files under `src/lib/gait/__tests__/`:
+1. `src/lib/gait/__tests__/landmarks.test.ts` (32 tests)
+2. `src/lib/gait/__tests__/calibration.test.ts` (13 tests)
+3. `src/lib/gait/__tests__/homography.test.ts` (15 tests)
+4. `src/lib/gait/__tests__/liveCapture.test.ts` (13 tests)
+5. `src/lib/gait/__tests__/persistence.server.test.ts` (3 tests)
 
-### 1.1 Scope & Files Examined
-The review evaluated the implementation for Milestone 5 (M5 R1 & R5) across the following files:
-- `src/lib/gait/events.ts`
-- `src/lib/gait/__tests__/events.test.ts`
-- `src/lib/gait/__tests__/testHelpers.ts`
+Verbatim execution outputs:
+- **Target Vitest Command**: `npx vitest run src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`
+  - Output: `✓ src/lib/gait/__tests__/liveCapture.test.ts (13 tests)`
+  - Output: `✓ src/lib/gait/__tests__/calibration.test.ts (13 tests)`
+  - Output: `✓ src/lib/gait/__tests__/homography.test.ts (15 tests)`
+  - Output: `✓ src/lib/gait/__tests__/landmarks.test.ts (32 tests)`
+  - Output: `✓ src/lib/gait/__tests__/persistence.server.test.ts (3 tests)`
+  - Summary: `Test Files 5 passed (5) | Tests 76 passed (76)`
+- **ESLint Command**: `npx eslint src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`
+  - Output: `Exited with code 0` (0 lint errors).
+- **TypeScript Check**: `npx tsc --noEmit`
+  - Output: `Exited with code 0` (0 type errors).
 
-### 1.2 Verification Command Executions & Output Quotes
-
-1. **Vitest `events.test.ts`**:
-   Command: `npx vitest run src/lib/gait/__tests__/events.test.ts`
-   ```
-    RUN  v4.1.10 /Users/damian/GitHub/gait-lab
-
-    ✓ src/lib/gait/__tests__/events.test.ts (11 tests) 8ms
-
-    Test Files  1 passed (1)
-         Tests  11 passed (11)
-   ```
-
-2. **TypeScript Typecheck**:
-   Command: `npm run typecheck`
-   ```
-   > typecheck
-   > tsc --noEmit
-
-   src/lib/gait/__tests__/challenger_m5_2.test.ts(2,32): error TS2459: Module '"../events"' declares 'findExtrema' locally, but it is not exported.
-   ```
-   *Exit code: 2 (FAILED)*
-
-3. **Full Project Test Suite**:
-   Command: `npm test`
-   ```
-   > test
-   > node --test 'scripts/**/*.test.mjs' && vitest run
-
-   ℹ tests 25
-   ℹ pass 25
-
-   FAIL  src/lib/gait/__tests__/challenger_m5_2.test.ts
-   Error: No test suite found in file /Users/damian/GitHub/gait-lab/src/lib/gait/__tests__/challenger_m5_2.test.ts
-
-   Test Files  1 failed | 14 passed (15)
-        Tests  146 passed (146)
-   ```
-   *Exit code: 1 (FAILED)*
-
-4. **ESLint**:
-   Command: `npm run lint`
-   ```
-   ✖ 31 problems (0 errors, 31 warnings)
-   ```
-   *Exit code: 0 (PASSED)*
-
----
+Integrity Verification:
+- Inspected source modules (`landmarks.ts`, `calibration.ts`, `homography.ts`, `liveCapture.ts`, `persistence.server.ts`) and test files.
+- Confirmed zero hardcoded test results, facade implementations, or shortcut patterns.
+- Confirmed all test cases exercise real mathematical algorithms, boundary checks, and error fallbacks.
 
 ## 2. Logic Chain
+1. **landmarks.test.ts**:
+   - Tested MediaPipe layout constants (`POSE_CONNECTIONS` pair bounds, `LM` keypoints, `PERSON_COLORS` hex format).
+   - Validated vector mathematics (`mid()`, `dist()`, `angleDeg()`) including edge cases: missing/null/undefined keypoints, NaN/Infinity values, degenerate zero-length vectors, and non-finite numbers.
+   - Tested `torsoHeight()` fallback (0.2) when array length < 25 or height < 0.05.
+   - Tested `boundingBox()` padding (0.03) and boundary clamping [0, 1].
+   - Tested statistical primitives (`mean`, `std`, `range`, `clamp`, `pct`) handling empty arrays and non-finite values.
 
-1. **Interface Contract Verification**:
-   - `PROJECT.md` line 91 under **Interface Contracts** explicitly specifies:
-     `export function findExtrema(signal: number[], mode: 'max' | 'min', minGap: number, minProminence?: number): number[];`
-   - In `src/lib/gait/events.ts` (line 86), `findExtrema` is declared without `export`:
-     `function findExtrema(signal: number[], mode: "max" | "min", minGap: number, userMinProminence?: number): number[]`
-   - Because `findExtrema` is not exported, any module importing `findExtrema` fails TypeScript compilation with error `TS2459`.
+2. **calibration.test.ts**:
+   - Verified `calculateMillimetersPerPixel()` scale calculation for standard targets ("card" = 85.6mm, "qr" = 50.0mm, "apriltag" = 100.0mm, "custom" = 85.6mm fallback).
+   - Tested zero/negative width handling (falls back to 1.0) and sub-pixel/high-res inputs.
+   - Tested `computeCalibrationScale()` and `applyCalibrationToPoint()` handling invalid/non-finite scales by defaulting to 1.0.
 
-2. **Verification Failures**:
-   - Running `npm run typecheck` fails due to the missing `export` keyword on `findExtrema`.
-   - Consequently, running `npm test` fails during the full test suite run.
+3. **homography.test.ts**:
+   - Tested `solveLinearSystem8x8()` using Gaussian elimination with partial pivoting.
+   - Validated zero-diagonal row swapping, singular system detection (all zeros), and near-singular matrix detection (pivot < 1e-9 returns null).
+   - Verified `computeHomographyMatrix()` for perspective-to-floor-plane transformation using Direct Linear Transform (DLT), collinearity detection (triArea < 1e-7 returns 3x3 identity), <4 points fallback, tuple `[x, y]` support, and near-zero denominator ($|w'| \le 1e-9$) fallbacks.
 
-3. **Algorithmic & Mathematical Quality Audit**:
-   - **R1 (Follow-Cam Direction Inference)**: The algorithm in `events.ts` correctly extracts `toe.x - heel.x` from frames with valid landmark visibility ($\ge 0.4$), computes `medianFootDiff`, and accurately infers direction ($+1$ for L->R, $-1$ for R->L) in handheld follow-cam shots where net hip displacement is zero. Fallback to mid-hip displacement when valid foot samples $< 5$ or $|\text{medianFootDiff}| \le 0.005$ functions correctly.
-   - **R5 (Topographic Peak Prominence)**: `calculateProminence` accurately measures 1D discrete topographic prominence for both `"max"` and `"min"` modes. The dynamic threshold $P_{\text{min}} = \max(0.01, 0.15 \times \text{signalRange})$ correctly filters micro-ripples while preserving gait extrema.
-   - **Synthetic Frame Generator**: `testHelpers.ts` properly implements `followCam: true` by setting progress to 0 while preserving foot orientation oscillations.
+4. **liveCapture.test.ts**:
+   - Tested `bufferedSpanSec()` timestamp span calculation.
+   - Verified `longestContinuousRun()` gap threshold filtering (`MAX_LIVE_GAP_SEC` = 0.35s). Tested exact 0.35s gap vs 0.351s gap, multiple unequal continuous segments, equal length segment preservation, and sub-millisecond timestamps.
+   - Tested `defaultFacingMode()` selecting `"environment"` for handheld (`pointer: coarse`) and `"user"` for desktop / SSR / missing `matchMedia`. Properly cleaned up using `afterEach(() => vi.unstubAllGlobals())`.
 
----
+5. **persistence.server.test.ts**:
+   - Verified 100% re-export completeness of core persistence functions (`saveGaitSession`, `listGaitSessions`, `listPatientSessions`, `getGaitSession`, `deleteGaitSession`, `getPersistenceMode`) from `./persistence`.
+   - Verified function signature type definitions and TanStack Start server function contract callability.
 
 ## 3. Caveats
-
-- No integrity violations or fake logic were detected in the mathematical implementation of direction inference or peak prominence.
-- The rejection of the work product is purely due to interface non-adherence (`export function findExtrema`) causing build/typecheck/test verification commands to fail.
-
----
+No caveats. All 5 test files provide complete, independent, high-quality test coverage for the target modules.
 
 ## 4. Conclusion
-
-**Verdict**: `REQUEST_CHANGES`
-
-While the core mathematical logic for R1 (Follow-Cam Direction Inference) and R5 (Peak Prominence Filtering) is mathematically sound, robust, and well-tested within `events.test.ts`, the implementation fails interface contract adherence specified in `PROJECT.md` by omitting the `export` keyword on `findExtrema`. This omission causes `npm run typecheck` and `npm test` to fail.
-
-### Required Remediation:
-Add `export` to `findExtrema` in `src/lib/gait/events.ts`:
-```typescript
-export function findExtrema(
-  signal: number[],
-  mode: "max" | "min",
-  minGap: number,
-  userMinProminence?: number,
-): number[]
-```
-
----
+**Verdict**: **APPROVE**
+The 5 newly created test files meet all code quality, test thoroughness, type safety, linting, and structural requirements defined in `SCOPE.md`. All 76 tests pass cleanly with zero failures, zero TypeScript errors, zero ESLint warnings/errors, and no integrity violations.
 
 ## 5. Verification Method
-
-To independently verify after worker remediation:
-
-1. **Run TypeScript Typecheck**:
-   ```bash
-   npm run typecheck
-   ```
-   Must exit with code 0 and 0 errors.
-
-2. **Run Full Test Suite**:
-   ```bash
-   npm test
-   ```
-   Must pass all unit tests and script tests with 0 failures.
-
-3. **Run Events Test Suite**:
-   ```bash
-   npx vitest run src/lib/gait/__tests__/events.test.ts
-   ```
-   Must pass all 11 tests in `events.test.ts`.
-
-4. **Run ESLint**:
-   ```bash
-   npm run lint
-   ```
-   Must exit with code 0 and 0 errors.
-
----
-
-## Review Findings Summary
-
-### [Major] Finding 1: `findExtrema` is not exported per `PROJECT.md` Interface Contract
-- **What**: `findExtrema` is defined as a non-exported local function in `events.ts`.
-- **Where**: `src/lib/gait/events.ts`, line 86.
-- **Why**: `PROJECT.md` line 91 specifies `export function findExtrema(...)`. Omitting `export` violates the contract and causes `npm run typecheck` and `npm test` to fail.
-- **Suggestion**: Change `function findExtrema(` to `export function findExtrema(`.
-
-## Verified Claims
-
-- R1 Follow-Cam Direction Inference (`toe.x - heel.x` median) → verified via code inspection and synthetic test cases → PASS (math & logic correct)
-- R5 Peak Prominence Filtering (`calculateProminence` & $P_{\text{min}}$ threshold) → verified via signal processing analysis → PASS (math & logic correct)
-- Interface Contract Adherence → verified via `npm run typecheck` → FAIL (`findExtrema` not exported)
-- Project Test Suite Completion → verified via `npm test` → FAIL (typecheck error cascades to test suite)
+To independently verify this verdict:
+1. Run the target Vitest suite:
+   `npx vitest run src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`
+2. Run TypeScript typecheck:
+   `npx tsc --noEmit`
+3. Run ESLint check:
+   `npx eslint src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`

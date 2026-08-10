@@ -1,14 +1,12 @@
-# Progress Log
+# Progress Log - explorer_survey_1
 
-Last visited: 2026-08-10T01:15:34Z
+Last visited: 2026-08-10T07:33:40Z
 
-- [x] Initialized DISPATCH.md, BRIEFING.md, and progress.md
-- [x] Read ORIGINAL_REQUEST.md
-- [x] Inspect `src/lib/gait/analysis.ts`
-- [x] Inspect `src/lib/gait/PoseTracker.ts`
-- [x] Inspect existing tests (`src/lib/gait/__tests__/person_identification_stress.test.ts` and related tests)
-- [x] Analyze tracking, identity assignment, morphological gating, velocity extrapolation, U-turns, scale changes, fast walking, occlusions, false duplicate tracks
-- [x] Document data structures, mathematical models, thresholds
-- [x] Formulate actionable fix recommendations
-- [x] Write handoff.md report
-- [x] Notify parent orchestrator
+- [x] Initialized DISPATCH.md and BRIEFING.md
+- [x] Run `npx vitest run` to get full baseline pass/fail count (859 passed, 2 failed / 861 total tests in 66 files)
+- [x] Analyze failure 1: `e2e_engine_enhancements.test.ts` (Scenario 2: stepTimeCV over-trimming)
+- [x] Analyze failure 2: `split_half_stress_m8_2.test.ts` (Test 3: split-half CI monotonicity break under 1.6x speed perturbation)
+- [x] Deep dive into source files: `src/lib/gait/events.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/signal.ts`
+- [x] Formulate root-cause fix strategies without weakening assertions
+- [x] Synthesize findings into `survey_r1.md` and `handoff.md`
+- [x] Notify parent via message

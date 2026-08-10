@@ -18,7 +18,7 @@ Following a rigorous forensic audit, `gait-lab` has integrated five major scient
 2. **Trunk Harmonic Ratio Removal (R2)** — the $f_0$ misalignment was fixed, then the metric was removed entirely as invalid for camera-derived positional data (see §3.4).
 3. **Temporal Decimation Bias Elimination (R3)** via continuous 10–12s 30 Hz window sampling and 3-point parabolic subframe peak refinement.
 4. **View-Geometry Validity & Split-Half 95% CIs (R4)** via metric suppression (`null` emission for out-of-plane metrics), split-half standard error bounds $\text{SE}_{\text{split}} = \frac{|M^{(1)} - M^{(2)}|}{\sqrt{2}}$, and demotion of 0–100 composite scores.
-5. **Topographic Peak Prominence Filtering (R5)** in kinematic event detection ($P_{\text{min}} = \max(0.01, 0.15 \times \text{sigRange})$).
+5. **Topographic Peak Prominence Filtering (R5)** in kinematic event detection ($P_{\text{min}} = \max(0.001, 0.15 \times \text{sigRange})$).
 
 ### 1.2 End-to-End Processing Pipeline Architecture
 The computational pipeline of `gait-lab` transitions through 7 discrete algorithmic stages:
@@ -32,11 +32,11 @@ The computational pipeline of `gait-lab` transitions through 7 discrete algorith
    - Emits `null` for view-invalid metrics (e.g. sagittal knee flexion in frontal view, lateral step width in sagittal view) to prevent 2D projection foreshortening artifacts.
 3. **Zero-Phase Digital Signal Filtering & Linear Detrending (`signal.ts`)**:
    - Trajectory time-series for key landmarks (hips, ankles, heels, toes, knees, wrists) undergo boundary reflection padding ($M = \min(12, N-1)$) and zero-phase forward-backward 4th-order low-pass Butterworth digital filtering at $f_c = 6.0\text{ Hz}$ (`zeroPhaseButterworth`).
-   - Linear baseline drift and spatial camera translation are removed via Ordinary Least Squares (OLS) linear detrending (`linearDetrend`).
+   - Linear baseline drift and spatial camera translation are removed via Ordinary Least Squares (OLS) linear detrending (`olsDetrend`).
 4. **Kinematic Gait Event Detection & Follow-Cam Direction Inference (`events.ts`)**:
    - Computes relative Anterior-Posterior (AP) foot-pelvis displacement trajectory $x_{\text{foot\_AP}}(t) = x_{\text{foot}}(t) - x_{\text{pelvis\_center}}(t)$.
    - Infers walking direction in follow-cam shots using median foot orientation difference ($x_{\text{toe}} - x_{\text{heel}}$).
-   - Filters candidate peaks using topographic prominence $P_{\text{min}} = \max(0.01, 0.15 \times \text{sigRange})$ and refines timestamps via 3-point parabolic interpolation.
+   - Filters candidate peaks using topographic prominence $P_{\text{min}} = \max(0.001, 0.15 \times \text{sigRange})$ and refines timestamps via 3-point parabolic interpolation.
    - Identifies Initial Contact (Heel Strike, IC) and Terminal Contact (Toe Off, TO), deriving Stance Phase %, Swing Phase %, Stride Duration, and Double Support Time %.
 5. **Advanced Biomechanical Analytics (`symmetry.ts`, `dte.ts`)**:
    - **Inter-Limb Symmetry**: Evaluates Zifchock's reference-free Symmetry Angle ($SA$) and Gait Symmetry Index ($GSI$) across step time, arm swing, and knee flexion.
@@ -122,6 +122,27 @@ The algorithmic methods implemented in `gait-lab` are directly grounded in peer-
     - **PMID**: [2868172](https://pubmed.ncbi.nlm.nih.gov/2868172/) | **DOI**: [10.1016/S0140-6736(86)90837-8](https://doi.org/10.1016/S0140-6736(86)90837-8)  
     - **Biomechanical Relevance**: Formulates split-half standard error $\text{SE}_{\text{split}} = \frac{|M^{(1)} - M^{(2)}|}{\sqrt{2}}$ and 95% confidence interval estimation ($M \pm 1.96 \cdot \text{SE}_{\text{split}}$) for assessing measurement reliability.
 
+15. **Savitzky A & Golay MJ (1964)**  
+    - **Citation**: Savitzky, A., & Golay, M. J. Smoothing and differentiation of data by simplified least squares procedures. *Analytical Chemistry*, 36(8), 1627–1639, 1964.  
+    - **DOI**: [10.1021/ac60214a047](https://doi.org/10.1021/ac60214a047)  
+    - **Biomechanical Relevance**: Establishes 5-point 2nd/3rd degree polynomial local 1D temporal coordinate smoothing filter (`savitzkyGolay5`) with linear boundary reflection padding for landmark trajectories.
+
+16. **Kalman RE (1960)**  
+    - **Citation**: Kalman, R. E. A new approach to linear filtering and prediction problems. *Journal of Basic Engineering*, 82(1), 35–45, 1960.  
+    - **DOI**: [10.1115/1.3662552](https://doi.org/10.1115/1.3662552)  
+    - **Biomechanical Relevance**: Formulates 1D scalar Kalman filtering with occlusion coasting (`kalmanFilter1D`), holding prior state estimates and accumulating error covariance during missing or NaN landmark frames.
+
+17. **Stevens JA & Phelan EA (2013) / Tinetti ME (1986)**  
+    - **Citation**: Stevens, J. A., & Phelan, E. A. Development of STEADI (Algorithm for Fall Risk Screening, Assessment, and Intervention) among community-dwelling older adults. *Journal of Safety Research*, 45, 95–99, 2013.  
+      Tinetti, M. E. Performance-oriented assessment of mobility problems in elderly patients. *Journal of the American Geriatrics Society*, 34(2), 119–126, 1986.  
+    - **PMID**: [23725705](https://pubmed.ncbi.nlm.nih.gov/23725705/) | **DOI**: [10.1016/j.jsr.2013.04.001](https://doi.org/10.1016/j.jsr.2013.04.001)  
+    - **Biomechanical Relevance**: Provides clinical fall risk cutoffs (gait speed $<0.8\text{ m/s}$, step CV $>6.0\%$, double support $>35.0\%$, $SA >10.0\%$) evaluated in Fall Risk Model A (`computeFallRiskModelA`).
+
+18. **Cohen J (1960)**  
+    - **Citation**: Cohen, J. A coefficient of agreement for nominal scales. *Educational and Psychological Measurement*, 20(1), 37–46, 1960.  
+    - **DOI**: [10.1177/001316446002000104](https://doi.org/10.1177/001316446002000104)  
+    - **Biomechanical Relevance**: Formulates Cohen's Kappa ($\kappa$) inter-model agreement index (`evaluatePredictiveAgreement`) for assessing predictive concordance between Model A and Model B.
+
 ---
 
 ## Section 3: Mathematical Foundations & LaTeX Equations
@@ -199,7 +220,7 @@ For local extremum at index $i$:
 - Candidate **minimum** prominence: $\text{Prom}_{\text{min}}(i) = \min(M_{\text{left}}, M_{\text{right}}) - y_i$ where $M_{\text{left}} = \max_{k \le i} x[k]$ down to a lower valley.
 
 Dynamic prominence threshold:
-$$P_{\text{min}} = \max(0.01, 0.15 \times \text{sigRange}) \quad \text{where } \text{sigRange} = \max_k(x[k]) - \min_k(x[k])$$
+$$P_{\text{min}} = \max(0.001, 0.15 \times \text{sigRange}) \quad \text{where } \text{sigRange} = \max_k(x[k]) - \min_k(x[k])$$
 Peaks with prominence $< P_{\text{min}}$ are rejected as noise ripples.
 
 #### D. Parabolic Subframe Peak Refinement (R3)
@@ -277,23 +298,33 @@ Below is the complete mapping matrix connecting scientific literature, mathemati
 
 | Scientific Reference & Paper | Theoretical Concept / Formula | Implementation File | Exported Function / Logic Block | Line Range |
 |---|---|---|---|---|
-| Winter DA (2009) | 2nd-order Biquad LPF ($K=\tan(\pi f_c/f_s)$) | `src/lib/gait/signal.ts` | `computeBiquadLowPass` | 24–38 |
-| Oppenheim & Schafer (2009) | Direct Form II Transposed Difference Loop | `src/lib/gait/signal.ts` | `applyBiquad` | 43–65 |
-| Winter DA (2009) | Cascaded 4th-Order Butterworth Filter | `src/lib/gait/signal.ts` | `butterworthLowPass` | 73–90 |
-| Winter DA (2009) | Zero-Phase Reflection Padding (`filtfilt`) | `src/lib/gait/signal.ts` | `zeroPhaseButterworth` | 97–141 |
-| Antonsson & Mann (1985) | OLS Linear Detrending ($y_d = y - (\alpha + \beta i)$) | `src/lib/gait/signal.ts` | `linearDetrend` | 147–187 |
-| Zeni JA et al. (2008) | Follow-Cam Foot Vector Direction Inference ($x_{\text{toe}} - x_{\text{heel}}$) | `src/lib/gait/events.ts` | `detectGaitEventsZeni` (Direction) | 224–276 |
-| Zeni JA et al. (2008) | Topographic Peak Prominence Filtering ($P_{\text{min}}$) | `src/lib/gait/events.ts` | `calculateProminence` & `findExtrema` | 42–135 |
-| Zeni JA et al. (2008) | 3-Point Parabolic Subframe Peak Refinement | `src/lib/gait/events.ts` | `refinePeakTimestamp` | 142–170 |
-| Zeni JA et al. (2008) | AP Foot Displacement Kinematic Algorithm | `src/lib/gait/events.ts` | `detectGaitEventsZeni` | 177–438 |
+| Winter DA (2009) | 2nd-order Biquad LPF ($K=\tan(\pi f_c/f_s)$) | `src/lib/gait/signal.ts` | `computeBiquadLowPass` | 27–41 |
+| Oppenheim & Schafer (2009) | Direct Form II Transposed Difference Loop | `src/lib/gait/signal.ts` | `applyBiquad` | 46–70 |
+| Winter DA (2009) | Cascaded 4th-Order Butterworth Filter | `src/lib/gait/signal.ts` | `butterworthLowPass` | 107–128 |
+| Winter DA (2009) | Zero-Phase Reflection Padding (`filtfilt`) | `src/lib/gait/signal.ts` | `zeroPhaseButterworth` | 135–180 |
+| Antonsson & Mann (1985) | OLS Linear Detrending ($y_d = y - (\alpha + \beta i)$) | `src/lib/gait/signal.ts` | `olsDetrend` | 76–99 |
+| Savitzky & Golay (1964) | 5-Point 1D Polynomial Temporal Coordinate Smoothing | `src/lib/gait/signal.ts` | `savitzkyGolay5` | 190–232 |
+| Kalman RE (1960) | 1D Scalar Kalman Filter with Occlusion Coasting | `src/lib/gait/signal.ts` | `kalmanFilter1D` & `smoothPoseFrames` | 244–425 |
+| Zeni JA et al. (2008) | Follow-Cam Foot Vector Direction Inference ($x_{\text{toe}} - x_{\text{heel}}$) | `src/lib/gait/events.ts` | `detectGaitEventsZeni` (Direction) | 237–289 |
+| Zeni JA et al. (2008) | Topographic Peak Prominence Filtering ($P_{\text{min}}$) | `src/lib/gait/events.ts` | `calculateProminence` & `findExtrema` | 55–148 |
+| Zeni JA et al. (2008) | 3-Point Parabolic Subframe Peak Refinement | `src/lib/gait/events.ts` | `refinePeakTimestamp` | 155–183 |
+| Zeni JA et al. (2008) | AP Foot Displacement Kinematic Algorithm | `src/lib/gait/events.ts` | `detectGaitEventsZeni` | 190–527 |
+| Zeni JA et al. (2008) | Frontal-Y Vertical Ankle Motion Fallback & ZUPT Acceleration Minima Fusion | `src/lib/gait/events.ts` | Frontal-Y Fallback & `detectFusedGaitEvents` | 321–382, 536–609 |
 | Zifchock RA et al. (2008) | Reference-Free Symmetry Angle ($SA$) | `src/lib/gait/symmetry.ts` | `symmetryAngle` | 19–42 |
-| Kelly VE et al. (2012) | Standardized Cadence DTE (Higher-Better) | `src/lib/gait/dte.ts` | `calculateDTE` (Cadence) | 48–53 |
-| Plummer & Eskes (2015) | 4-Tier Cognitive-Motor Interference Taxonomy | `src/lib/gait/dte.ts` | CMI Classification Tree | 72–89 |
-| O'Brien et al. (2019) | Camera View Angle Auto-Detection & Metric Suppression | `src/lib/gait/analysis.ts` | `detectViewAngle` & `computeGaitMetricsCore` | 73–516 |
-| Bland & Altman (1986) | Split-Half Standard Error $\text{SE}_{\text{split}}$ & 95% CIs | `src/lib/gait/analysis.ts` | `buildReliabilityBounds` & `computeGaitMetrics` | 206–554 |
-| Lord S et al. (2013) | Secondary Exploratory Composite Score Demotion | `src/lib/gait/analysis.ts` | Domain Composite Logic | 421–459 |
-| Hollman JH et al. (2010) | Clinical Rating & Favorability Engine | `src/lib/gait/ratings.ts` | `buildStructuredReport` | 199–599 |
-| Mirelman A et al. (2019) | Observational Pattern Decision Tree & Scope Ladder | `src/lib/gait/guesses.ts` | `buildEducatedGuesses` | 9–624 |
+| Kelly VE et al. (2012) | Standardized Cadence DTE (Higher-Better) | `src/lib/gait/dte.ts` | `calculateDTE` (Cadence) | 48–54 |
+| Plummer & Eskes (2015) | 4-Tier Cognitive-Motor Interference Taxonomy | `src/lib/gait/dte.ts` | CMI Classification Tree | 71–89 |
+| O'Brien et al. (2019) | Camera View Angle Auto-Detection & Metric Suppression | `src/lib/gait/analysis.ts` | `detectViewAngle` & `computeGaitMetricsCore` | 79–144, 244–581 |
+| Bland & Altman (1986) | Split-Half Standard Error $\text{SE}_{\text{split}}$ & 95% CIs | `src/lib/gait/analysis.ts` | `buildReliabilityBounds` & `computeGaitMetrics` | 212–242, 583–623 |
+| Lord S et al. (2013) | Secondary Exploratory Composite Score Demotion | `src/lib/gait/analysis.ts` | Domain Composite Logic | 489–565 |
+| O'Brien et al. (2019) | Multi-Person Centroid Tracking & Biometric Signature Re-ID | `src/lib/gait/analysis.ts` | Biometrics (`computeBiometricSignature`) & Multi-Person (`matchPeople`, `tracksToPeople`) | 717–1105 |
+| Hollman JH et al. (2010) | Steady-State Stride Duration Filter (>25% Median Trim) | `src/lib/gait/analysis.ts` | `filterSteadyStateStrides` | 1186–1229 |
+| Hollman JH et al. (2010) | Clinical Rating & Favorability Engine | `src/lib/gait/ratings.ts` | `buildStructuredReport` | 199–583 |
+| Mirelman A et al. (2019) | Observational Pattern Decision Tree & Scope Ladder | `src/lib/gait/guesses.ts` | `buildEducatedGuesses` | 32–628 |
+| CDC STEADI / Stevens JA (2013) | Fall Risk Model A Clinical Cutoffs (Speed, CV, DST, SA) | `src/lib/gait/fallrisk.ts` | `computeFallRiskModelA` | 183–327 |
+| Lord S et al. (2013) & Montero-Odasso M (2017) | Multi-Factor Composite Index Fall Risk Model B | `src/lib/gait/fallrisk.ts` | `computeFallRiskModelB` | 336–483 |
+| Cohen J (1960) | Inter-Model Predictive Agreement & Cohen's Kappa ($\kappa$) | `src/lib/gait/fallrisk.ts` | `evaluatePredictiveAgreement` | 490–590 |
+| Montero-Odasso M (2017) | Longitudinal Patient Baseline & Acute Weakness Anomaly Detector | `src/lib/gait/fallrisk.ts` | `computePatientBaseline` & `detectAcuteWeaknessAnomalies` | 596–907 |
+| MediaPipe / WebRTC (2023) | WebRTC Stream Acquisition & Real-Time Target Locking | `src/lib/gait/PoseTracker.ts` | `PoseTracker` (`startWebcam`, `loop`) | 85–384 |
 
 ---
 
@@ -379,9 +410,9 @@ Full system verification commands were executed across the entire codebase to co
 
 ### 7.5 Audit Remediation R5: Topographic Peak Prominence Filtering in Kinematic Event Detection
 - **Problem Statement**: Evaluating simple 3-point local inequalities (`x[i] > x[i-1] && x[i] >= x[i+1]`) flags low-amplitude noise ripples from landmark tracking jitter or filter transients as candidate peaks, producing spurious heel strike and toe off events.
-- **Biomechanical Solution**: `findExtrema` evaluates topographic peak prominence, requiring candidate peaks to exceed a dynamic minimum prominence threshold $P_{\text{min}} = \max(0.01, 0.15 \times \text{sigRange})$.
+- **Biomechanical Solution**: `findExtrema` evaluates topographic peak prominence, requiring candidate peaks to exceed a dynamic minimum prominence threshold $P_{\text{min}} = \max(0.001, 0.15 \times \text{sigRange})$.
 - **Mathematical Formulation**:
-  $$\text{Prom}_{\text{max}}(i) = y_i - \max(m_{\text{left}}, m_{\text{right}}), \quad P_{\text{min}} = \max(0.01, 0.15 \times (\max(x) - \min(x)))$$
+  $$\text{Prom}_{\text{max}}(i) = y_i - \max(m_{\text{left}}, m_{\text{right}}), \quad P_{\text{min}} = \max(0.001, 0.15 \times (\max(x) - \min(x)))$$
 
 ---
 

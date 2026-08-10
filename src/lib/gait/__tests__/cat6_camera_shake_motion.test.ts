@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGaitMetrics } from '../analysis';
-import { generateSyntheticWalkingFrames } from './testHelpers';
+import { generateSyntheticWalkingFrames, generateCombined3DCameraMotionFrames, assertAllMetricsFinite } from './testHelpers';
 import type { PoseFrame } from '../types';
 
 describe('Category 6: High-Frequency Camera Shake & Global Frame Motion Stress Tests', () => {
@@ -98,5 +98,20 @@ describe('Category 6: High-Frequency Camera Shake & Global Frame Motion Stress T
     expect(Number.isFinite(metrics.stepTimeCV)).toBe(true);
     expect(Number.isFinite(metrics.symmetryAngle)).toBe(true);
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
+    assertAllMetricsFinite(metrics);
+  });
+
+  it('Gap 6: remains robust under combined 3D camera translation, 15 deg roll, and scale zoom', () => {
+    const frames = generateCombined3DCameraMotionFrames(30, 4.0);
+    const metrics = computeGaitMetrics(frames);
+
+    expect(metrics).toBeDefined();
+    expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
+    expect(Number.isFinite(metrics.stepTimeCV)).toBe(true);
+    expect(Number.isFinite(metrics.symmetryAngle)).toBe(true);
+    expect(metrics.overallScore).toBeGreaterThanOrEqual(0);
+    expect(metrics.overallScore).toBeLessThanOrEqual(100);
+    assertAllMetricsFinite(metrics);
   });
 });
+

@@ -1,0 +1,105 @@
+{
+  "samples": [
+    {
+      "filename": "clinical-parkinsonian-gait.mp4",
+      "size": 7712232,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 10.5
+    },
+    {
+      "filename": "follow-cam-gait.mp4",
+      "size": 11277230,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 12.4
+    },
+    {
+      "filename": "frontal-gait.mp4",
+      "size": 7712232,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 10.5
+    },
+    {
+      "filename": "general-gait.mp4",
+      "size": 3702455,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 23.533333
+    },
+    {
+      "filename": "outdoor-follow-cam.mp4",
+      "size": 7712232,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 10.5
+    },
+    {
+      "filename": "pathological-asymmetric-gait.mp4",
+      "size": 11277230,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 12.4
+    },
+    {
+      "filename": "sagittal-gait.mp4",
+      "size": 7712232,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 10.5
+    },
+    {
+      "filename": "store-aisle-follow.mp4",
+      "size": 2263553,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 23.533333
+    },
+    {
+      "filename": "tuning-3992.mp4",
+      "size": 7712232,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 10.5
+    },
+    {
+      "filename": "tuning-3993.mp4",
+      "size": 11277230,
+      "moov_pos": 36,
+      "ffprobe_code": 0,
+      "ffprobe_err": "",
+      "ffmpeg_code": 0,
+      "ffmpeg_err": "",
+      "duration": 12.4
+    }
+  ],
+  "py_script_exists": false
+}

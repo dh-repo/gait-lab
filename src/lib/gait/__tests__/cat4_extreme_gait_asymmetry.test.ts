@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGaitMetrics } from '../analysis';
-import { generateSyntheticWalkingFrames } from './testHelpers';
+import { generateSyntheticWalkingFrames, generateAntalgicLimpingFrames, assertAllMetricsFinite } from './testHelpers';
 import type { PoseFrame } from '../types';
 
 describe('Category 4: Extreme Gait Asymmetry Stress Tests', () => {
@@ -154,5 +154,20 @@ describe('Category 4: Extreme Gait Asymmetry Stress Tests', () => {
     expect(Number.isFinite(metrics.symmetryAngle)).toBe(true);
     expect(metrics.symmetryAngle).toBeGreaterThan(1.0);
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
+    assertAllMetricsFinite(metrics);
+  });
+
+  it('Gap 4: quantifies severe antalgic limping asymmetry (70/30 stance ratio, asymmetry factor 2.0) without over-trimming', () => {
+    const frames = generateAntalgicLimpingFrames(30, 6.0);
+    const metrics = computeGaitMetrics(frames);
+
+    expect(metrics).toBeDefined();
+    expect(metrics.stepCount).toBeGreaterThanOrEqual(4);
+    expect(Number.isFinite(metrics.stepTimeCV)).toBe(true);
+    expect(metrics.stepTimeCV).toBeGreaterThan(0.08); // Preserves step time variability
+    expect(Number.isFinite(metrics.symmetryAngle)).toBe(true);
+    expect(metrics.symmetryAngle).toBeGreaterThan(4.0); // Captures distinct gait asymmetry
+    assertAllMetricsFinite(metrics);
   });
 });
+

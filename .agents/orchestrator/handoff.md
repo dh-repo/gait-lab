@@ -1,61 +1,67 @@
-# Orchestrator Final Handoff Report: Gait-Lab Google Workspace & Cloud Console Redesign
+# Project Completion Handoff — Project Orchestrator (Generation 2)
 
-**Project**: gait-lab  
-**Date**: 2026-08-09  
-**Status**: COMPLETE (All 4 Milestones Passed with 100% APPROVE & CLEAN Gate Verdicts)  
-**Location**: `/Users/damian/GitHub/gait-lab`  
+## Executive Summary
 
----
+All 5 core milestones for `gait-lab` optimization and alignment are **100% COMPLETE, VERIFIED, and AUDITED CLEAN**:
 
-## 1. Executive Summary
+1. **Milestone 1 — Fix 2 Failing Tests & Harden Algorithm Accuracy (R1)**:
+   - Root-cause fixes implemented in `filterSteadyStateStrides` (`analysis.ts`) and `buildReliabilityBounds` (`analysis.ts`).
+   - 861/861 Vitest tests passed. 0 `tsc` errors, 0 ESLint errors.
+   - Gate Result: **PASS** (Reviewers APPROVE, Challengers APPROVE, Auditor CLEAN).
 
-gait-lab's UI/UX has been transformed into a pure **Google Workspace & Cloud Console Desktop Workstation Experience**. Every component across the clinical workflow — top app bar, side navigation rail, tabbed analytical panels, high-density clinical data tables, Recharts kinematic trajectory visualizers, live webcam AR/CV pose canvas, dual-session comparison workstation, and A4 clinical PDF document export — has been redesigned with pure Google design tokens (`#1A73E8`, `#F8F9FA`, `#DADCE0`, `#202124`, `#5F6368`), Google Sans typography, and Google Material status chips.
+2. **Milestone 2 — Deepen Signal Processing & Event Detection Tuning (R2)**:
+   - Balanced parameter tuning across `events.ts`, `analysis.ts`, `signal.ts`, `PoseTracker.ts`, `ratings.ts`, `guesses.ts`, and `fallrisk.ts`.
+   - Optimized for `tuning-3992.mp4` and `tuning-3993.mp4` iPhone MOV reference clips.
+   - 891/891 Vitest tests passed. 0 `tsc` errors, 0 ESLint errors.
+   - Gate Result: **PASS** (Reviewers APPROVE, Challengers APPROVE, Auditor CLEAN).
 
-All 4 Milestones were executed via the Project Orchestration Pattern (Decompose → Direct → Review → Challenge → Audit Gate):
-- **Milestone 1**: Google Workspace & Cloud Console Design System & Workstation Shell Grid — **PASS (100% APPROVE & CLEAN)**
-- **Milestone 2**: High-Density Tabbed Clinical Analytics & Recharts Trajectory Charts — **PASS (100% APPROVE & CLEAN)**
-- **Milestone 3**: Real-Time AR/CV Pose Canvas, Session Comparison & A4 PDF Document Export — **PASS (100% APPROVE & CLEAN)**
-- **Milestone 4**: Dual Track E2E Verification & Forensic Integrity Sign-off — **PASS (100% APPROVE & CLEAN)**
+3. **Milestone 3 — Expand Adversarial Test Coverage for Identified Gaps (R3)**:
+   - Added synthetic adversarial test scenarios across 6 gap categories (landmark jitter, variable frame rate, occlusion, gait asymmetry, micro-steps, camera shake).
+   - 952/952 Vitest tests passed. 0 uncaught exceptions, 0 NaN/Infinity metrics.
+   - Gate Result: **PASS** (Reviewers APPROVE, Challengers APPROVE, Auditor CLEAN).
 
----
+4. **Milestone 4 — Download & Integrate Reference Gait Video Data (R4)**:
+   - Extracted 8 MOV-derived reference clips from raw iPhone MOVs (`IMG_3992.MOV`, `IMG_3993.MOV`) into `public/samples/`.
+   - Remediated FFmpeg extraction script with `stdio: "inherit"`, `-map 0:v:0`, `-c:v libx264 -preset fast -pix_fmt yuv420p -movflags +faststart -an -sn -dn`, and synchronous verification.
+   - Physical container inspection (`ffprobe -v error` and full H.264 bitstream decode `ffmpeg -v error -i <file> -f null -`) returns **0 stderr bytes** across all 10 files in `public/samples/`, with front-located `moov` atom header at byte offset **36**.
+   - `SamplePicker.tsx` registry metadata matches physical durations 100%. Legacy synthetic `generate_sample_videos.py` permanently deleted.
+   - 986/986 Vitest tests passed. 0 `tsc` errors, 0 ESLint errors.
+   - Gate Result: **PASS** (Reviewers APPROVE, Challengers APPROVE, Auditor CLEAN).
 
-## 2. Key Achievements & Component Architecture
-
-1. **Google Workspace & Cloud Console Desktop Workstation Shell** (`R1`, `R2`):
-   - **Fonts & Typography**: Integrated Google Sans, Google Sans Text, Roboto, Roboto Mono, and Material Symbols Outlined in `src/routes/__root.tsx`.
-   - **Design Tokens**: Standardized `@theme` tokens in `src/styles.css`: `#1A73E8` (Google Blue), `#F8F9FA` (Surface Light), `#DADCE0` (Border), `#202124` (Text Dark), `#5F6368` (Text Secondary), alongside Material status chips (`#E8F0FE` info, `#E6F4EA` success, `#FEF7E0` warning, `#FCE8E6` danger).
-   - **Google Top App Bar** (`GoogleTopAppBar.tsx` & `WorkflowHeader.tsx`): Google Workspace top bar featuring Google logo, central search (`data-testid="top-app-bar-search"`), stage step pills (`Capture` → `Process` → `Analyze` → `Report`), and quick tool buttons.
-   - **Google Cloud Console Side Navigation Rail** (`SideNavRail.tsx`): Collapsible left side rail (`w-16` / `w-60`) with 4 section groups ("WORKSTATION", "ANALYTICS & KINEMATICS", "REPORTS & EXPORT", "SYSTEM & MODEL").
-   - **Workstation Layout Grid** (`GaitApp.tsx`): High-density flex grid layout housing top header, side rail, main content view, and footer.
-
-2. **High-Density Tabbed Clinical Analytics & Recharts Visualizer** (`R3`):
-   - **Kinematic Trajectory Charts** (`JointAnglesChart.tsx`): Recharts `ComposedChart` featuring solid `#1A73E8` Left leg curve, dashed `#34A853` Right leg curve, `#E8F0FE` Perry & Burnfield normative range shaded polygon (`fillOpacity={0.45}`), `#BDC1C6` dashed bounds, `#DADCE0` un-dashed gridlines (`opacity={0.6}`), dark `#202124` popover tooltip, peak ROM stat chips, and Google Workspace pill tabs.
-   - **High-Density Clinical Tables** (`MetricsPanel.tsx`, `CognitiveClusters.tsx`): Converted spatio-temporal parameters into `.clinical-table` tables (32px row height, `#F8F9FA` header, `#DADCE0` gridlines, `tabular-nums`) with Material status chips.
-   - **Hypothesis & Documentation Cards** (`GuessesPanel.tsx`, `GuidePanel.tsx`): Google Workspace recommendation and documentation cards.
-
-3. **Live AR/CV Pose Canvas, Session Comparison & A4 PDF Export** (`R3`):
-   - **Google AR/CV Pose Canvas** (`SkeletonCanvas.tsx`): Live canvas pose rendering featuring Electric Cyan (`#00E5FF`) / Google Blue (`#1A73E8`) joint nodes, `#00E5FF` limb connections (`strokeWidth={3}`), AR sway vector reticles, confidence meters, and dark `#202124` HUD overlay badge.
-   - **Dual-Session Comparison Workstation** (`SessionComparisonView.tsx`): Google Workspace card layout with `#1A73E8` accent header, Baseline A vs Target B selectors, `.clinical-table` delta tables (`#E6F4EA` green improvement, `#FCE8E6` red regression), and 101-point resampled trajectory overlays against normative bands (`#E8F0FE`).
-   - **A4 Clinical PDF Document Export** (`ClinicalReportView.tsx`): Google Workspace document layout with top `#1A73E8` header banner, patient metadata form card, 5-Domain Radar Chart (`#1A73E8`), Zeni phase progress bars, clinician sign-off block, and `@media print` A4 PDF layout rules.
-
----
-
-## 3. Verification Suite Summary
-
-| Check | Tool / Command | Result |
-|-------|----------------|--------|
-| Static Type Check | `npm run typecheck` (`tsc --noEmit`) | **0 Errors (Exit code 0)** |
-| ESLint Code Quality | `npm run lint` (`eslint .`) | **0 Warnings / Errors (Exit code 0)** |
-| Test Suite Pass Rate | `npm test` | **55 Test Files Passed, 530/530 Tests Passed (100%)** |
-| Production Build | `npm run build` | **Succeeded (Vercel Nitro build complete)** |
-| Forensic Integrity Audit | `teamwork_preview_auditor` | **CLEAN (0 hardcoded test bypasses or facades)** |
+5. **Milestone 5 — Documentation & Scientific Justification Alignment (R5)**:
+   - Updated `scientific_justifications.md` Section 4 mapping table for all 27 mapped functions/subsystems with exact line numbers matching current `src/lib/gait/` codebase.
+   - Renamed `linearDetrend` to `olsDetrend` (`signal.ts` L76-99).
+   - Updated topographic peak prominence floor notation to `Math.max(0.001, 0.15 * sigRange)`.
+   - Mapped 8 previously unmapped core subsystems (`fallrisk.ts`, `savitzkyGolay5`, `kalmanFilter1D`, `matchPeople`, `mergeFragmentedTracks`, `filterSteadyStateStrides`, `detectFusedGaitEvents`, `PoseTracker.ts`). Added 4 missing scientific citations to Section 2.
+   - Updated `peer_review_report.md` §2 R1.4 to document removal of `smoothness.ts` / Trunk Harmonic Ratio ($HR$).
+   - 986/986 Vitest tests passed. 0 `tsc` errors, 0 ESLint errors.
+   - Gate Result: **PASS** (Reviewers APPROVE, Challengers APPROVE, Auditor CLEAN).
 
 ---
 
-## 4. Master Artifact Index
+## Final Verification Matrix
 
-- Master Project Plan: `/Users/damian/GitHub/gait-lab/PROJECT.md`
-- Original User Request: `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
-- Gate Verdict History: `/Users/damian/GitHub/gait-lab/.agents/orchestrator/GATE_STATUS.md`
-- Orchestrator Progress: `/Users/damian/GitHub/gait-lab/.agents/orchestrator/progress.md`
-- Orchestrator Briefing: `/Users/damian/GitHub/gait-lab/.agents/orchestrator/BRIEFING.md`
+| Metric | Target | Actual Result | Status |
+|--------|--------|---------------|--------|
+| Vitest Test Suite | 100% Green Pass Rate | **76/76 files passed, 986/986 tests passed** | PASS |
+| TypeScript Compilation | 0 Errors | **0 Errors** (`npx tsc --noEmit`) | PASS |
+| ESLint Static Analysis | 0 Errors | **0 Errors** (`npx eslint .`) | PASS |
+| Production Build | Valid Output | **Succeeded** (`npm run build`) | PASS |
+| Duplicate Person Tracks | 0 False Duplicates | **0 False Duplicates** | PASS |
+| Adversarial Gap Categories | ≥6 Categories Added | **6 Categories Added & Passing** | PASS |
+| Reference Video Assets | ≥2 Reference Clips | **8 MOV-Derived Clips Integrated (10 total)** | PASS |
+| MP4 Container Integrity | 0 `ffprobe` Stderr Bytes | **0 Stderr Bytes, `moov` at offset 36** | PASS |
+| Scientific Documentation | §4 Line Mappings Verified | **27/27 Mappings 100% Aligned** | PASS |
+
+---
+
+## Key Artifacts
+- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md` — Immutable user requirements
+- `/Users/damian/GitHub/gait-lab/PROJECT.md` — Project scope, feature inventory, and milestone status
+- `/Users/damian/GitHub/gait-lab/.agents/orchestrator/BRIEFING.md` — Orchestrator briefing state
+- `/Users/damian/GitHub/gait-lab/.agents/orchestrator/progress.md` — Final progress heartbeat log
+- `/Users/damian/GitHub/gait-lab/.agents/orchestrator/GATE_STATUS.md` — All milestone gate verdicts
+- `/Users/damian/GitHub/gait-lab/.agents/worker_m5_1/report_m5_1.md` — M5 implementation report
+- `/Users/damian/GitHub/gait-lab/.agents/auditor_m5_1/handoff.md` — M5 Forensic audit report (CLEAN)
+- `/Users/damian/GitHub/gait-lab/scientific_justifications.md` — Updated scientific justifications
+- `/Users/damian/GitHub/gait-lab/peer_review_report.md` — Updated peer review report

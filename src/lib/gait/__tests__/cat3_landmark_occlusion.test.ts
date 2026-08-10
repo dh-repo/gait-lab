@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGaitMetrics } from '../analysis';
-import { generateSyntheticWalkingFrames } from './testHelpers';
+import { generateSyntheticWalkingFrames, generateUTurnSelfOcclusionFrames, assertAllMetricsFinite } from './testHelpers';
 import type { PoseFrame } from '../types';
 
 describe('Category 3: Severe Landmark Occlusion Stress Tests', () => {
@@ -76,5 +76,20 @@ describe('Category 3: Severe Landmark Occlusion Stress Tests', () => {
     expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
     expect(Number.isFinite(metrics.stepTimeCV)).toBe(true);
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
+    assertAllMetricsFinite(metrics);
+  });
+
+  it('Gap 3: handles 180 deg U-turn self-occlusion and leg crossover gracefully', () => {
+    const frames = generateUTurnSelfOcclusionFrames(30, 6.0);
+    const metrics = computeGaitMetrics(frames);
+
+    expect(metrics).toBeDefined();
+    expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
+    expect(metrics.cadenceSpm).toBeGreaterThan(0);
+    expect(Number.isFinite(metrics.symmetryAngle)).toBe(true);
+    expect(metrics.overallScore).toBeGreaterThanOrEqual(0);
+    expect(metrics.overallScore).toBeLessThanOrEqual(100);
+    assertAllMetricsFinite(metrics);
   });
 });
+

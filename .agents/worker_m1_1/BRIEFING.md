@@ -1,52 +1,55 @@
-# BRIEFING — 2026-08-09T21:22:10Z
+# BRIEFING — 2026-08-10T03:35:40Z
 
 ## Mission
-Implement Milestone M1 (Computer Vision & Model Fidelity Upgrades) in `gait-lab`.
+Execute Milestone 1: Fix 2 Failing Tests & Harden Algorithm Accuracy in gait-lab.
 
 ## 🔒 My Identity
-- Archetype: implementer
+- Archetype: implementer, qa, specialist
 - Roles: implementer, qa, specialist
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/worker_m1_1
-- Original parent: 75715ff9-9d80-47ae-bd6a-226d8bd44d8a
-- Milestone: M1
+- Original parent: e41552d4-18b9-4bd1-a014-7394a83c1796
+- Milestone: Milestone 1 (Fix 2 Failing Tests & Harden Algorithm Accuracy)
 
 ## 🔒 Key Constraints
-- DO NOT hardcode test results or create dummy implementations.
-- Maintain genuine state and behavior.
-- Ensure all tests pass (`npm test`), types check (`npm run typecheck`), linting passes (`npm run lint`), and build succeeds (`npm run build`).
+- Own edits to `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts`.
+- DO NOT CHEAT. Genuine implementations only.
+- 0 TypeScript errors (`npx tsc --noEmit`).
+- 0 ESLint errors (`npx eslint .`).
+- All vitest tests pass (`npx vitest run`).
 
 ## Current Parent
-- Conversation ID: 75715ff9-9d80-47ae-bd6a-226d8bd44d8a
-- Updated: 2026-08-09T21:22:10Z
+- Conversation ID: e41552d4-18b9-4bd1-a014-7394a83c1796
+- Updated: 2026-08-10T03:35:40Z
 
 ## Task Summary
-- **What to build**: Pose model candidate hierarchy & GPU/CPU fallback in `pose.ts`, signal filtering (`savitzkyGolay5`, `kalmanFilter1D`, `smoothPoseFrames`) in `signal.ts`, integrate `smoothingMethod` into `analysis.ts` & `types.ts`, add comprehensive unit tests in `pose.test.ts`, `signal.test.ts`, `analysis.test.ts`.
-- **Success criteria**: Full implementation passing all tests, lint, typecheck, build.
-- **Interface contracts**: `PROJECT.md`, `SCOPE.md`, explorer handoffs.
-- **Code layout**: `src/lib/gait/`
+- **What to build**: Update parameters in `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts` per blueprint_m1.md to fix failing tests and harden algorithm accuracy.
+- **Success criteria**: All vitest tests pass, 0 tsc errors, 0 eslint errors, report written to `report_m1.md` and `handoff.md`.
+- **Interface contracts**: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
+- **Code layout**: /Users/damian/GitHub/gait-lab/src/lib/gait/
 
 ## Key Decisions Made
-- Implemented `MODEL_CANDIDATES` hierarchy `heavy` -> `full` -> `lite` with local paths and CDN URLs, tagging `loadedModelTier` and `loadedDelegate` on `PoseLandmarkerLike`.
-- Implemented `savitzkyGolay5` with 5-point quadratic kernel `[-3, 12, 17, 12, -3] / 35` and reflection padding.
-- Implemented scalar 1D `kalmanFilter1D` state-space model with default Q=1e-4, R=1e-2 and occlusion coasting over NaNs.
-- Integrated `smoothPoseFrames` at entry of `computeGaitMetricsCore` before downstream metric extractions.
+- Updated `MIN_STEP_SEC` from 0.3 to 0.15 in `src/lib/gait/analysis.ts`.
+- Updated `filterSteadyStateStrides` threshold from 0.25 to 0.40 in `src/lib/gait/analysis.ts`.
+- Updated `minGap` multiplier from 0.35 to 0.18 in `src/lib/gait/events.ts`.
+- Updated `yMinGap` multiplier from 0.33 to 0.18 in `src/lib/gait/events.ts`.
 
 ## Change Tracker
-- **Files modified**: `src/lib/gait/pose.ts`, `src/lib/gait/signal.ts`, `src/lib/gait/types.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/__tests__/pose.test.ts` (new), `src/lib/gait/__tests__/signal.test.ts`, `src/lib/gait/__tests__/analysis.test.ts`.
-- **Build status**: PASS (100% tests, 0 typecheck errors, 0 lint errors, clean build).
-- **Pending issues**: None.
+- **Files modified**:
+  - `src/lib/gait/analysis.ts`: Updated MIN_STEP_SEC and steady state filter thresholds.
+  - `src/lib/gait/events.ts`: Updated minGap and yMinGap thresholds in detectGaitEventsZeni.
+- **Build status**: PASS (861/861 vitest passed, 0 tsc errors, 0 eslint errors)
+- **Pending issues**: none
 
 ## Quality Status
-- **Build/test result**: `npm test` PASSED, `npm run build` PASSED.
-- **Lint status**: `npm run lint` PASSED (0 errors).
-- **Typecheck status**: `npm run typecheck` PASSED (0 errors).
-- **Tests added/modified**: `pose.test.ts`, `signal.test.ts`, `analysis.test.ts`.
+- **Build/test result**: PASS (861/861 passed across 66 test files)
+- **Lint status**: PASS (0 errors, 17 warnings)
+- **Tests added/modified**: 2 failing tests fixed
 
 ## Loaded Skills
-None.
+None loaded for this task.
 
 ## Artifact Index
-- `.agents/worker_m1_1/DISPATCH.md` — Task instructions
-- `.agents/worker_m1_1/BRIEFING.md` — Active briefing state
-- `.agents/worker_m1_1/progress.md` — Execution progress log
-- `.agents/worker_m1_1/handoff.md` — Final completion handoff report
+- /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/DISPATCH.md — Dispatch prompt
+- /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/BRIEFING.md — Persistent memory briefing
+- /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/report_m1.md — Execution report
+- /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md — Handoff report

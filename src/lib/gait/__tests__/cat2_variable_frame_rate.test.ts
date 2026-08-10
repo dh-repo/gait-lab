@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGaitMetrics } from '../analysis';
-import { generateSyntheticWalkingFrames } from './testHelpers';
+import { generateSyntheticWalkingFrames, generateBlackoutDropRecoveryFrames, assertAllMetricsFinite } from './testHelpers';
 import type { PoseFrame } from '../types';
 
 describe('Category 2: Variable Frame Rates & Frame Drop Rates Stress Tests', () => {
@@ -86,5 +86,45 @@ describe('Category 2: Variable Frame Rates & Frame Drop Rates Stress Tests', () 
     expect(metrics.durationSec).toBeGreaterThan(0);
     expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
+    assertAllMetricsFinite(metrics);
+  });
+
+  it('Gap 2: handles variable frame rate sweeps across 15 to 120 FPS without metric degradation', () => {
+    const fpsRates = [15, 24, 30, 60, 120];
+    for (const fps of fpsRates) {
+      const frames = generateSyntheticWalkingFrames({ fps, durationSec: 4.0 });
+      const metrics = computeGaitMetrics(frames);
+
+      expect(metrics).toBeDefined();
+      expect(metrics.fpsEffective).toBeGreaterThan(0);
+      expect(Number.isFinite(metrics.durationSec)).toBe(true);
+      expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
+      expect(metrics.cadenceSpm).toBeGreaterThan(0);
+      assertAllMetricsFinite(metrics);
+    }
+  });
+
+  it('Gap 2: handles 2.5s frame blackout drop and variable delta-t recovery without false strides', () => {
+    const frames = generateBlackoutDropRecoveryFrames({
+      fps: 30,
+      durationSec: 10.0,
+      blackoutStartSec: 3.0,
+      blackoutEndSec: 5.5,
+    });
+    const metrics = computeGaitMetrics(frames);
+
+    expect(metrics).toBeDefined();
+    expect(metrics.fpsEffective).toBeGreaterThan(0);
+    expect(Number.isFinite(metrics.durationSec)).toBe(true);
+    expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
+    expect(Number.isFinite(metrics.stepTimeCV)).toBe(true);
+
+    // Verify 0 bogus step events were created inside the 2.5s blackout interval (3.0s to 5.5s)
+    const blackoutEvents = metrics.stepEvents.filter(
+      (e) => e.timeSec >= 3.0 && e.timeSec <= 5.5
+    );
+    expect(blackoutEvents.length).toBe(0);
+    assertAllMetricsFinite(metrics);
   });
 });
+

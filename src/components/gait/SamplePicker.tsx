@@ -48,7 +48,7 @@ export const SAMPLE_VIDEOS: SampleVideoInfo[] = [
     title: "Sagittal View (Side)",
     viewBadge: "Sagittal View",
     tone: "primary",
-    duration: "12.0s",
+    duration: "10.5s",
     url: "/samples/sagittal-gait.mp4",
     filename: "sagittal-gait.mp4",
     description:
@@ -60,7 +60,7 @@ export const SAMPLE_VIDEOS: SampleVideoInfo[] = [
     title: "Frontal View (Front)",
     viewBadge: "Frontal View",
     tone: "accent",
-    duration: "12.0s",
+    duration: "10.5s",
     url: "/samples/frontal-gait.mp4",
     filename: "frontal-gait.mp4",
     description:
@@ -72,7 +72,7 @@ export const SAMPLE_VIDEOS: SampleVideoInfo[] = [
     title: "Follow-Cam Tracking",
     viewBadge: "Follow-Cam",
     tone: "warn",
-    duration: "12.0s",
+    duration: "12.4s",
     url: "/samples/follow-cam-gait.mp4",
     filename: "follow-cam-gait.mp4",
     description:
@@ -102,6 +102,42 @@ export const SAMPLE_VIDEOS: SampleVideoInfo[] = [
     description:
       "Real indoor walkway walking clip featuring multi-person detection, continuous windowing, and 6-domain normative gait scoring.",
     features: ["Multi-Person Track", "Domain Scores", "Real Walkway"],
+  },
+  {
+    id: "clinical_parkinsonian",
+    title: "Clinical: Parkinsonian Shuffling",
+    viewBadge: "Clinical · Sagittal",
+    tone: "warn",
+    duration: "10.5s",
+    url: "/samples/clinical-parkinsonian-gait.mp4",
+    filename: "clinical-parkinsonian-gait.mp4",
+    description:
+      "Genuine clinical reference clip depicting Parkinsonian festination and micro-step shuffling gait — stooped posture, reduced arm swing, and rapid low-amplitude cadence.",
+    features: ["Festination", "Micro-steps", "Reduced Arm Swing"],
+  },
+  {
+    id: "pathological_asymmetric",
+    title: "Clinical: Pathological Asymmetric",
+    viewBadge: "Clinical · Antalgic",
+    tone: "warn",
+    duration: "12.4s",
+    url: "/samples/pathological-asymmetric-gait.mp4",
+    filename: "pathological-asymmetric-gait.mp4",
+    description:
+      "Genuine pathological reference gait clip evaluating antalgic stance asymmetry, irregular step time CV, and bilateral propulsion imbalance across gait cycles.",
+    features: ["Antalgic Limp", "Asymmetric Stance", "High Step CV"],
+  },
+  {
+    id: "outdoor_follow",
+    title: "Outdoor: Tracking Follow-Cam",
+    viewBadge: "Outdoor · Follow-Cam",
+    tone: "accent",
+    duration: "10.5s",
+    url: "/samples/outdoor-follow-cam.mp4",
+    filename: "outdoor-follow-cam.mp4",
+    description:
+      "Genuine outdoor follow-cam recording evaluating tracking stability, ground plane texture, camera motion, and continuous hip centering under ambient light.",
+    features: ["Outdoor Walk", "Camera Motion", "Tracking Lock"],
   },
 ];
 

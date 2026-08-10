@@ -1,44 +1,51 @@
-# BRIEFING — 2026-08-09T05:05:48Z
+# BRIEFING — 2026-08-10T11:39:01Z
 
 ## Mission
-M6: R2 Harmonic Ratio Fundamental Frequency & Hann Window Leakage implementation and verification.
+Milestone 6: Implement Clinical Normative Reference Integration & GDI (`normatives.ts`, `ratings.ts`, `guesses.ts`, and `normatives.test.ts`).
 
 ## 🔒 My Identity
-- Archetype: worker
+- Archetype: implementer, qa, specialist
 - Roles: implementer, qa, specialist
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/worker_m6_1
-- Original parent: d113b6ec-7314-418b-9d92-f0a51046d369
-- Milestone: M6
+- Original parent: 2961d4a1-cd72-437a-a1a6-80f6cbfc5c50
+- Milestone: Milestone 6
 
 ## 🔒 Key Constraints
-- Exclusive write access to `src/lib/gait/signal.ts`, `src/lib/gait/smoothness.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/__tests__/smoothness.test.ts`, `src/lib/gait/__tests__/signal.test.ts`.
-- DO NOT CHEAT. All implementations must be genuine.
+- Exclusive file ownership:
+  - `src/lib/gait/normatives.ts`
+  - `src/lib/gait/ratings.ts`
+  - `src/lib/gait/guesses.ts`
+  - `src/lib/gait/__tests__/normatives.test.ts`
+- DO NOT CHEAT: real math, real data lookup, real GDI calculations, real state.
+- All tests passing with Vitest (`npx vitest run`), 0 tsc errors (`npx tsc --noEmit`).
 
 ## Current Parent
-- Conversation ID: d113b6ec-7314-418b-9d92-f0a51046d369
-- Updated: 2026-08-09T05:05:48Z
+- Conversation ID: 2961d4a1-cd72-437a-a1a6-80f6cbfc5c50
+- Updated: 2026-08-10T11:39:01Z
 
 ## Task Summary
-- **What to build**: Update `computeFFTHarmonics` in `signal.ts` to accept `strideFreq` & `fps`, calculate f0Bin or fallback to peak search, and sum $\pm 1$ bin neighborhood for Hann window leakage. Update `computeHarmonicRatio` in `smoothness.ts` to accept `meanStrideSec` and pass `strideFreq` & `fps`. Update `analysis.ts` to pass `gaitEvents.meanStrideSec`. Add comprehensive unit tests.
-- **Success criteria**: Harmonic ratio matches literature-aligned values for symmetric gait (~2.5-4.0), tests pass, typecheck and lint pass without warnings/errors.
-
-## Key Decisions Made
-- Updated `computeFFTHarmonics` to accept optional `fps` and `strideFreq` parameters with backward compatibility for legacy calls.
-- Integrated $\pm 1$ bin Hann window spectral leakage summation and continuous `centerBin` indexing per harmonic.
-- Updated `computeHarmonicRatio` in `smoothness.ts` and `computeGaitMetrics` in `analysis.ts` to pass detected stride frequency $f_0 = 1 / \text{meanStrideSec}$.
-- Added literature alignment and Hann window leakage unit tests.
+- **What to build**: `normatives.ts` with Winter (2009) & Bovi et al. (2011) datasets, `calculateZScore`, `erf`, `calculatePercentile`, `getNormativeReference`, `calculateGDI`, `evaluateGaitNormatives`. Integrated in `ratings.ts` and `guesses.ts`. Unit tests in `normatives.test.ts`.
+- **Success criteria**: 100% passing tests, 0 tsc errors, full verification.
 
 ## Change Tracker
 - **Files modified**:
-  - `src/lib/gait/signal.ts`: Updated `computeFFTHarmonics`
-  - `src/lib/gait/smoothness.ts`: Updated `computeHarmonicRatio`
-  - `src/lib/gait/analysis.ts`: Updated call to `computeHarmonicRatio`
-  - `src/lib/gait/__tests__/signal.test.ts`: Added unit tests
-  - `src/lib/gait/__tests__/smoothness.test.ts`: Added unit tests
-- **Build status**: PASS
+  - `src/lib/gait/normatives.ts`: Created
+  - `src/lib/gait/ratings.ts`: Modified
+  - `src/lib/gait/guesses.ts`: Modified
+  - `src/lib/gait/__tests__/normatives.test.ts`: Created
+- **Build status**: Pass (`npx tsc --noEmit` 0 errors)
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: PASS (189/189 tests passed)
-- **Lint status**: PASS (0 errors)
-- **Tests added/modified**: 4 new tests added across signal.test.ts and smoothness.test.ts
+- **Build/test result**: Pass (15/15 tests passing in `normatives.test.ts`)
+- **Lint status**: Pass
+- **Tests added/modified**: 15 unit tests in `src/lib/gait/__tests__/normatives.test.ts`
+
+## Loaded Skills
+- None
+
+## Artifact Index
+- `/Users/damian/GitHub/gait-lab/.agents/worker_m6_1/DISPATCH.md` — Dispatch task instructions
+- `/Users/damian/GitHub/gait-lab/.agents/worker_m6_1/BRIEFING.md` — Agent briefing state
+- `/Users/damian/GitHub/gait-lab/.agents/worker_m6_1/progress.md` — Agent progress log
+- `/Users/damian/GitHub/gait-lab/.agents/worker_m6_1/handoff.md` — Handoff report

@@ -1,17 +1,15 @@
-# DISPATCH — Forensic Auditor 1 (Integrity & Authenticity Audit)
+## 2026-08-10T07:39:52Z
+You are auditor_m2_1.
+Your working directory is: /Users/damian/GitHub/gait-lab/.agents/auditor_m2_1
+Project scope path: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
+Original request path: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
+Worker report path: /Users/damian/GitHub/gait-lab/.agents/worker_m2_1/report_m2.md
 
-## Task Objective
-Perform rigorous forensic integrity audit on all Milestone 2 code additions (`SessionComparisonView.tsx`, `SessionComparisonView.test.tsx`, and integrations in `GaitApp.tsx`, `WorkflowHeader.tsx`, `SessionHistoryDrawer.tsx`).
+MANDATORY AUDIT VERIFICATION:
+Perform forensic integrity verification on Milestone 2 edits (`events.ts`, `analysis.ts`, `signal.ts`, `PoseTracker.ts`, `ratings.ts`, `guesses.ts`, `fallrisk.ts`).
+1. Verify no hardcoded test outputs or mock shortcuts were added.
+2. Verify git status / git diff to ensure no test assertions were weakened.
+3. Verify actual code execution and genuine algorithmic processing.
+4. Report explicit verdict: CLEAN or INTEGRITY VIOLATION.
 
-## Primary References
-- Authoritative User Request: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-- Scope Document: /Users/damian/GitHub/gait-lab/.agents/sub_orch_m2/SCOPE.md
-- Worker Handoff: /Users/damian/GitHub/gait-lab/.agents/worker_m2_1/handoff.md
-
-## Forensic Verification Protocol
-1. Inspect implementation files for any hardcoded test results, facade implementations, mock overrides, or skipped calculations.
-2. Verify that metric delta calculations ($\Delta$ and $\% \Delta$) and Recharts joint curve rendering execute genuine math and real data structures.
-3. Verify unit tests contain real assertions exercising genuine component behavior without dummy mocks or short-circuits.
-4. Render a binary verdict: `CLEAN` or `INTEGRITY VIOLATION`.
-
-Write your full forensic audit report to /Users/damian/GitHub/gait-lab/.agents/auditor_m2_1/handoff.md and report back.
+OUTPUT: Deliver handoff.md in your working directory containing your forensic report and explicit verdict (CLEAN or INTEGRITY VIOLATION). Send a message to parent.

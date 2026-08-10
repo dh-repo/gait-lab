@@ -1,13 +1,9 @@
-## 2026-08-09T21:42:02Z
-<USER_REQUEST>
-You are Reviewer 1 for Milestone 4: Dual Track E2E Verification & Forensic Integrity Sign-off.
-Working directory for your metadata: /Users/damian/GitHub/gait-lab/.agents/reviewer_m4_1
-Please read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md` and `/Users/damian/GitHub/gait-lab/PROJECT.md`.
+## 2026-08-10T07:51:04Z
 
-Task:
-Perform final global code review across the entire codebase (`src/routes/__root.tsx`, `src/styles.css`, `src/components/ui/*`, `GoogleTopAppBar.tsx`, `SideNavRail.tsx`, `WorkflowHeader.tsx`, `GaitApp.tsx`, `JointAnglesChart.tsx`, `MetricsPanel.tsx`, `CognitiveClusters.tsx`, `GuessesPanel.tsx`, `GuidePanel.tsx`, `SkeletonCanvas.tsx`, `SessionComparisonView.tsx`, `ClinicalReportView.tsx`):
-1. Verify Google Workspace / Cloud Console design tokens (`#1A73E8`, `#F8F9FA`, `#DADCE0`, `#202124`, `#5F6368`), Google Sans typography, high-density clinical tables, Google AR/CV style pose canvas, tabbed panels, and A4 PDF export layout.
-2. Run `npm run typecheck`, `npm run lint`, and `npm test`.
-
-Write your report to `/Users/damian/GitHub/gait-lab/.agents/reviewer_m4_1/handoff.md` with explicit verdict: `APPROVE` or `REQUEST_CHANGES`. Update progress.md in your directory and notify parent.
-</USER_REQUEST>
+Review worker_m4_1's reference gait video integration for Milestone 4 (Download & Integrate Reference Gait Video Data R4).
+Project root: /Users/damian/GitHub/gait-lab
+Working directory: /Users/damian/GitHub/gait-lab/.agents/reviewer_m4_1
+Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md, /Users/damian/GitHub/gait-lab/.agents/worker_m4_1/report_m4.md, src/components/gait/SamplePicker.tsx, src/lib/gait/__tests__/sample_picker.test.ts, and inspect files in public/samples/.
+Run test verification (npx vitest run), typecheck (npx tsc --noEmit), and lint (npx eslint .).
+Evaluate registry completeness (SAMPLE_VIDEOS length >= 10, metadata, filenames, durations), physical existence and size of MP4 files, encoding compatibility, and test assertions in sample_picker.test.ts.
+Deliver handoff.md in /Users/damian/GitHub/gait-lab/.agents/reviewer_m4_1 with your verdict (APPROVE or REQUEST_CHANGES).

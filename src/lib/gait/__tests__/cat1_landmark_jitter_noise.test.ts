@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGaitMetrics } from '../analysis';
-import { generateSyntheticWalkingFrames } from './testHelpers';
+import { generateSyntheticWalkingFrames, generateAsymmetricLimbNoiseFrames, assertAllMetricsFinite } from './testHelpers';
 import type { PoseFrame } from '../types';
 
 describe('Category 1: Severe Landmark Jitter & Salt-and-Pepper Noise Stress Tests', () => {
@@ -96,10 +96,24 @@ describe('Category 1: Severe Landmark Jitter & Salt-and-Pepper Noise Stress Test
     expect(Number.isFinite(metrics.overallScore)).toBe(true);
 
     // Verify all numeric properties in GaitMetrics are finite and not NaN
-    for (const [_key, val] of Object.entries(metrics)) {
-      if (typeof val === 'number') {
-        expect(Number.isFinite(val)).toBe(true);
-      }
+    assertAllMetricsFinite(metrics);
+  });
+
+  it('Gap 1: handles asymmetric single-limb Gaussian noise (sigma 0.01 - 0.05 std dev) cleanly', () => {
+    // Test across noise range 0.01 to 0.05 std dev
+    for (const sigma of [0.01, 0.03, 0.05]) {
+      const frames = generateAsymmetricLimbNoiseFrames({ fps: 30, durationSec: 4.0, noiseSigma: sigma, targetLimb: 'right' });
+      const metrics = computeGaitMetrics(frames);
+
+      expect(metrics).toBeDefined();
+      expect(Number.isFinite(metrics.cadenceSpm)).toBe(true);
+      expect(metrics.cadenceSpm).toBeGreaterThan(0);
+      expect(Number.isFinite(metrics.stepTimeCV)).toBe(true);
+      expect(Number.isFinite(metrics.symmetryAngle)).toBe(true);
+      expect(metrics.overallScore).toBeGreaterThanOrEqual(0);
+      expect(metrics.overallScore).toBeLessThanOrEqual(100);
+      assertAllMetricsFinite(metrics);
     }
   });
 });
+

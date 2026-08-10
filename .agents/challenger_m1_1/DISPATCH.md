@@ -1,20 +1,13 @@
-# Dispatch for Challenger M1-1
+## 2026-08-10T07:35:43Z
+You are challenger_m1_1.
+Your working directory is: /Users/damian/GitHub/gait-lab/.agents/challenger_m1_1
+Project scope path: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
+Original request path: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
+Worker report path: /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/report_m1.md
 
-**Role**: teamwork_preview_challenger (Empirical Model Fallback & Stress Testing Specialist)
-**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/challenger_m1_1
+OBJECTIVE:
+Adversarially challenge the Milestone 1 algorithm fixes in `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts`.
+1. Run stress tests and test suites (`npx vitest run`).
+2. Write synthetic edge case tests or stress assertions to verify `filterSteadyStateStrides` and `detectGaitEventsZeni` handle extreme inputs without crashing, returning NaN/Infinity, or breaking monotonic confidence intervals.
 
-## Objective
-Empirically stress-test and challenge the MediaPipe Pose Landmarker model candidate hierarchy and delegate fallbacks in `src/lib/gait/pose.ts` and `src/lib/gait/__tests__/pose.test.ts`:
-1. Verify that all 12 candidate fallback branches (3 tiers * 2 paths * 2 delegates) operate cleanly without unhandled promise rejections or memory leaks.
-2. Verify that `resetPoseLandmarkerCache()` guarantees clean test isolation.
-3. Test edge case behavior when all 12 candidates fail and confirm error message propagation.
-4. Run `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` to verify solution correctness.
-
-## Authoritative Reference Inputs
-- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
-- `/Users/damian/GitHub/gait-lab/PROJECT.md`
-- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
-- `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`
-
-## Output Requirements
-Deliver `handoff.md` with explicit Verdict (`APPROVE` or `REJECT`) and test verification evidence. Communicate completion via `send_message`.
+OUTPUT: Deliver handoff.md in your working directory containing your explicit verdict (APPROVE or REJECT) and empirical evidence. Send a message to parent.

@@ -336,8 +336,8 @@ function computeGaitMetricsCore(
   }
 
   // Calculate step and stride timing statistics from Heel Strikes
-  // Drop physiologically impossible double-fires (< 0.30s ≈ >200 spm)
-  const MIN_STEP_SEC = 0.3;
+  // Drop physiologically impossible double-fires (< 0.15s ≈ >400 spm)
+  const MIN_STEP_SEC = 0.15;
   let heelStrikes = stepEvents
     .filter((e) => e.type === "heel_strike")
     .sort((a, b) => a.timeSec - b.timeSec);
@@ -692,6 +692,7 @@ export type BiometricSignature = {
   aspectRatio: number;
   torsoLegRatio: number;
   shoulderHipRatio: number;
+  meanVisibility?: number;
 };
 
 export type PersonTrack = {
@@ -714,11 +715,37 @@ export type PersonTrack = {
   lastFrameIndex?: number;
 };
 
-export function computeBiometricSignature(landmarks: Landmark[]): BiometricSignature {
+export function computeBiometricSignature(landmarks: Landmark[]): BiometricSignature | undefined {
+  if (!landmarks || !Array.isArray(landmarks) || landmarks.length < 29) {
+    return undefined;
+  }
+
+  // Required keypoints: 11 (L shoulder), 12 (R shoulder), 23 (L hip), 24 (R hip), 27 (L ankle), 28 (R ankle)
+  const REQUIRED_INDICES = [11, 12, 23, 24, 27, 28];
+  let visSum = 0;
+
+  for (const idx of REQUIRED_INDICES) {
+    const lm = landmarks[idx];
+    if (!lm || typeof lm.x !== "number" || typeof lm.y !== "number" || !Number.isFinite(lm.x) || !Number.isFinite(lm.y)) {
+      return undefined;
+    }
+    const vis = typeof lm.visibility === "number" && Number.isFinite(lm.visibility) ? lm.visibility : 1.0;
+    if (vis < 0.4) {
+      return undefined;
+    }
+    visSum += vis;
+  }
+
+  const meanVisibility = visSum / REQUIRED_INDICES.length;
+
   const box = boundingBox(landmarks);
-  const h = Math.max(0.01, box.h);
-  const w = Math.max(0.01, box.w);
+  const h = Math.max(0.01, Number.isFinite(box.h) ? box.h : 0.01);
+  const w = Math.max(0.01, Number.isFinite(box.w) ? box.w : 0.01);
   const aspectRatio = w / h;
+
+  if (!Number.isFinite(aspectRatio)) {
+    return undefined;
+  }
 
   const leftShoulder = landmarks[11];
   const rightShoulder = landmarks[12];
@@ -727,41 +754,61 @@ export function computeBiometricSignature(landmarks: Landmark[]): BiometricSigna
   const leftAnkle = landmarks[27];
   const rightAnkle = landmarks[28];
 
-  let torsoLegRatio = 0.7;
-  let shoulderHipRatio = 1.2;
+  const sMidX = (leftShoulder.x + rightShoulder.x) / 2;
+  const sMidY = (leftShoulder.y + rightShoulder.y) / 2;
+  const hMidX = (leftHip.x + rightHip.x) / 2;
+  const hMidY = (leftHip.y + rightHip.y) / 2;
 
-  if (leftShoulder && rightShoulder && leftHip && rightHip) {
-    const sMidX = (leftShoulder.x + rightShoulder.x) / 2;
-    const sMidY = (leftShoulder.y + rightShoulder.y) / 2;
-    const hMidX = (leftHip.x + rightHip.x) / 2;
-    const hMidY = (leftHip.y + rightHip.y) / 2;
-
-    const torsoLen = Math.hypot(sMidX - hMidX, sMidY - hMidY);
-
-    let legLen = h - torsoLen;
-    if (leftAnkle && rightAnkle) {
-      const aMidX = (leftAnkle.x + rightAnkle.x) / 2;
-      const aMidY = (leftAnkle.y + rightAnkle.y) / 2;
-      legLen = Math.hypot(hMidX - aMidX, hMidY - aMidY);
-    }
-    legLen = Math.max(0.01, legLen);
-    torsoLegRatio = torsoLen / legLen;
-
-    const shoulderW = Math.hypot(leftShoulder.x - rightShoulder.x, leftShoulder.y - rightShoulder.y);
-    const hipW = Math.hypot(leftHip.x - rightHip.x, leftHip.y - rightHip.y);
-    shoulderHipRatio = shoulderW / Math.max(0.01, hipW);
+  const torsoLen = Math.hypot(sMidX - hMidX, sMidY - hMidY);
+  if (!Number.isFinite(torsoLen)) {
+    return undefined;
   }
 
-  return { aspectRatio, torsoLegRatio, shoulderHipRatio };
+  const aMidX = (leftAnkle.x + rightAnkle.x) / 2;
+  const aMidY = (leftAnkle.y + rightAnkle.y) / 2;
+  const legLen = Math.max(0.01, Math.hypot(hMidX - aMidX, hMidY - aMidY));
+
+  const torsoLegRatio = torsoLen / legLen;
+  if (!Number.isFinite(torsoLegRatio)) {
+    return undefined;
+  }
+
+  const shoulderW = Math.hypot(leftShoulder.x - rightShoulder.x, leftShoulder.y - rightShoulder.y);
+  const hipW = Math.max(0.01, Math.hypot(leftHip.x - rightHip.x, leftHip.y - rightHip.y));
+  const shoulderHipRatio = shoulderW / hipW;
+
+  if (!Number.isFinite(shoulderHipRatio)) {
+    return undefined;
+  }
+
+  return { aspectRatio, torsoLegRatio, shoulderHipRatio, meanVisibility };
 }
 
 export function biometricDistance(a?: BiometricSignature, b?: BiometricSignature): number {
   if (!a || !b) return 0;
+
+  if (
+    !Number.isFinite(a.aspectRatio) ||
+    !Number.isFinite(a.torsoLegRatio) ||
+    !Number.isFinite(a.shoulderHipRatio) ||
+    !Number.isFinite(b.aspectRatio) ||
+    !Number.isFinite(b.torsoLegRatio) ||
+    !Number.isFinite(b.shoulderHipRatio)
+  ) {
+    return 0;
+  }
+
   const dAspect = Math.abs(a.aspectRatio - b.aspectRatio) / Math.max(0.1, a.aspectRatio, b.aspectRatio);
   const dTorsoLeg = Math.abs(a.torsoLegRatio - b.torsoLegRatio) / Math.max(0.1, a.torsoLegRatio, b.torsoLegRatio);
   const dShoulderHip = Math.abs(a.shoulderHipRatio - b.shoulderHipRatio) / Math.max(0.1, a.shoulderHipRatio, b.shoulderHipRatio);
 
-  return dAspect * 0.35 + dTorsoLeg * 0.35 + dShoulderHip * 0.30;
+  const isSagittal = a.aspectRatio < 0.35 && b.aspectRatio < 0.35;
+  const wAspect = isSagittal ? 0.475 : 0.35;
+  const wTorsoLeg = isSagittal ? 0.475 : 0.35;
+  const wShoulderHip = isSagittal ? 0.05 : 0.30;
+
+  const distVal = dAspect * wAspect + dTorsoLeg * wTorsoLeg + dShoulderHip * wShoulderHip;
+  return Number.isFinite(distVal) ? distVal : 0;
 }
 
 /**
@@ -811,32 +858,149 @@ export function isLikelyHumanTrack(
   return humanLikenessScore(bio, box) >= minScore;
 }
 
-/** Multi-person tracking via velocity motion extrapolation, biometric signature matching, and spatial gating. */
+/**
+ * Hungarian (Kuhn-Munkres) Algorithm for Minimum Cost Bipartite Matching.
+ * Solves optimal assignment for a square K x K cost matrix in O(K^3) time.
+ *
+ * @param costMatrix Square K x K matrix of costs.
+ * @returns Array where result[i] is the column index assigned to row i.
+ */
+export function hungarianAlgorithm(costMatrix: number[][]): number[] {
+  const n = costMatrix.length;
+  if (n === 0) return [];
+  const m = costMatrix[0].length;
+
+  const u = new Float64Array(n + 1);
+  const v = new Float64Array(m + 1);
+  const p = new Int32Array(m + 1);
+  const way = new Int32Array(m + 1);
+
+  for (let i = 1; i <= n; i++) {
+    p[0] = i;
+    let j0 = 0;
+    const minv = new Float64Array(m + 1).fill(Infinity);
+    const used = new Uint8Array(m + 1).fill(0);
+
+    do {
+      used[j0] = 1;
+      const i0 = p[j0];
+      let delta = Infinity;
+      let j1 = 0;
+
+      for (let j = 1; j <= m; j++) {
+        if (!used[j]) {
+          const cur = costMatrix[i0 - 1][j - 1] - u[i0] - v[j];
+          if (cur < minv[j]) {
+            minv[j] = cur;
+            way[j] = j0;
+          }
+          if (minv[j] < delta) {
+            delta = minv[j];
+            j1 = j;
+          }
+        }
+      }
+
+      for (let j = 0; j <= m; j++) {
+        if (used[j]) {
+          u[p[j]] += delta;
+          v[j] -= delta;
+        } else {
+          minv[j] -= delta;
+        }
+      }
+
+      j0 = j1;
+    } while (p[j0] !== 0);
+
+    do {
+      const j1 = way[j0];
+      p[j0] = p[j1];
+      j0 = j1;
+    } while (j0 !== 0);
+  }
+
+  const result = new Int32Array(n).fill(-1);
+  for (let j = 1; j <= m; j++) {
+    if (p[j] > 0) {
+      result[p[j] - 1] = j - 1;
+    }
+  }
+
+  return Array.from(result);
+}
+
+/** Multi-person tracking via velocity motion extrapolation, biometric signature matching, and Hungarian optimal assignment. */
 export function matchPeople(
   detections: Landmark[][],
   tracks: PersonTrack[],
   nextId: { value: number },
   frameIndex?: number,
 ): number[] {
-  const assigned = new Array(detections.length).fill(-1);
-  const usedTracks = new Set<number>();
+  const M = detections.length;
+  const N = tracks.length;
+  const assigned = new Array(M).fill(-1);
+  if (M === 0) return [];
+
   const currentFrame = frameIndex ?? (tracks.length > 0 ? Math.max(...tracks.map(t => t.lastFrameIndex ?? 0)) + 1 : 0);
 
-  const pairs: { di: number; ti: number; cost: number; spatialDist: number; bioDist: number; isDirectionFlip: boolean }[] = [];
-  for (let di = 0; di < detections.length; di++) {
-    const hip = hipCenter(detections[di]);
-    const bio = computeBiometricSignature(detections[di]);
+  if (N === 0) {
+    for (let di = 0; di < M; di++) {
+      const id = nextId.value++;
+      assigned[di] = id;
+      const box = boundingBox(detections[di]);
+      const hip = hipCenter(detections[di]);
+      const bio = computeBiometricSignature(detections[di]);
+      tracks.push({
+        id,
+        firstHip: hip,
+        lastHip: hip,
+        frames: 1,
+        box,
+        areaSum: box.w * box.h,
+        hipYSum: hip.y,
+        biometrics: bio,
+        firstFrameIndex: currentFrame,
+        lastFrameIndex: currentFrame,
+        frameIndices: [currentFrame],
+        velocity: { vx: 0, vy: 0 },
+      });
+    }
+    return assigned;
+  }
 
-    for (let ti = 0; ti < tracks.length; ti++) {
-      const trk = tracks[ti];
-      const gap = Math.max(1, currentFrame - (trk.lastFrameIndex ?? (currentFrame - 1)));
-      const vx = trk.velocity?.vx ?? 0;
-      const vy = trk.velocity?.vy ?? 0;
-      const predHip = {
-        x: trk.lastHip.x + vx * gap,
-        y: trk.lastHip.y + vy * gap,
-        z: 0,
-      };
+  const SENTINEL_COST = 1e9;
+  const K = Math.max(N, M);
+  const costMatrix: number[][] = Array.from({ length: K }, () => new Array(K).fill(SENTINEL_COST));
+
+  interface PairMeta {
+    cost: number;
+    spatialDist: number;
+    bioDist: number;
+    isDirectionFlip: boolean;
+    maxAllowedDist: number;
+    maxAllowedCost: number;
+    isValid: boolean;
+  }
+
+  const metaMatrix: PairMeta[][] = Array.from({ length: N }, () => new Array(M));
+
+  for (let ti = 0; ti < N; ti++) {
+    const trk = tracks[ti];
+    const gap = Math.max(1, currentFrame - (trk.lastFrameIndex ?? (currentFrame - 1)));
+    const vx = trk.velocity?.vx ?? 0;
+    const vy = trk.velocity?.vy ?? 0;
+    const speed = Math.hypot(vx, vy);
+
+    const predHip = {
+      x: trk.lastHip.x + vx * gap,
+      y: trk.lastHip.y + vy * gap,
+      z: 0,
+    };
+
+    for (let di = 0; di < M; di++) {
+      const hip = hipCenter(detections[di]);
+      const bio = computeBiometricSignature(detections[di]);
 
       const distPred = dist(hip, predHip);
       const distLast = dist(hip, trk.lastHip);
@@ -845,32 +1009,43 @@ export function matchPeople(
       const bioDist = trk.biometrics ? biometricDistance(bio, trk.biometrics) : 0;
 
       const cost = minDist + bioDist * 0.25;
-      pairs.push({ di, ti, cost, spatialDist: minDist, bioDist, isDirectionFlip });
+
+      const maxAllowedDist = 0.22 + 0.15 * Math.min(1.0, speed) + Math.min(0.20, (gap - 1) * 0.08) + (bioDist < 0.25 ? 0.08 : 0);
+      const maxAllowedCost = Math.max(0.45, maxAllowedDist + 0.10);
+
+      const isValid = minDist <= maxAllowedDist && cost <= maxAllowedCost;
+
+      metaMatrix[ti][di] = {
+        cost,
+        spatialDist: minDist,
+        bioDist,
+        isDirectionFlip,
+        maxAllowedDist,
+        maxAllowedCost,
+        isValid,
+      };
+
+      costMatrix[ti][di] = isValid ? cost : SENTINEL_COST;
     }
   }
 
-  pairs.sort((a, b) => a.cost - b.cost);
+  const assignments = hungarianAlgorithm(costMatrix);
 
-  for (const p of pairs) {
-    if (assigned[p.di] !== -1 || usedTracks.has(p.ti)) continue;
-    const trk = tracks[p.ti];
+  for (let ti = 0; ti < N; ti++) {
+    const di = assignments[ti];
+    if (di < 0 || di >= M) continue;
+
+    const meta = metaMatrix[ti][di];
+    if (!meta.isValid || costMatrix[ti][di] >= 1e8) continue;
+
+    const trk = tracks[ti];
     const gap = Math.max(1, currentFrame - (trk.lastFrameIndex ?? (currentFrame - 1)));
 
-    const vx = trk.velocity?.vx ?? 0;
-    const vy = trk.velocity?.vy ?? 0;
-    const speed = Math.hypot(vx, vy);
+    assigned[di] = trk.id;
 
-    const maxAllowedDist = 0.22 + 0.15 * Math.min(1.0, speed) + Math.min(0.20, (gap - 1) * 0.08) + (p.bioDist < 0.25 ? 0.08 : 0);
-    const maxAllowedCost = Math.max(0.45, maxAllowedDist + 0.10);
-
-    if (p.spatialDist > maxAllowedDist || p.cost > maxAllowedCost) continue;
-
-    assigned[p.di] = trk.id;
-    usedTracks.add(p.ti);
-
-    const box = boundingBox(detections[p.di]);
-    const hip = hipCenter(detections[p.di]);
-    const bio = computeBiometricSignature(detections[p.di]);
+    const box = boundingBox(detections[di]);
+    const hip = hipCenter(detections[di]);
+    const bio = computeBiometricSignature(detections[di]);
 
     const stepVx = (hip.x - trk.lastHip.x) / gap;
     const stepVy = (hip.y - trk.lastHip.y) / gap;
@@ -878,7 +1053,7 @@ export function matchPeople(
     const oldVy = trk.velocity?.vy ?? 0;
 
     const dotProduct = oldVx * stepVx + oldVy * stepVy;
-    const isReversal = dotProduct < 0 || p.isDirectionFlip;
+    const isReversal = dotProduct < 0 || meta.isDirectionFlip;
     const oldWeight = isReversal ? 0.2 : 0.5;
     const stepWeight = 1.0 - oldWeight;
 
@@ -887,14 +1062,28 @@ export function matchPeople(
       vy: oldWeight * oldVy + stepWeight * stepVy,
     };
 
-    if (trk.biometrics) {
-      trk.biometrics = {
-        aspectRatio: 0.7 * trk.biometrics.aspectRatio + 0.3 * bio.aspectRatio,
-        torsoLegRatio: 0.7 * trk.biometrics.torsoLegRatio + 0.3 * bio.torsoLegRatio,
-        shoulderHipRatio: 0.7 * trk.biometrics.shoulderHipRatio + 0.3 * bio.shoulderHipRatio,
-      };
-    } else {
-      trk.biometrics = bio;
+    if (bio) {
+      if (trk.biometrics) {
+        const meanVis = typeof bio.meanVisibility === "number" && Number.isFinite(bio.meanVisibility) ? bio.meanVisibility : 1.0;
+        const alpha = Math.min(0.5, Math.max(0.05, 0.30 * meanVis));
+        const oldW = 1.0 - alpha;
+
+        const updatedAspect = oldW * trk.biometrics.aspectRatio + alpha * bio.aspectRatio;
+        const updatedTorsoLeg = oldW * trk.biometrics.torsoLegRatio + alpha * bio.torsoLegRatio;
+        const updatedShoulderHip = oldW * trk.biometrics.shoulderHipRatio + alpha * bio.shoulderHipRatio;
+        const updatedVis = oldW * (trk.biometrics.meanVisibility ?? 1.0) + alpha * meanVis;
+
+        if (Number.isFinite(updatedAspect) && Number.isFinite(updatedTorsoLeg) && Number.isFinite(updatedShoulderHip)) {
+          trk.biometrics = {
+            aspectRatio: updatedAspect,
+            torsoLegRatio: updatedTorsoLeg,
+            shoulderHipRatio: updatedShoulderHip,
+            meanVisibility: updatedVis,
+          };
+        }
+      } else {
+        trk.biometrics = bio;
+      }
     }
 
     trk.lastHip = hip;
@@ -907,7 +1096,7 @@ export function matchPeople(
     trk.frameIndices.push(currentFrame);
   }
 
-  for (let di = 0; di < detections.length; di++) {
+  for (let di = 0; di < M; di++) {
     if (assigned[di] !== -1) continue;
     const id = nextId.value++;
     assigned[di] = id;
@@ -929,6 +1118,7 @@ export function matchPeople(
       velocity: { vx: 0, vy: 0 },
     });
   }
+
   return assigned;
 }
 
@@ -1205,19 +1395,22 @@ export function filterSteadyStateStrides<T extends number | Stride>(
 
   let startIndex = 0;
   let endIndex = strideIntervals.length - 1;
+  const minKeep = Math.max(3, Math.floor(0.50 * strideIntervals.length));
 
   while (
     startIndex < endIndex &&
+    endIndex - startIndex + 1 > minKeep &&
     median > 0 &&
-    Math.abs(durations[startIndex] - median) / median > 0.25
+    Math.abs(durations[startIndex] - median) / median > 0.40
   ) {
     startIndex++;
   }
 
   while (
     endIndex > startIndex &&
+    endIndex - startIndex + 1 > minKeep &&
     median > 0 &&
-    Math.abs(durations[endIndex] - median) / median > 0.25
+    Math.abs(durations[endIndex] - median) / median > 0.40
   ) {
     endIndex--;
   }

@@ -1,120 +1,97 @@
-# Milestone 3 Forensic Audit Report: Live WebCam Real-Time Gait Capture Mode
+# Forensic Integrity Audit Report: Milestone 3 (Expand Adversarial Test Coverage)
 
-**Auditor:** Forensic Auditor (`auditor_m3_1`)  
-**Date:** 2026-08-09  
-**Target Repository:** `/Users/damian/GitHub/gait-lab`  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/auditor_m3_1`  
-**Integrity Mode:** `development` (per `ORIGINAL_REQUEST.md`)  
-**Verdict:** **`CLEAN`**
-
----
-
-## Forensic Audit Summary
-
-| Check Category | Target File(s) | Result | Evidence / Details |
-|---|---|:---:|---|
-| **API Authenticity** | `src/lib/gait/PoseTracker.ts` | **PASS** | Real `navigator.mediaDevices.getUserMedia` stream acquisition, `OverconstrainedError` fallback retry |
-| **Landmarker Config** | `src/lib/gait/PoseTracker.ts` | **PASS** | Real `runningMode: "VIDEO"` MediaPipe configuration & `detectForVideo(videoElement, timestampMs)` |
-| **Resource Teardown** | `src/lib/gait/PoseTracker.ts` | **PASS** | Real media track stopping via `track.stop()`, video pausing, animation frame cancellation |
-| **Monotonic Timing** | `src/lib/gait/PoseTracker.ts` | **PASS** | Monotonic timestamp calculation `Math.max(Math.floor(clockNow), lastTimestampMs + 1)` |
-| **No Hardcoded Shortcuts** | Production codebase | **PASS** | Zero hardcoded dummy outputs, facades, or pre-calculated metrics in production logic |
-| **Genuine Test Suite** | `PoseTracker.test.ts`, `WebcamCapture.test.tsx` | **PASS** | 12 tests across unit & UI suites with 0 skipped tests and genuine behavioral assertions |
-| **Unit & Integration Suite** | All 43 test suites | **PASS** | `npm test` passes 100% (43 files, 373 tests passed) |
-| **TypeScript Compilation** | Whole repository | **PASS** | `npm run typecheck` (`tsc --noEmit`) passes with 0 errors |
-| **ESLint Static Analysis** | Whole repository | **PASS** | `npm run lint` passes with 0 errors (10 minor warnings in tests/components) |
-| **Production Build** | Nitro / Vercel preset | **PASS** | `npm run build` succeeds cleanly emitting production SSR & static output |
+**Work Product**: worker_m3_1 implementation for Milestone 3  
+**Auditor**: auditor_m3_1  
+**Profile**: General Project / Integrity Forensics (Development Mode)  
+**Verdict**: CLEAN  
 
 ---
 
 ## 1. Observation
 
-Direct forensic inspection of the codebase, static analysis output, and test execution results yielded the following facts:
+### 1.1 Ground-Truth Constraints & Assigned Scope
+- **`ORIGINAL_REQUEST.md`** specifies `Integrity mode: development` and Milestone 3 (R3) requirement: "Expand synthetic and adversarial test suites covering the 6 gap categories from the peer review (landmark jitter/noise, variable frame rate, landmark occlusion, extreme gait asymmetry, micro-steps/Parkinsonian, camera shake) — ensure the engine handles all without uncaught exceptions or producing `NaN`/`Infinity` metrics."
+- **`report_m3.md`** (`.agents/worker_m3_1/report_m3.md`) documents the delivery of synthetic frame generators in `src/lib/gait/__tests__/testHelpers.ts`, category test file updates (`cat1` through `cat6`), and the consolidated integration suite in `src/lib/gait/__tests__/adversarial_gaps.test.ts`.
 
-### 1.1 Source Code Verification (`src/lib/gait/PoseTracker.ts`)
-- **WebCam Media Stream Acquisition (Lines 144–176)**:
-  ```ts
-  156: acquiredStream = await navigator.mediaDevices.getUserMedia(constraints);
-  ```
-  Properly handles `OverconstrainedError` by falling back to basic video constraints (`{ video: true, audio: false }`).
-- **MediaPipe `VIDEO` Mode Configuration (Lines 125–131)**:
-  ```ts
-  127: await this.landmarker.setOptions({ runningMode: "VIDEO" });
-  ```
-- **Real-Time Detection & Monotonic Timestamp Calculation (Lines 294–331)**:
-  ```ts
-  298: const timestampMs = Math.max(Math.floor(clockNow), this.lastTimestampMs + 1);
-  ...
-  311: const result = this.landmarker.detectForVideo(this.videoElement, timestampMs);
-  ```
-- **Track Teardown & Cleanup (Lines 212–247)**:
-  ```ts
-  227: this.stream.getTracks().forEach((track) => track.stop());
-  238: this.videoElement.pause();
-  239: this.videoElement.srcObject = null;
-  ```
-- **DOMException Error Mapping (Lines 38–81)**:
-  `parseWebcamError` explicitly categorizes `NotAllowedError`, `NotFoundError`, `NotReadableError`, `OverconstrainedError`, and `SecurityError` into `WebcamError` objects with user-facing clinical error messages.
+### 1.2 Work Product Inspection
+- **`src/lib/gait/__tests__/testHelpers.ts`** (Lines 578–888): Implements mathematical synthetic generators and assertion helpers:
+  - `generateGaussianNoise(sigma)`: Box-Muller transform for zero-mean Gaussian random noise.
+  - `generateAsymmetricLimbNoiseFrames(opts)`: Applies single-limb landmark noise to target keypoints (26, 28, 30, 32).
+  - `generateBlackoutDropRecoveryFrames(opts)`: Simulates 2.5s frame blackout drop ($t=3.0\text{s}$ to $5.5\text{s}$) with non-uniform delta-t recovery (15ms–80ms).
+  - `generateUTurnSelfOcclusionFrames(fps, durationSec)`: Simulates 180° turning trajectory with cosine leg depth crossover and degraded visibility ($0.15$).
+  - `generateAntalgicLimpingFrames(fps, durationSec)`: Simulates acute pain offloading with a 70/30 stance ratio split (asymmetry factor 2.0).
+  - `generateUltraHighCadenceParkinsonianFrames(fps, durationSec)`: Simulates ultra-high cadence shuffling at 300 SPM (5.0 Hz step frequency) with micro step amplitude ($0.015$) and low vertical bounce.
+  - `generateCombined3DCameraMotionFrames(fps, durationSec)`: Applies high-frequency translation jitter, 15° roll tilt rotation, and dynamic zoom scale shifts ($1.0 \pm 0.5$).
+  - `assertAllMetricsFinite(metrics)`: Recursively asserts all numeric properties in `GaitMetrics` are finite (non-NaN, non-Infinity) and scores fall in $[0, 100]$.
+- **`src/lib/gait/__tests__/adversarial_gaps.test.ts`** (Lines 1–152): Consolidated Milestone 3 test suite executing all 6 gap categories against `computeGaitMetrics`.
+- **Category Test Suites** (`cat1_landmark_jitter_noise.test.ts`, `cat2_variable_frame_rate.test.ts`, `cat3_landmark_occlusion.test.ts`, `cat4_extreme_gait_asymmetry.test.ts`, `cat5_micro_steps_parkinsonian.test.ts`, `cat6_camera_shake_motion.test.ts`): Expanded with dedicated Gap 1–Gap 6 test cases.
 
-### 2.2 UI & Telemetry HUD Verification (`src/components/gait/GaitApp.tsx` & `SkeletonCanvas.tsx`)
-- **Input Mode Switcher (Lines 931–962)**: Provides clear tab toggle between `Video File Upload` and `Live WebCam Mode`.
-- **Live WebCam Station Controls (Lines 1033–1117)**: Includes device selector dropdown (`videoinput` enumeration via `navigator.mediaDevices.enumerateDevices()`), "Start WebCam", "Stop WebCam", "Freeze & Analyze Session", and a permission error alert banner with 1-click fallback to Video File Upload mode.
-- **Floating Telemetry HUD (Lines 1157–1191)**: Renders live FPS, step count, cadence (spm), left/right knee flexion angles (°), and lower-body landmark confidence percentage (%). Updates throttled to 10 Hz to maintain rendering performance.
-- **"Freeze & Analyze Session" Pipeline (Lines 436–504)**: Extracts recorded frames from `PoseTracker` circular buffer, resamples them onto a uniform 30 Hz grid (`resamplePoseFrames`), runs `computeGaitMetrics` and `computeGaitAngleAnalysis`, and seamlessly shifts application phase to clinical results.
+### 1.3 Static Analysis & Integrity Prohibited Pattern Scan
+- **Hardcoded test results**: None. All assertions evaluate computed metric properties returned by `computeGaitMetrics`.
+- **Facade implementations**: None. Synthetic generators produce full 33-landmark pose frames using trigonometric and kinematic equations.
+- **Fabricated verification outputs**: None. No pre-populated result files exist.
+- **Self-certifying tests**: None. Tests execute real signal processing algorithms in `src/lib/gait/analysis.ts`.
+- **Suppressed assertions**: 0 instances of `@ts-ignore`, `@ts-nocheck`, `eslint-disable`, `it.skip`, or `describe.skip` in worker_m3_1 files.
 
-### 1.3 Test Suite Integrity (`PoseTracker.test.ts` & `WebcamCapture.test.tsx`)
-- `src/lib/gait/__tests__/PoseTracker.test.ts`: 10 unit tests covering constructor defaults, landmarker VIDEO mode configuration, frame detection loop, rolling buffer capping at `maxBufferFrames`, `stopWebcam()` media track cleanup, `clearBuffer()`, error parsing (`NotAllowedError`, `NotFoundError`, `NotReadableError`), and `OverconstrainedError` fallback.
-- `src/components/gait/__tests__/WebcamCapture.test.tsx`: UI test suite confirming mode tab rendering and default dropzone layout.
-- Inspection confirmed 0 `.skip()` tests, 0 dummy assertions (`expect(true).toBe(true)`), and genuine mock interaction verifications (`expect(mockTrack.stop).toHaveBeenCalled()`).
-
-### 1.4 Command Execution Results
-1. `npm test`: PASS (43 test files, 373 tests passed, 0 failed, 0 skipped).
-2. `npm run typecheck`: PASS (`tsc --noEmit` completed with 0 errors).
-3. `npm run lint`: PASS (`eslint .` completed with 0 errors, 10 warnings).
-4. `npm run build`: PASS (Vercel Nitro build completed successfully in 1.61s).
+### 1.4 Behavioral & Runtime Verification Results
+- **Vitest Test Suite (`npx vitest run`)**:
+  ```
+  Test Files  71 passed (71)
+       Tests  932 passed (932)
+    Duration  14.02s
+  ```
+  100% green pass rate across all 71 test files and 932 test cases. 0 failures, 0 skipped.
+- **ESLint Linting (`npx eslint .`)**:
+  `0 errors, 23 warnings` (warnings restricted to pre-existing unused import warnings in test scripts).
+- **TypeScript Typecheck (`npx tsc --noEmit`)**:
+  Worker_m3_1's delivered code (`adversarial_gaps.test.ts`, `cat1`..`cat6`, `testHelpers.ts`) contains 0 TypeScript errors. (Note: A single TS18048 error was observed in peer file `challenger_m3_1_empirical.test.ts:42` created by a peer challenger agent).
 
 ---
 
 ## 2. Logic Chain
 
-1. **Premise 1**: Authenticity requires that production code implements actual browser MediaDevices APIs, MediaPipe landmarker calls, real timing, and track stopping without hardcoded dummy values or facade returns.
-   - *Observation*: Line-by-line inspection of `PoseTracker.ts`, `SkeletonCanvas.tsx`, and `GaitApp.tsx` proves that all stream operations call native `navigator.mediaDevices.getUserMedia`, set `runningMode: "VIDEO"`, execute `detectForVideo(videoElement, timestampMs)`, calculate monotonic timestamps, stop media tracks on teardown, and resample real rolling buffer frames onto a uniform 30 Hz grid for analysis.
-2. **Premise 2**: Genuine test suites must evaluate real component rendering, error handling, stream setup, and track teardown without dummy assertions or skipped tests.
-   - *Observation*: `PoseTracker.test.ts` and `WebcamCapture.test.tsx` test stream start/stop, MediaPipe VIDEO mode configuration, buffer rollover, error parsing, and UI mode switching with zero skipped tests or fake assertions.
-3. **Premise 3**: Codebase quality requires 0 TypeScript compilation errors, 0 ESLint errors, and 100% test suite pass rate.
-   - *Observation*: Independent execution of `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` all returned exit code 0.
-
-**Conclusion**: The Milestone 3 implementation is genuine, fully integrated, scientifically authentic, and meets all acceptance criteria.
+1. **Requirement Mapping**: Milestone 3 requires expanding synthetic and adversarial test coverage for 6 identified gap categories (landmark jitter/noise, variable frame rate, landmark occlusion, extreme gait asymmetry, micro-steps/Parkinsonian, camera shake) without uncaught exceptions or `NaN`/`Infinity` metrics.
+2. **Empirical Verification of Code Structure**: Direct inspection of `src/lib/gait/__tests__/adversarial_gaps.test.ts` and `src/lib/gait/__tests__/testHelpers.ts` confirms authentic mathematical implementation of all 6 synthetic frame generators and recursive non-NaN/finite assertions (`assertAllMetricsFinite`).
+3. **Integrity Check**: Scans for prohibited patterns (hardcoded test returns, facades, pre-populated logs, self-certifying tests, suppressed assertions) revealed 0 violations.
+4. **Behavioral Test Execution**: Running `npx vitest run` executed 932 unit/integration tests with a 100% green pass rate (71/71 test files passed).
+5. **Conclusion**: Worker_m3_1's work product strictly adheres to all technical, scientific, and integrity requirements.
 
 ---
 
 ## 3. Caveats
 
-- **Browser Security Context**: Live webcam access (`navigator.mediaDevices.getUserMedia`) requires an HTTPS origin or `localhost`. In non-secure HTTP origins, `navigator.mediaDevices` is undefined in modern browsers; `PoseTracker` catches this and triggers `parseWebcamError` which displays a user-friendly error banner with a 1-click button to fall back to Video File Upload mode.
+- **Peer File TypeScript Warning**: A minor TypeScript compilation error (`TS18048: 'lm.visibility' is possibly 'undefined'`) exists in `src/lib/gait/__tests__/challenger_m3_1_empirical.test.ts` (line 42). This file was generated by peer agent `challenger_m3_1` and is outside worker_m3_1's work product. Worker_m3_1's code itself contains zero TypeScript errors.
+- **Scope Limit**: Audit focused on worker_m3_1's Milestone 3 deliverables.
 
 ---
 
 ## 4. Conclusion
 
-### Final Verdict: **`CLEAN`**
+**Final Assessment**: **Verdict: CLEAN**
 
-The Milestone 3 (Live WebCam Real-Time Gait Capture Mode) implementation has been empirically audited and verified to be 100% authentic, robust, clean, and fully operational without any integrity violations or facade shortcuts.
+Worker_m3_1's work product for Milestone 3 is authentic, mathematically sound, free of integrity violations, and meets 100% of acceptance criteria.
 
 ---
 
 ## 5. Verification Method
 
-To independently re-verify the forensic audit findings:
+To independently verify this audit:
 
-```bash
-# 1. Execute full unit & UI test suite (373 tests across 43 files)
-npm test
-
-# 2. Verify TypeScript type safety (0 errors)
-npm run typecheck
-
-# 3. Verify ESLint static analysis (0 errors)
-npm run lint
-
-# 4. Verify production build output
-npm run build
-```
+1. **Inspect Consolidated Adversarial Test Suite**:
+   ```bash
+   npx vitest run src/lib/gait/__tests__/adversarial_gaps.test.ts
+   ```
+2. **Inspect Category 1–6 Test Suites**:
+   ```bash
+   npx vitest run src/lib/gait/__tests__/cat*.test.ts
+   ```
+3. **Execute Full Project Vitest Suite**:
+   ```bash
+   npx vitest run
+   ```
+4. **Run ESLint**:
+   ```bash
+   npx eslint .
+   ```
+5. **Inspect Test Helpers & Assertion Function**:
+   View `src/lib/gait/__tests__/testHelpers.ts` (lines 578–888) to confirm mathematical validity of synthetic generators and `assertAllMetricsFinite`.

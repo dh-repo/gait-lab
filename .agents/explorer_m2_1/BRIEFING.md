@@ -1,37 +1,38 @@
-# BRIEFING — 2026-08-09T21:28:30Z
+# BRIEFING — 2026-08-10T07:38:05Z
 
 ## Mission
-Formulate an exact technical blueprint for `src/components/gait/JointAnglesChart.tsx` for Milestone 2 (Recharts Kinematic Trajectory Charts).
+Formulate the detailed implementation blueprint for Milestone 2: Deepen Signal Processing & Event Detection Tuning across all 7 core modules (`events.ts`, `analysis.ts`, `signal.ts`, `PoseTracker.ts`, `ratings.ts`, `guesses.ts`, `fallrisk.ts`) and test/tuning fixtures.
 
 ## 🔒 My Identity
-- Archetype: Explorer
-- Roles: Technical blueprint author, codebase investigator
+- Archetype: Teamwork explorer
+- Roles: Read-only investigator & blueprint architect
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m2_1
-- Original parent: 8e9e6af1-3d51-4143-bad5-f38a5c021929
-- Milestone: Milestone 2 - Recharts Kinematic Trajectory Charts
+- Original parent: e41552d4-18b9-4bd1-a014-7394a83c1796
+- Milestone: Milestone 2 — Deepen Signal Processing & Event Detection Tuning
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code modifications in `src/` directly
-- Formulate exact technical blueprint for `src/components/gait/JointAnglesChart.tsx`
-- Must restyle Recharts `ComposedChart` with exact Google spec (Left leg solid `#1A73E8`, strokeWidth 2.5; Right leg dashed `#34A853`, strokeWidth 2.5, strokeDasharray "6 4"; Normative Range Area shaded `#E8F0FE` fillOpacity 0.45 with top/bottom dashed lines `#BDC1C6` strokeDasharray "3 3"; CartesianGrid `#DADCE0` strokeDasharray "0" opacity 0.6; XAxis/YAxis ticks 11px Google Sans `#5F6368`, axis labels 12px font-medium Google Sans `#202124`; Popover Tooltip dark `#202124`, white Google Sans, showing exact °, gait cycle %, normative bounds)
-- Restyle ROM metric chips into Google Cloud Console metric chips (`#E8F0FE` bg / `#1A73E8` text Left ROM, `#E6F4EA` bg / `#137333` text Right ROM, `#FEF7E0` bg / `#B06000` text ROM Asymmetry)
-- Restyle joint tab bar into Google Workspace pill segmented control (`#F1F3F4` bg, `#1A73E8` active pill)
-- Preserve all `data-testid`s and prop interfaces (`angleAnalysis`, `isSuppressed`)
+- Read-only investigation — do NOT implement production code changes directly, but write detailed blueprint files in working directory
+- Produce `blueprint_m2.md` and `handoff.md` in `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/`
+- Communicate result to parent via `send_message`
 
 ## Current Parent
-- Conversation ID: 8e9e6af1-3d51-4143-bad5-f38a5c021929
-- Updated: 2026-08-09T21:28:30Z
+- Conversation ID: e41552d4-18b9-4bd1-a014-7394a83c1796
+- Updated: 2026-08-10T07:38:05Z
 
 ## Investigation State
-- **Explored paths**: `ORIGINAL_REQUEST.md`, `PROJECT.md`, `src/components/gait/JointAnglesChart.tsx`, `src/components/gait/__tests__/JointAnglesChart.test.tsx`, `src/lib/gait/__tests__/m1_challenger_2_stress.test.tsx`
-- **Key findings**: Formulated exact technical blueprint in `handoff.md` with 100% preservation of interfaces and test IDs.
-- **Unexplored areas**: None for this subtask.
+- **Explored paths**: `survey_r2_r3.md`, `src/lib/gait/events.ts`, `analysis.ts`, `signal.ts`, `PoseTracker.ts`, `ratings.ts`, `guesses.ts`, `fallrisk.ts`, `scripts/tune-gait-samples.mjs`, `src/lib/gait/__tests__/*`
+- **Key findings**:
+  - Identified line-by-line parameter tuning instructions for all 7 core engine modules.
+  - Specified exact fixes for the 2 failing tests (`e2e_engine_enhancements.test.ts` and `split_half_stress_m8_2.test.ts`).
+  - Documented real-world video tuning targets for `tuning-3992.mp4` and `tuning-3993.mp4`.
+- **Unexplored areas**: None for M2 blueprint scope.
 
 ## Key Decisions Made
-- Specified exact drop-in implementation for `JointAnglesChart.tsx` matching all Google Workspace / Cloud Console styling requirements.
-- Completed handoff report at `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/handoff.md`.
+- Formulated comprehensive line-by-line implementation blueprint in `blueprint_m2.md`.
+- Delivered handoff report in `handoff.md`.
 
 ## Artifact Index
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/DISPATCH.md` — Dispatch record
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/BRIEFING.md` — Briefing file
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/handoff.md` — Technical blueprint handoff report
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/DISPATCH.md` — Incoming dispatch log
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/BRIEFING.md` — Persistent briefing
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/blueprint_m2.md` — Implementation blueprint for Milestone 2
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/handoff.md` — Handoff report

@@ -1,20 +1,22 @@
-## 2026-08-10T01:14:34Z
+## 2026-08-10T07:30:46Z
+<USER_REQUEST>
+You are explorer_survey_2.
 Your working directory is: /Users/damian/GitHub/gait-lab/.agents/explorer_survey_2
-Your identity: teamwork_preview_explorer (Survey Explorer 2: Background Suppression & Target Lock)
+Original request path: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
 
-Objective:
-Investigate the codebase for Requirement R2 (Transient Background Suppression & Candidate Filtering in `PoseTracker.ts` and `matchPeople`).
+OBJECTIVE:
+Investigate R2 (Signal Processing & Event Detection Tuning) and R3 (Adversarial Test Coverage Gaps).
+1. Inspect core engine modules: `src/engine/events.ts`, `src/engine/analysis.ts`, `src/engine/signal.ts`, `src/engine/PoseTracker.ts`, `src/engine/ratings.ts`, `src/engine/guesses.ts`, `src/engine/fallrisk.ts`.
+2. Inspect tuning reference clips (`tuning-3992.mp4` / `tuning-3993.mp4` if available, and associated sample data/test fixtures).
+3. Inspect current test files to catalog existing adversarial test coverage.
+4. Identify missing scenarios across the 6 gap categories:
+   - Landmark jitter/noise
+   - Variable frame rate
+   - Landmark occlusion
+   - Extreme gait asymmetry
+   - Micro-steps / Parkinsonian gait
+   - Camera shake
+5. Propose specific parameter tuning guidelines and test generator strategies for the 6 gap categories.
 
-Inputs:
-- Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md (specifically the latest follow-up section at 2026-08-10T01:13:18Z).
-- Investigate src/lib/gait/PoseTracker.ts and matchPeople functions / references across the gait codebase.
-
-Scope & Task:
-1. Analyze how multi-person pose candidate filtering and matching currently operate in `PoseTracker.ts` and `matchPeople`.
-2. Examine mechanisms for filtering low-confidence noise, transient background people, and passersby during live webcam streaming.
-3. Investigate how primary target lock is established, maintained, or lost when candidate background poses enter the frame.
-4. Identify constraints, thresholds, confidence metrics, and potential flaws.
-5. Provide actionable fix recommendations (do NOT edit code).
-
-Output Requirement:
-Write a comprehensive report to /Users/damian/GitHub/gait-lab/.agents/explorer_survey_2/handoff.md containing Observation, Logic Chain, Caveats, Conclusion, and Verification Method. When complete, send a message to the orchestrator referencing the report.
+OUTPUT: Write your detailed report to `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_2/survey_r2_r3.md` and deliver handoff.md in your working directory. Send a message to parent with the summary and report path.
+</USER_REQUEST>

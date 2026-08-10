@@ -965,13 +965,16 @@ export function GaitApp() {
           };
         }
         lastHip = newHip;
-        lastBiometric = lastBiometric
-          ? {
-              aspectRatio: 0.7 * lastBiometric.aspectRatio + 0.3 * newBio.aspectRatio,
-              torsoLegRatio: 0.7 * lastBiometric.torsoLegRatio + 0.3 * newBio.torsoLegRatio,
-              shoulderHipRatio: 0.7 * lastBiometric.shoulderHipRatio + 0.3 * newBio.shoulderHipRatio,
-            }
-          : newBio;
+        if (newBio) {
+          const bio = newBio;
+          lastBiometric = lastBiometric
+            ? {
+                aspectRatio: 0.7 * lastBiometric.aspectRatio + 0.3 * bio.aspectRatio,
+                torsoLegRatio: 0.7 * lastBiometric.torsoLegRatio + 0.3 * bio.torsoLegRatio,
+                shoulderHipRatio: 0.7 * lastBiometric.shoulderHipRatio + 0.3 * bio.shoulderHipRatio,
+              }
+            : bio;
+        }
         rawFrames.push({ timeMs, landmarks: lm });
         setScanPoses([{ id: selectedPersonId, landmarks: lm }]);
       };

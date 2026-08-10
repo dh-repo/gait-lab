@@ -1,18 +1,11 @@
-## 2026-08-09T09:02:28Z
-You are Challenger 1 for Milestone 5 (M5: R1 Follow-Cam Direction & R5 Peak Prominence).
-Your working directory is `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_challenger_m5_1`.
+## 2026-08-10T11:39:20Z
+Task: Adversarially challenge and empirically verify test execution and boundary coverage for the 5 newly created test files:
+- `src/lib/gait/__tests__/landmarks.test.ts`
+- `src/lib/gait/__tests__/calibration.test.ts`
+- `src/lib/gait/__tests__/homography.test.ts`
+- `src/lib/gait/__tests__/liveCapture.test.ts`
+- `src/lib/gait/__tests__/persistence.server.test.ts`
 
-Read the project requirements and worker handoff:
-- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
-- `/Users/damian/GitHub/gait-lab/PROJECT.md`
-- `/Users/damian/GitHub/gait-lab/.agents/worker_m5_r1_1/changes.md`
-- `/Users/damian/GitHub/gait-lab/.agents/worker_m5_r1_1/handoff.md`
+Run vitest, tsc, and stress verification commands. Validate that tests are non-flaky, exercise edge cases, and properly assert expected failures and fallbacks. Formulate an explicit verdict: APPROVE or REQUEST_CHANGES.
 
-Tasks:
-1. Perform empirical stress testing of `detectGaitEventsZeni` and `findExtrema` in `src/lib/gait/events.ts`.
-2. Write a temporary test harness or stress script to test:
-   - Extreme handheld follow-cam jitter ($\Delta X_{\text{midHip}} \approx 0$).
-   - Low landmark visibility conditions (e.g. obscured feet, noisy confidence values).
-   - High frequency noise ripples on foot trajectory signals.
-3. Confirm that L->R and R->L follow-cam direction inference yields consistent stance phase (~60%).
-4. Record your findings and output your verdict (`APPROVE` or `REJECT`) in `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_challenger_m5_1/handoff.md`.
+Deliverable: Write your report to `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_challenger_m5_1/handoff.md` and send a summary message back to parent with your explicit verdict.

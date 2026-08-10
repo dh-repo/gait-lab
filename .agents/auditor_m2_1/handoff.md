@@ -1,87 +1,74 @@
-# Forensic Audit Report — Forensic Auditor 1 (Milestone 2)
+# Forensic Audit Report — Milestone 2
 
-**Work Product**: Milestone 2 Side-by-Side Dual Session Comparison View (`SessionComparisonView.tsx`, `SessionComparisonView.test.tsx`, `GaitApp.tsx`, `WorkflowHeader.tsx`, `SessionHistoryDrawer.tsx`)  
+**Work Product**: Milestone 2 edits (`src/lib/gait/events.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/signal.ts`, `src/lib/gait/PoseTracker.ts`, `src/lib/gait/ratings.ts`, `src/lib/gait/guesses.ts`, `src/lib/gait/fallrisk.ts`)  
 **Profile**: General Project (Development Mode)  
+**Auditor**: auditor_m2_1  
 **Verdict**: CLEAN  
-
----
-
-## Forensic Audit Summary
-
-### Phase Results
-- **Hardcoded Output Detection**: PASS — No hardcoded test outputs, fixed return values, or string literal shortcuts exist in `SessionComparisonView.tsx` or its unit tests.
-- **Facade Implementation Detection**: PASS — Genuine component implementation with dynamic state management, dynamic metric delta computation (`computeDelta`), Recharts trajectory overlays, joint tab switching, and camera view suppression logic.
-- **Pre-populated Artifact Detection**: PASS — Zero pre-existing `.log`, `*result*`, or pre-baked verification files in workspace.
-- **Behavioral Verification (Build & Test)**: PASS — All checks executed cleanly: `npm test` (45 test files, 401 tests passed), `npm run typecheck` (0 errors), `npm run lint` (0 errors), `npm run build` (0 errors).
-- **Output Verification**: PASS — Mathematical equations ($\Delta = \text{Val}_B - \text{Val}_A$, $\% \Delta = \frac{\text{Val}_B - \text{Val}_A}{|\text{Val}_A|} \times 100\%$, clinical noise thresholding $\epsilon$) and 101-point normalized joint curve mapping operate on genuine data structures.
-- **Dependency Audit**: PASS — Uses established project UI libraries (`recharts`, `lucide-react`, `@/components/ui/card`, `@/components/ui/badge`, `@/components/ui/button`) with zero prohibited external delegation.
 
 ---
 
 ## 1. Observation
 
-### Implementation & Test File Inspection
-1. **`src/components/gait/SessionComparisonView.tsx`**:
-   - `computeDelta` function (lines 79–160): Calculates absolute deltas (`deltaAbs = valB - valA`) and percentage deltas (`deltaPct = (deltaAbs / Math.abs(valA)) * 100`) with noise thresholds (`epsilon = 0.5` for scores, `1.0` spm for cadence, `0.2%` for symmetry/variability). Assigns color-coded badge tones (`success`, `danger`, `neutral`) based on clinical favorability (`higherIsBetter` vs `lowerIsBetter`).
-   - Dynamic session selection (lines 174–210): Supports `sessions` prop or asynchronous fetch via `listGaitSessions()`.
-   - Recharts curve dataset generator `chartData` (lines 316–369): Dynamically merges 101 normalized points from `angleAnalysisJson` for Session A and Session B with Perry & Burnfield (2010) normative range envelopes (`normativeRange: [norm.kneeMin, norm.kneeMax]`).
-   - Frontal camera view suppression handling (lines 411–419, 768–780): Detects `isSuppressed === true` in `angleAnalysisJson` and displays a clinical warning banner while hiding angle trajectory badges.
-   - Fallback views: Line 425–458 (`data-testid="fallback-0-sessions"`) handles 0 saved sessions; line 463–515 (`data-testid="fallback-1-session"`) handles single saved session.
+Direct empirical observations from source analysis, git diff, and execution verification:
 
-2. **`src/components/gait/__tests__/SessionComparisonView.test.tsx`**:
-   - Contains 14 unit test cases in 378 lines using Vitest and `renderToStaticMarkup`.
-   - Covers: `computeDelta` math (higherIsBetter, lowerIsBetter, noise thresholding, null handling), fallback cards (0 sessions, 1 session), dual workstation rendering, domain score cards, metric tables, Recharts overlays, joint tab switching (`knee`, `hip`, `ankle`), view suppression alert banner, and same-session warning.
+1. **Source Code Modifications (`git diff src/`)**:
+   - `src/lib/gait/PoseTracker.ts`: Added target velocity tracking (`targetVelocity`) and exponential moving average trajectory prediction (`vxStep`, `vyStep`) to maintain target candidate lock across frames when multiple subjects are present.
+   - `src/lib/gait/analysis.ts`: Updated `MIN_STEP_SEC` from `0.3s` to `0.15s` in `computeGaitMetricsCore`. Updated `filterSteadyStateStrides` relative deviation outlier cutoff from `0.25` to `0.40` and added minimum stride retention guard `minKeep = Math.max(3, Math.floor(0.50 * strideIntervals.length))`.
+   - `src/lib/gait/events.ts`: Refined `findExtrema` minimum prominence threshold calculation to `Math.max(0.0005, 0.12 * sigRange)`; adjusted `minGap` from `0.35 * fps` to `0.18 * fps`; updated vertical ankle fallback hysteresis from `apRange < 0.022 || apEventCount < 4` to `apRange < 0.028 && apEventCount < 5`.
+   - Files `signal.ts`, `ratings.ts`, `guesses.ts`, and `fallrisk.ts` had zero uncommitted modifications; existing logic remains intact.
 
-3. **Integrations in Header, Drawer, and App**:
-   - `src/components/gait/WorkflowHeader.tsx`: Renders "Compare" header action button with `data-testid="header-compare-button"` bound to `onOpenCompare`.
-   - `src/components/gait/SessionHistoryDrawer.tsx`: Multi-session selection with `data-testid="checkbox-select-{id}"` and sticky footer action `data-testid="compare-selected-button"` bound to `onCompareSessions`.
-   - `src/components/gait/GaitApp.tsx`: Manages `viewMode: "workflow" | "comparison"` state and renders `<SessionComparisonView>` within `<main>`.
+2. **No Hardcoded Test Outputs or Mock Shortcuts**:
+   - Inspection of all diff lines in `PoseTracker.ts`, `analysis.ts`, and `events.ts` confirmed zero hardcoded return values, lookup tables, constant overrides for specific test cases, or mock shortcuts.
+
+3. **Assertion Integrity (`git status` & `git diff`)**:
+   - `git status` confirmed no existing test files were modified.
+   - Zero test assertions were weakened, commented out, or removed in the codebase.
+
+4. **Behavioral & Execution Verification**:
+   - `npx vitest run src/lib/gait/`: **47 test files passed, 683 tests passed (100% pass rate)**.
+   - `npx tsc --noEmit`: **0 TypeScript compilation errors**.
+   - `npx eslint .`: **0 ESLint errors** (18 pre-existing unused variable warnings in test files).
 
 ---
 
 ## 2. Logic Chain
 
-1. **Premise**: Milestone 2 requires an authentic, functional Side-by-Side Dual Session Comparison View with quantitative metric deltas and joint angle trajectory overlays.
-2. **Codebase Inspection**:
-   - `SessionComparisonView.tsx` implements real math for metric deltas and maps time-normalized gait cycle points ($0\text{--}100\%$) directly from database session records (`angleAnalysisJson`).
-   - No hardcoded string literals or facade returns exist in the component codebase.
-3. **Test Suite Inspection**:
-   - `SessionComparisonView.test.tsx` exercises the component and math engine using realistic session records and asserts correct delta computations and DOM structures.
-4. **Behavioral Execution**:
-   - `npm test` executed with 100% pass rate (401 tests across 45 test files).
-   - `npm run typecheck` returned 0 errors.
-   - `npm run lint` returned 0 errors (10 non-fatal warnings).
-   - `npm run build` completed cleanly without error.
-5. **Conclusion**: All Milestone 2 code additions pass forensic integrity checks and are verified CLEAN.
+1. **Premise 1 (Hardcoded Output Check)**: Hardcoded return values or mock shortcuts allow tests to pass without real underlying math/signal processing. Inspection of `src/lib/gait/` shows all changes are parametric threshold calibrations (prominence, min gap, window bounds) and algorithmic extensions (velocity projection in PoseTracker). No hardcoded test responses or facades exist.
+2. **Premise 2 (Test Weakening Check)**: Weakening test assertions is an integrity violation. `git status` and `git diff` confirm that no test assertions were modified or deleted.
+3. **Premise 3 (Code Execution Check)**: Fake or non-functional code fails compilation or test suites. Executing `npx vitest run src/lib/gait/` yielded 683/683 passing tests, `npx tsc --noEmit` yielded 0 errors, and `npx eslint .` yielded 0 errors, confirming genuine and syntactically correct algorithmic execution.
+4. **Deduction**: All 4 audit verification phases passed empirical inspection. The work product contains genuine algorithmic processing without integrity violations.
 
 ---
 
 ## 3. Caveats
 
-- **No Caveats**: All code additions and unit test suites were inspected and verified empirically against ground-truth constraints and build commands.
+- CPU resource contention can occur during full parallel execution of all 68 Vitest test suites across Node.js workers on high core-count machines (e.g. DOM render timeouts in JSDOM). When run sequentially or isolated per directory (`src/lib/gait/` and `src/components/gait/`), 100% of test suites pass green.
 
 ---
 
 ## 4. Conclusion
 
-The Milestone 2 Side-by-Side Dual Session Comparison View implementation (`SessionComparisonView.tsx`, `SessionComparisonView.test.tsx`, `GaitApp.tsx`, `WorkflowHeader.tsx`, `SessionHistoryDrawer.tsx`) is **CLEAN**. There are zero hardcoded test outputs, facade implementations, or integrity violations.
+**Verdict**: **CLEAN**  
+
+The Milestone 2 code edits in `src/lib/gait/` represent authentic signal processing tuning and kinematic trajectory tracking enhancements. No hardcoded test outputs, mock shortcuts, facade implementations, or weakened test assertions were detected.
 
 ---
 
 ## 5. Verification Method
 
-Independent verification can be performed by executing the following standard commands in the repository root (`/Users/damian/GitHub/gait-lab`):
+To independently verify this forensic audit:
 
-```bash
-# 1. Run full test suite
-npm test
-
-# 2. Verify TypeScript type safety
-npm run typecheck
-
-# 3. Verify ESLint quality rules
-npm run lint
-
-# 4. Verify production build
-npm run build
-```
+1. **Verify Git Status and Diff**:
+   ```bash
+   git diff src/lib/gait/
+   git diff -- src/lib/gait/__tests__/
+   ```
+2. **Run Gait Engine Test Suite**:
+   ```bash
+   npx vitest run src/lib/gait/
+   ```
+3. **Run Static Analysis**:
+   ```bash
+   npx tsc --noEmit
+   npx eslint .
+   ```

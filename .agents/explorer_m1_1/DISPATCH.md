@@ -1,37 +1,17 @@
-# Dispatch for Explorer M1-1
-
-**Role**: teamwork_preview_explorer (CV Model Hierarchy Specialist)
-**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1
-
-## Task Objective
-Investigate `src/lib/gait/pose.ts` and analyze the required implementation for the MediaPipe Pose Landmarker model hierarchy upgrade:
-1. Support `pose_landmarker_heavy.task` with fallback to `pose_landmarker_full.task` and `pose_landmarker_lite.task`.
-2. Support GPU delegate attempt with CPU delegate fallback for each model tier.
-3. Support local model asset path (`/models/pose_landmarker_${tier}.task`) with Google Storage CDN URL fallback (`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${tier}/float16/1/pose_landmarker_${tier}.task`).
-4. Update `PoseLandmarkerLike` interface to expose `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate`.
-5. Specify unit test additions for `pose.test.ts`.
-
-## Authoritative Reference Inputs
-- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
-- `/Users/damian/GitHub/gait-lab/PROJECT.md`
-- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md`
-
-
-
-## 2026-08-09T21:07:01Z
-You are Explorer M1-1 for gait-lab.
+## 2026-08-10T07:34:00Z
+You are explorer_m1_1.
 Your working directory is: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1
-Mandatory Reference: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
+Project scope path: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
+Original request path: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
 
-Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md, /Users/damian/GitHub/gait-lab/PROJECT.md, /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md, /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/DISPATCH.md, and /Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md.
+OBJECTIVE:
+Produce implementation blueprint for Milestone 1: Fix 2 Failing Tests & Harden Algorithm Accuracy.
+1. Read prior survey reports:
+   - /Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/survey_r1.md
+   - /Users/damian/GitHub/gait-lab/.agents/explorer_survey_2/survey_r2_r3.md
+2. Re-verify root causes:
+   - `e2e_engine_enhancements.test.ts`: `MIN_STEP_SEC = 0.3` dropping valid short steps, `filterSteadyStateStrides` threshold `0.25` trimming asymmetric step pairs.
+   - `split_half_stress_m8_2.test.ts`: single-leg `minGap = Math.max(3, Math.floor(0.35 * effectiveFps))` setting 350ms gap on single-leg extrema, dropping 1.6x speed single-leg stride events.
+3. Write exact line-by-line fix instructions for Worker in `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts`.
 
-Investigate `src/lib/gait/pose.ts` and analyze the required implementation for the MediaPipe Pose Landmarker model hierarchy upgrade:
-1. Support `pose_landmarker_heavy.task` with fallback to `pose_landmarker_full.task` and `pose_landmarker_lite.task`.
-2. Support GPU delegate attempt with CPU delegate fallback for each model tier.
-3. Support local model asset path (`/models/pose_landmarker_${tier}.task`) with Google Storage CDN URL fallback (`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${tier}/float16/1/pose_landmarker_${tier}.task`).
-4. Update `PoseLandmarkerLike` interface to expose `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate`.
-5. Specify unit test additions for `pose.test.ts`.
-
-Write your detailed technical report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/analysis.md` and deliver `handoff.md`. Communicate completion via send_message to parent.
-
+OUTPUT: Write implementation blueprint to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/blueprint_m1.md` and deliver handoff.md in your working directory. Send a message to parent with the report path.

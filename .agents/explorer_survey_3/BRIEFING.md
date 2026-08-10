@@ -1,47 +1,39 @@
-# BRIEFING — 2026-08-10T01:15:45Z
+# BRIEFING — 2026-08-10T07:32:00Z
 
 ## Mission
-Investigate codebase for Requirement R3 (Empirical Benchmarks & Adversarial Stress Test Expansion) covering Vitest test suites, coverage gaps, target lock retention assertions, and TypeScript/Vitest execution configurations.
+Investigate R4: Download & Integrate Reference Gait Video Data for gait-lab repository.
 
 ## 🔒 My Identity
-- Archetype: teamwork_preview_explorer
-- Roles: Survey Explorer 3: Testing & Benchmark Infrastructure
+- Archetype: explorer
+- Roles: read-only investigator, surveyor
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_survey_3
-- Original parent: af82c884-6102-41a9-89f6-28ed51dead77
-- Milestone: Explorer Survey R3
+- Original parent: e41552d4-18b9-4bd1-a014-7394a83c1796
+- Milestone: R4 Investigation Complete
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code fixes or new tests in src/
-- Output report in /Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/handoff.md
-- Report must strictly follow 5-component format: Observation, Logic Chain, Caveats, Conclusion, Verification Method.
+- Read-only investigation — do NOT implement code or modify project source code directly (only create reports in working dir).
+- Investigate sample video setup in public/samples/ and config files.
+- Examine single-subject tracking pipeline & how sample video files are loaded/processed in tests/UI.
+- Check open repositories / video sources (sagittal, frontal, follow-cam) for open-access gait video data.
+- Identify download strategies (curl, wget, script) for 2-10 reference gait videos into public/samples/.
+- Verify tracking deduplication / single-subject handling logic.
 
 ## Current Parent
-- Conversation ID: af82c884-6102-41a9-89f6-28ed51dead77
-- Updated: 2026-08-10T01:15:45Z
+- Conversation ID: e41552d4-18b9-4bd1-a014-7394a83c1796
+- Updated: 2026-08-10T07:32:00Z
 
 ## Investigation State
-- **Explored paths**:
-  - `src/lib/gait/__tests__/person_identification_stress.test.ts`
-  - `src/lib/gait/__tests__/PoseTracker.test.ts`
-  - `src/lib/gait/__tests__/testHelpers.ts`
-  - `src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts` through `cat6_camera_shake_motion.test.ts`
-  - `src/lib/gait/__tests__/view_suppression_stress_m8_1.test.ts`
-  - `src/lib/gait/__tests__/m9_adversarial_stress.test.ts`
-  - `src/lib/gait/analysis.ts`
-  - `src/lib/gait/PoseTracker.ts`
-  - `vitest.config.ts`, `tsconfig.json`, `package.json`
-- **Key findings**:
-  - Existing tests in `person_identification_stress.test.ts` cover static scale invariance, 2-leg back-and-forth consolidation, 1 fixed 7-frame gap occlusion, 2 static parallel walkers, and 1-frame noise filtering.
-  - `PoseTracker.test.ts` has ZERO test coverage for multi-person candidate selection or target lock retention.
-  - Test gaps identified in multi-person passerby noise models, continuous U-turn turnaround velocity inversions, fast walking at 15/30 FPS, dynamic scale variations ($0.15 \to 0.85$), systematic 2-10 frame occlusion sweeps, and live streaming target lock assertions.
-  - `npx vitest run` and `npx tsc --noEmit` execute successfully with 100% green pass rate and 0 TS errors.
-- **Unexplored areas**: None within scope of R3.
+- **Explored paths**: `public/samples/`, `src/components/gait/SamplePicker.tsx`, `src/lib/gait/__tests__/sample_picker.test.ts`, `src/lib/gait/analysis.ts` (`matchPeople`, `mergeFragmentedTracks`, `tracksToPeople`), `scripts/generate_sample_videos.py`, `scripts/tune-gait-samples.mjs`, `src/lib/gait/__tests__/person_identification_stress.test.ts`.
+- **Key findings**: Complete audit of existing 7 reference videos, registry in `SamplePicker.tsx`, single-subject tracking deduplication in `analysis.ts`, open-access repository sourcing options (PMC CC-BY, Wikimedia Commons, CASIA-B, CMU MoBo, local MOV extractions, synthetic generator), and actionable integration roadmap.
+- **Unexplored areas**: None. R4 investigation scope fully satisfied.
 
 ## Key Decisions Made
-- Completed comprehensive investigation and documented findings in `handoff.md`.
+- Completed detailed report `survey_r4.md`.
+- Completed self-contained handoff report `handoff.md`.
 
 ## Artifact Index
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/DISPATCH.md` — User dispatch log
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/BRIEFING.md` — Persistent briefing state
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/progress.md` — Heartbeat progress log
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/handoff.md` — 5-component survey handoff report
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/DISPATCH.md` — Dispatch prompt record
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/BRIEFING.md` — Working memory index
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/progress.md` — Liveness heartbeat progress log
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/survey_r4.md` — Detailed R4 survey report
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/handoff.md` — 5-component handoff report

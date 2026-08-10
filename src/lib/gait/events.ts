@@ -116,7 +116,7 @@ export function findExtrema(
       if (signal[i] > sigMax) sigMax = signal[i];
     }
     const sigRange = sigMax - sigMin;
-    minProminence = Math.max(0.001, 0.15 * sigRange);
+    minProminence = Math.max(0.0005, 0.12 * sigRange);
   }
 
   for (let i = 1; i < n - 1; i++) {
@@ -145,6 +145,67 @@ export function findExtrema(
   }
 
   return indices;
+}
+
+/**
+ * Combines local extrema across time-varying direction segments.
+ * For heel strikes: direction +1 expects local max, direction -1 expects local min.
+ * For toe offs:     direction +1 expects local min, direction -1 expects local max.
+ */
+export function combineExtremaByDirection(
+  signal: number[],
+  directions: number[],
+  eventType: "heel" | "toe",
+  minGap: number,
+): number[] {
+  const maxes = findExtrema(signal, "max", minGap);
+  const mins = findExtrema(signal, "min", minGap);
+
+  const candidates: number[] = [];
+
+  for (const f of maxes) {
+    const dir = directions[f];
+    if (
+      (eventType === "heel" && dir === 1) ||
+      (eventType === "toe" && dir === -1)
+    ) {
+      candidates.push(f);
+    }
+  }
+
+  for (const f of mins) {
+    const dir = directions[f];
+    if (
+      (eventType === "heel" && dir === -1) ||
+      (eventType === "toe" && dir === 1)
+    ) {
+      candidates.push(f);
+    }
+  }
+
+  candidates.sort((a, b) => a - b);
+
+  const result: number[] = [];
+  for (const f of candidates) {
+    if (result.length === 0 || f - result[result.length - 1] >= minGap) {
+      result.push(f);
+    } else {
+      const prev = result[result.length - 1];
+      const prevDir = directions[prev];
+      const prevMode: "max" | "min" =
+        (eventType === "heel" ? prevDir === 1 : prevDir === -1) ? "max" : "min";
+      const currMode: "max" | "min" =
+        (eventType === "heel" ? directions[f] === 1 : directions[f] === -1) ? "max" : "min";
+
+      const prevProm = calculateProminence(signal, prev, prevMode);
+      const currProm = calculateProminence(signal, f, currMode);
+      if (currProm > prevProm) {
+        result[result.length - 1] = f;
+      }
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -234,27 +295,29 @@ export function detectGaitEventsZeni(
     rightToeXRel[i] = rToe - hipX;
   }
 
-  // Determine overall walking direction (+1 = left-to-right, -1 = right-to-left)
-  // R1 Fix: Calculate direction using median foot orientation difference (toe.x - heel.x) across valid frames,
-  // falling back to mid-hip displacement when foot landmark visibility is low (< 0.4) or valid samples < 5.
-  const footDiffs: number[] = [];
-
+  // 1. Calculate per-frame foot orientation difference (toe.x - heel.x)
+  const perFrameFootDiff = new Array<number>(n);
   for (let i = 0; i < n; i++) {
     const frame = frames[i];
-    if (!frame || !frame.landmarks) continue;
-
+    if (!frame || !frame.landmarks) {
+      perFrameFootDiff[i] = 0;
+      continue;
+    }
     const lToe = frame.landmarks[LM.L_FOOT];
     const lHeel = frame.landmarks[LM.L_HEEL];
     const rToe = frame.landmarks[LM.R_FOOT];
     const rHeel = frame.landmarks[LM.R_HEEL];
 
+    let sum = 0;
+    let cnt = 0;
     if (
       lToe &&
       lHeel &&
       (lToe.visibility ?? 1.0) >= 0.4 &&
       (lHeel.visibility ?? 1.0) >= 0.4
     ) {
-      footDiffs.push(lToe.x - lHeel.x);
+      sum += lToe.x - lHeel.x;
+      cnt++;
     }
     if (
       rToe &&
@@ -262,31 +325,65 @@ export function detectGaitEventsZeni(
       (rToe.visibility ?? 1.0) >= 0.4 &&
       (rHeel.visibility ?? 1.0) >= 0.4
     ) {
-      footDiffs.push(rToe.x - rHeel.x);
+      sum += rToe.x - rHeel.x;
+      cnt++;
     }
-  }
-
-  let direction = 1;
-  if (footDiffs.length >= 5) {
-    footDiffs.sort((a, b) => a - b);
-    const midIdx = Math.floor(footDiffs.length / 2);
-    const medianFootDiff =
-      footDiffs.length % 2 === 0
-        ? (footDiffs[midIdx - 1] + footDiffs[midIdx]) / 2
-        : footDiffs[midIdx];
-
-    if (Math.abs(medianFootDiff) > 0.005) {
-      direction = medianFootDiff > 0 ? 1 : -1;
+    if (cnt > 0) {
+      perFrameFootDiff[i] = sum / cnt;
     } else {
-      // Median foot diff near zero (e.g. strict frontal view), fallback to hip drift
-      const totalDisplacement = midHipX[n - 1] - midHipX[0];
-      direction = totalDisplacement < -0.05 ? -1 : 1;
+      const iPrev = Math.max(0, i - 2);
+      const iNext = Math.min(n - 1, i + 2);
+      perFrameFootDiff[i] = midHipX[iNext] - midHipX[iPrev];
     }
-  } else {
-    // Low foot visibility fallback to mid-hip displacement
-    const totalDisplacement = midHipX[n - 1] - midHipX[0];
-    direction = totalDisplacement < -0.05 ? -1 : 1;
   }
+
+  // 2. Sliding window local median (~1.5s / 45 frames window)
+  const windowRadius = Math.max(7, Math.round(0.75 * effectiveFps));
+  const localMedians = new Array<number>(n);
+  for (let i = 0; i < n; i++) {
+    const winStart = Math.max(0, i - windowRadius);
+    const winEnd = Math.min(n - 1, i + windowRadius);
+    const windowVals: number[] = [];
+    for (let j = winStart; j <= winEnd; j++) {
+      windowVals.push(perFrameFootDiff[j]);
+    }
+    windowVals.sort((a, b) => a - b);
+    const mid = Math.floor(windowVals.length / 2);
+    localMedians[i] =
+      windowVals.length % 2 === 0
+        ? (windowVals[mid - 1] + windowVals[mid]) / 2
+        : windowVals[mid];
+  }
+
+  // 3. Sign-flip hysteresis state machine (> 0.01 threshold)
+  const hysteresisThresh = 0.01;
+  const directions = new Array<number>(n);
+
+  let initialDir = 1;
+  if (Math.abs(localMedians[0]) > 0.005) {
+    initialDir = localMedians[0] > 0 ? 1 : -1;
+  } else {
+    const totalDisplacement = midHipX[n - 1] - midHipX[0];
+    initialDir = totalDisplacement < -0.05 ? -1 : 1;
+  }
+
+  let stateDir = initialDir;
+  for (let i = 0; i < n; i++) {
+    const med = localMedians[i];
+    if (stateDir === 1 && med < -hysteresisThresh) {
+      stateDir = -1;
+    } else if (stateDir === -1 && med > hysteresisThresh) {
+      stateDir = 1;
+    }
+    directions[i] = stateDir;
+  }
+
+  // Summary scalar direction for backward compatibility
+  let posCount = 0;
+  for (let i = 0; i < n; i++) {
+    if (directions[i] === 1) posCount++;
+  }
+  const inferredDirection = posCount >= n / 2 ? 1 : -1;
 
   // Pre-filter relative trajectories at fc = 6.0 Hz
   const filtLHeel = zeroPhaseButterworth(leftHeelXRel, effectiveFps, 6.0);
@@ -294,16 +391,13 @@ export function detectGaitEventsZeni(
   const filtLToe = zeroPhaseButterworth(leftToeXRel, effectiveFps, 6.0);
   const filtRToe = zeroPhaseButterworth(rightToeXRel, effectiveFps, 6.0);
 
-  const minGap = Math.max(3, Math.floor(0.35 * effectiveFps));
+  const minGap = Math.max(3, Math.floor(0.18 * effectiveFps));
 
-  // Determine peak types based on walk direction
-  const heelStrikeMode: "max" | "min" = direction === 1 ? "max" : "min";
-  const toeOffMode: "max" | "min" = direction === 1 ? "min" : "max";
-
-  let rawLHeelStrikes = findExtrema(filtLHeel, heelStrikeMode, minGap);
-  let rawRHeelStrikes = findExtrema(filtRHeel, heelStrikeMode, minGap);
-  let rawLToeOffs = findExtrema(filtLToe, toeOffMode, minGap);
-  let rawRToeOffs = findExtrema(filtRToe, toeOffMode, minGap);
+  // Determine peak events using per-frame direction vector
+  let rawLHeelStrikes = combineExtremaByDirection(filtLHeel, directions, "heel", minGap);
+  let rawRHeelStrikes = combineExtremaByDirection(filtRHeel, directions, "heel", minGap);
+  let rawLToeOffs = combineExtremaByDirection(filtLToe, directions, "toe", minGap);
+  let rawRToeOffs = combineExtremaByDirection(filtRToe, directions, "toe", minGap);
 
   // Peak-refinement signals (default AP); overwritten in frontal-Y mode
   let refineLHeel = filtLHeel;
@@ -319,7 +413,7 @@ export function detectGaitEventsZeni(
   );
   const apEventCount =
     rawLHeelStrikes.length + rawRHeelStrikes.length + rawLToeOffs.length + rawRToeOffs.length;
-  if (apRange < 0.022 || apEventCount < 4) {
+  if (apRange < 0.028 && apEventCount < 5) {
     const leftAnkleY = new Array<number>(n);
     const rightAnkleY = new Array<number>(n);
     const midAnkleY = new Array<number>(n);
@@ -337,19 +431,170 @@ export function detectGaitEventsZeni(
     const filtLY = zeroPhaseButterworth(leftAnkleY, effectiveFps, 5.0);
     const filtRY = zeroPhaseButterworth(rightAnkleY, effectiveFps, 5.0);
     const filtMidY = zeroPhaseButterworth(midAnkleY, effectiveFps, 5.0);
-    // ~0.33s min gap ≈ max ~180 spm — filters bounce doubles without starving real walk
-    const yMinGap = Math.max(4, Math.floor(0.33 * effectiveFps));
-    const midStrikes = findExtrema(filtMidY, "max", yMinGap, Math.max(0.0005, 0.08 * (Math.max(...filtMidY) - Math.min(...filtMidY))));
+    // ~0.18s min gap ≈ max ~330 spm — filters bounce doubles without starving real walk
+    const yMinGap = Math.max(3, Math.floor(0.18 * effectiveFps));
 
-    // Assign successive contacts to alternating sides (typical walk)
+    const midPromRange = Math.max(...filtMidY) - Math.min(...filtMidY);
+    const lyPromRange = Math.max(...filtLY) - Math.min(...filtLY);
+    const ryPromRange = Math.max(...filtRY) - Math.min(...filtRY);
+
+    const midPeaks = findExtrema(
+      filtMidY,
+      "max",
+      yMinGap,
+      Math.max(0.0005, 0.08 * midPromRange),
+    );
+    const lPeaks = findExtrema(
+      filtLY,
+      "max",
+      yMinGap,
+      Math.max(0.0005, 0.08 * lyPromRange),
+    );
+    const rPeaks = findExtrema(
+      filtRY,
+      "max",
+      yMinGap,
+      Math.max(0.0005, 0.08 * ryPromRange),
+    );
+
+    // Merge candidate peaks into a sorted, de-duplicated peak array
+    const rawCandidateSet = new Set<number>([...midPeaks, ...lPeaks, ...rPeaks]);
+    const sortedCandidates = Array.from(rawCandidateSet).sort((a, b) => a - b);
+
+    const midStrikes: number[] = [];
+    const mergeWindow = Math.max(2, Math.floor(0.08 * effectiveFps));
+    for (const p of sortedCandidates) {
+      if (midStrikes.length === 0) {
+        midStrikes.push(p);
+      } else {
+        const lastP = midStrikes[midStrikes.length - 1];
+        if (p - lastP < mergeWindow) {
+          if (filtMidY[p] > filtMidY[lastP]) {
+            midStrikes[midStrikes.length - 1] = p;
+          }
+        } else {
+          midStrikes.push(p);
+        }
+      }
+    }
+
+    // Assign successive contacts based on spatial ankle position & landmark inspection
     rawLHeelStrikes = [];
     rawRHeelStrikes = [];
     rawLToeOffs = [];
     rawRToeOffs = [];
+
+    let lastAssignedSide: "left" | "right" | null = null;
+    let lastAssignedFrame: number | null = null;
+    let estimatedStepFrames = Math.max(6, Math.round(0.45 * effectiveFps));
+    const yDeadband = 0.003; // ~0.3% normalized image height threshold
+    const minStrideGapFrames = Math.max(8, Math.floor(0.65 * 2 * estimatedStepFrames));
+
     for (let k = 0; k < midStrikes.length; k++) {
       const f = midStrikes[k];
-      if (k % 2 === 0) rawLHeelStrikes.push(f);
-      else rawRHeelStrikes.push(f);
+      const frame = frames[f];
+
+      // Landmark visibility evaluation
+      const lA = frame?.landmarks?.[LM.L_ANKLE];
+      const rA = frame?.landmarks?.[LM.R_ANKLE];
+      const lH = frame?.landmarks?.[LM.L_HEEL];
+      const rH = frame?.landmarks?.[LM.R_HEEL];
+
+      const lVis = Math.max(lA?.visibility ?? 1.0, lH?.visibility ?? 1.0);
+      const rVis = Math.max(rA?.visibility ?? 1.0, rH?.visibility ?? 1.0);
+
+      const diffY = filtLY[f] - filtRY[f]; // positive = Left ankle is lower in frame (larger Y value)
+
+      // Windowed spatial height inspection (check [f-2, f+2] for max magnitude difference)
+      let bestDiffY = diffY;
+      if (Math.abs(diffY) <= yDeadband) {
+        const winStart = Math.max(0, f - 2);
+        const winEnd = Math.min(n - 1, f + 2);
+        let maxAbsDiff = Math.abs(diffY);
+        for (let w = winStart; w <= winEnd; w++) {
+          const dY = filtLY[w] - filtRY[w];
+          if (Math.abs(dY) > maxAbsDiff) {
+            maxAbsDiff = Math.abs(dY);
+            bestDiffY = dY;
+          }
+        }
+      }
+
+      let side: "left" | "right";
+
+      if (lVis >= 0.3 && rVis >= 0.3 && Math.abs(bestDiffY) > yDeadband) {
+        // Tier 1: Primary spatial vertical height inspection
+        side = bestDiffY > 0 ? "left" : "right";
+      } else if (lVis >= 0.3 && rVis < 0.3) {
+        // Tier 2A: Asymmetric visibility (Left visible, Right occluded)
+        const lHipY = frame?.landmarks?.[LM.L_HIP]?.y ?? 0.5;
+        const lAnkleYVal = filtLY[f];
+        side =
+          lAnkleYVal - lHipY > 0.25
+            ? "left"
+            : lastAssignedSide === "left"
+              ? "right"
+              : "left";
+      } else if (rVis >= 0.3 && lVis < 0.3) {
+        // Tier 2B: Asymmetric visibility (Right visible, Left occluded)
+        const rHipY = frame?.landmarks?.[LM.R_HIP]?.y ?? 0.5;
+        const rAnkleYVal = filtRY[f];
+        side =
+          rAnkleYVal - rHipY > 0.25
+            ? "right"
+            : lastAssignedSide === "right"
+              ? "left"
+              : "right";
+      } else {
+        // Tier 3 & 4: Ambiguous height / low visibility fallback via Alternation Memory with Frame Continuity
+        if (lastAssignedSide !== null && lastAssignedFrame !== null) {
+          const deltaFrames = f - lastAssignedFrame;
+          const elapsedSteps = Math.max(1, Math.round(deltaFrames / estimatedStepFrames));
+          if (elapsedSteps % 2 === 1) {
+            side = lastAssignedSide === "left" ? "right" : "left";
+          } else {
+            side = lastAssignedSide;
+          }
+        } else {
+          side = k % 2 === 0 ? "left" : "right";
+        }
+      }
+
+      // De-duplication check: prevent duplicate same-side heel strikes during stance plateaus / ripples
+      if (side === lastAssignedSide && lastAssignedFrame !== null) {
+        const deltaF = f - lastAssignedFrame;
+        if (deltaF < minStrideGapFrames) {
+          // Candidate f is within the same stance plateau / ripple of lastAssignedFrame
+          const targetArray = side === "left" ? rawLHeelStrikes : rawRHeelStrikes;
+          if (targetArray.length > 0) {
+            const prevF = targetArray[targetArray.length - 1];
+            // If current peak f has higher Y (greater elevation), replace previous peak
+            if (filtMidY[f] > filtMidY[prevF]) {
+              targetArray[targetArray.length - 1] = f;
+              lastAssignedFrame = f;
+            }
+          }
+          continue; // Skip adding duplicate same-side contact
+        }
+      }
+
+      // Record valid contact assignment and update running step duration estimate
+      if (lastAssignedSide !== null && lastAssignedFrame !== null && side !== lastAssignedSide) {
+        const stepDur = f - lastAssignedFrame;
+        if (stepDur >= 6 && stepDur <= 2.5 * effectiveFps) {
+          estimatedStepFrames = Math.round(0.7 * estimatedStepFrames + 0.3 * stepDur);
+        }
+      }
+
+      lastAssignedSide = side;
+      lastAssignedFrame = f;
+
+      if (side === "left") {
+        rawLHeelStrikes.push(f);
+      } else {
+        rawRHeelStrikes.push(f);
+      }
+
       // Toe-off: mid-swing trough after each contact when available
       if (k + 1 < midStrikes.length) {
         const a = midStrikes[k];
@@ -363,7 +608,7 @@ export function detectGaitEventsZeni(
           }
         }
         if (minI > a && minI < b) {
-          if (k % 2 === 0) rawLToeOffs.push(minI);
+          if (side === "left") rawLToeOffs.push(minI);
           else rawRToeOffs.push(minI);
         }
       }
@@ -522,7 +767,7 @@ export function detectGaitEventsZeni(
     rightSwingPct,
     doubleSupportPct,
     stepEvents: allEvents,
-    inferredDirection: direction,
+    inferredDirection: inferredDirection,
   };
 }
 

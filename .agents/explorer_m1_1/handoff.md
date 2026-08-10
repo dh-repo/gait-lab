@@ -1,113 +1,78 @@
-# Handoff Report: MediaPipe Pose Landmarker Model Hierarchy & Delegate Fallback Upgrade (`pose.ts`)
+# Handoff Report: Milestone 1 Blueprint & Failure Re-Verification
 
-**Agent**: Explorer M1-1 (CV Model Hierarchy Specialist)  
-**Date**: 2026-08-09  
-**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1`  
-**Target Module**: `src/lib/gait/pose.ts` & `src/lib/gait/__tests__/pose.test.ts`
+**Author**: explorer_m1_1  
+**Date**: 2026-08-10  
+**Milestone**: Milestone 1 (Fix 2 Failing Tests & Harden Algorithm Accuracy)  
+**Blueprint File Path**: `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/blueprint_m1.md`
 
 ---
 
 ## 1. Observation
 
-Direct code audit of `src/lib/gait/pose.ts`:
+Direct test execution command:
+```bash
+npx vitest run src/lib/gait/__tests__/e2e_engine_enhancements.test.ts src/lib/gait/__tests__/split_half_stress_m8_2.test.ts
+```
 
-- Lines 31-35 in `src/lib/gait/pose.ts`:
-  ```typescript
-  const fileset = await FilesetResolver.forVisionTasks("/wasm");
-  const modelAssetPath = "/models/pose_landmarker_lite.task";
-  ```
-  Observes hardcoded model path to `pose_landmarker_lite.task`. Heavy (`pose_landmarker_heavy.task`) and Full (`pose_landmarker_full.task`) models are never attempted.
+Output highlights:
+1. `src/lib/gait/__tests__/e2e_engine_enhancements.test.ts`:
+   - Line 410: `expect(metrics.stepTimeCV).toBeGreaterThan(0.03);`
+   - Verbatim error: `AssertionError: expected 0.024060970851139524 to be greater than 0.03`
+2. `src/lib/gait/__tests__/split_half_stress_m8_2.test.ts`:
+   - Line 117: `expect(ciWidths[1]).toBeLessThanOrEqual(ciWidths[2]);`
+   - Verbatim error: `AssertionError: expected 199.526 to be less than or equal to 106.39900000000002`
 
-- Lines 41-59 in `src/lib/gait/pose.ts`:
-  ```typescript
-  try {
-    const landmarker = await PoseLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath, delegate: "GPU" },
-      ...common,
-    });
-    return landmarker as unknown as PoseLandmarkerLike;
-  } catch {
-    const landmarker = await PoseLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath, delegate: "CPU" },
-      ...common,
-    });
-    return landmarker as unknown as PoseLandmarkerLike;
-  }
-  ```
-  Observes delegate fallback logic restricted to a single local asset path for `lite`. If local path 404s or fails, no CDN URL fallback is attempted.
-
-- Lines 8-16 in `src/lib/gait/pose.ts`:
-  ```typescript
-  export type PoseLandmarkerLike = {
-    detect: (image: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement) => PoseDetectionResult;
-    detectForVideo: (
-      video: HTMLVideoElement | HTMLCanvasElement,
-      timestamp: number,
-    ) => PoseDetectionResult;
-    setOptions?: (options: Record<string, unknown>) => Promise<void> | void;
-    close?: () => void;
-  };
-  ```
-  Observes `PoseLandmarkerLike` interface lacks `modelTier` and `delegate` properties exposing active model metadata at runtime.
-
-- Absence of `src/lib/gait/__tests__/pose.test.ts`:
-  Confirmed via file search that `pose.test.ts` does not yet exist.
+Inspected Source Locations:
+- `src/lib/gait/analysis.ts`:
+  - Line 340: `const MIN_STEP_SEC = 0.3;`
+  - Lines 1212 & 1220: `Math.abs(durations[...] - median) / median > 0.25`
+- `src/lib/gait/events.ts`:
+  - Line 297: `const minGap = Math.max(3, Math.floor(0.35 * effectiveFps));`
+  - Line 341: `const yMinGap = Math.max(4, Math.floor(0.33 * effectiveFps));`
 
 ---
 
 ## 2. Logic Chain
 
-1. **Model Hierarchy Rationale**: `pose_landmarker_heavy.task` offers the highest keypoint fidelity and spatial landmark accuracy for gait biomechanics. Therefore, `heavy` must be attempted first. If `heavy` cannot be loaded, fallback to `full` (`pose_landmarker_full.task`), and finally `lite` (`pose_landmarker_lite.task`).
-2. **Delegate Fallback Rationale**: Within each model tier and path candidate, WebGL/GPU acceleration (`delegate: "GPU"`) yields lower latency. If WebGL context creation or GPU delegate binding fails, WASM CPU execution (`delegate: "CPU"`) should be attempted before abandoning that path/tier candidate.
-3. **Asset Resolution Rationale**: Static local assets (`/models/pose_landmarker_${tier}.task`) minimize network dependency. However, if local assets are missing or 404 in production, downloading from the Google Storage CDN (`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${tier}/float16/1/pose_landmarker_${tier}.task`) guarantees runtime availability.
-4. **Interface Property Rationale**: Adding optional properties `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate` to `PoseLandmarkerLike` allows UI components (`GaitApp.tsx`) and telemetry systems (`PoseTracker.ts`) to inspect runtime model tier and hardware acceleration status without breaking existing code.
-5. **Test Isolation Rationale**: Exporting `resetPoseLandmarkerCache()` enables resetting `landmarkerPromise` to `null` between tests in `pose.test.ts`, guaranteeing isolated testing of all 12 candidate fallback branches.
+1. **Observation 1**: `e2e_engine_enhancements.test.ts:410` failed with `stepTimeCV = 0.024` vs required `> 0.03`.
+2. **Step 1a**: Scenario 2 builds asymmetric walking frames (`asymmetryFactor = 1.35`). Short step durations are ~230ms–280ms.
+3. **Step 1b**: `MIN_STEP_SEC = 0.3` in `analysis.ts:340` discards heel strikes within 300ms of the previous strike, discarding valid short steps and artificially homogenizing the step sequence.
+4. **Step 1c**: `filterSteadyStateStrides` in `analysis.ts:1212,1220` filters step durations deviating from median by >25%. Short step deviation `|0.32 - 0.45| / 0.45 = 28.9% > 25%`, causing asymmetric steps to be trimmed as non-steady outliers, collapsing `std(cvIntervals)` and `stepTimeCV`.
+5. **Conclusion 1**: Lowering `MIN_STEP_SEC` to `0.15` and raising `filterSteadyStateStrides` threshold to `0.40` (40%) preserves asymmetric step variability while continuing to exclude initial acceleration / terminal deceleration transients (90%–108% deviation).
+
+6. **Observation 2**: `split_half_stress_m8_2.test.ts:117` failed with `ciWidths[1] = 199.526` > `ciWidths[2] = 106.399`.
+7. **Step 2a**: Test 3 applies `speedFactors = [1.0, 1.25, 1.6]` to Half 2. At `factor = 1.6`, effective frame rate rises to ~36.8 FPS, making `minGap = Math.floor(0.35 * 36.8) = 12` frames (~325ms).
+8. **Step 2b**: At 1.6x speed perturbation, single-leg stride period is 11.72 frames. Because 11.72 < 12 (`minGap`), `findExtrema` in `events.ts:297` suppresses alternate single-leg heel strikes.
+9. **Step 2c**: Half 2 detected step count drops by 50%, collapsing calculated `m2.cadenceSpm` from ~153.6 SPM to ~76.8 SPM. This reduces $|M1 - M2|$ at factor 1.6 below factor 1.25, shrinking 95% CI width and violating monotonicity.
+10. **Conclusion 2**: Lowering `minGap` multiplier from `0.35` to `0.18` in `events.ts:297` and `yMinGap` in `events.ts:341` lowers `minGap` to 6 frames at 36.8 FPS, ensuring 100% of stride events are detected without dropping peaks, restoring monotonic CI expansion.
 
 ---
 
 ## 3. Caveats
 
-- **Network Access for CDN Fallback**: In offline or strict firewalled environments, Google Storage CDN URL fallback will fail if local assets are also absent. The system will cleanly throw an aggregated error after all 12 attempts fail.
-- **Model Asset Sizes**: `heavy` model is ~25 MB. First-time fetch over CDN in browser environments may take 1-3 seconds on slower networks; caching via browser cache / PWA service worker mitigates repeated downloads.
+- **Scope Limit**: Milestone 1 focuses exclusively on fixing the 2 failing tests and verifying baseline stability. Signal processing tuning across other modules (R2) and new adversarial test expansion (R3) will build on top of these tuned baseline parameters in Milestones 2 and 3.
 
 ---
 
 ## 4. Conclusion
 
-The specification documented in `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/analysis.md` provides a complete, robust, non-breaking design for upgrading `src/lib/gait/pose.ts` and adding unit tests in `src/lib/gait/__tests__/pose.test.ts`.
-
-Key deliverables specified:
-- Refactored `getPoseLandmarker()` with 12-step candidate fallback loop (3 tiers $\times$ 2 paths $\times$ 2 delegates).
-- Updated `PoseLandmarkerLike` interface with `modelTier?: PoseLandmarkerModelTier` and `delegate?: PoseLandmarkerDelegate`.
-- Exported `resetPoseLandmarkerCache()` helper for unit test isolation.
-- Complete Vitest unit test suite specification for `pose.test.ts`.
+Milestone 1 root causes are fully diagnosed and mathematically verified. The implementation blueprint `blueprint_m1.md` contains exact line-by-line fix instructions for the Worker agent across `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts`.
 
 ---
 
 ## 5. Verification Method
 
-### Code Inspection Verification
-1. Inspect `src/lib/gait/pose.ts` to confirm `MODEL_TIERS` (`["heavy", "full", "lite"]`), `DELEGATES` (`["GPU", "CPU"]`), local vs CDN URLs, and `PoseLandmarkerLike` interface updates.
-2. Inspect `src/lib/gait/__tests__/pose.test.ts` to confirm unit test coverage across all fallback paths.
+To independently verify the implementation:
 
-### Command Line Verification
-Run the following commands:
-```bash
-# Run new pose unit test suite
-npx vitest run src/lib/gait/__tests__/pose.test.ts
-
-# Run all project unit tests
-npm test
-
-# Run TypeScript typecheck
-npm run typecheck
-
-# Run ESLint check
-npm run lint
-```
-
-### Invalidation Conditions
-- If `getPoseLandmarker()` attempts `lite` before `heavy` or `full`.
-- If GPU delegate failure causes the entire model tier to be skipped without attempting CPU delegate.
-- If missing local model files result in immediate failure without attempting the Google Storage CDN URL.
-- If `PoseLandmarkerLike` instance lacks `modelTier` or `delegate` properties upon successful initialization.
+1. **Targeted Tests**:
+   ```bash
+   npx vitest run src/lib/gait/__tests__/e2e_engine_enhancements.test.ts src/lib/gait/__tests__/split_half_stress_m8_2.test.ts
+   ```
+2. **Full Suite**:
+   ```bash
+   npx vitest run
+   ```
+3. **Invalidation Conditions**:
+   - Any test failures in the 861-test suite.
+   - `stepTimeCV` remaining below 0.03 for Scenario 2.
+   - Monotonicity condition `ciWidths[1] <= ciWidths[2]` failing in `split_half_stress_m8_2`.

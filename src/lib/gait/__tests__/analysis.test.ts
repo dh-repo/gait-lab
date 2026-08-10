@@ -7,6 +7,9 @@ import {
   tracksToPeople,
   computeDualTaskCost,
   analyzeGait,
+  computeBiometricSignature,
+  biometricDistance,
+  hungarianAlgorithm,
   type PersonTrack,
 } from "../analysis";
 import {
@@ -460,6 +463,64 @@ describe("Integrated Gait Analysis Engine (analysis.ts)", () => {
       expect(result.angleAnalysis).toBeDefined();
       expect(result.angleAnalysis?.normalizedPoints.length).toBe(101);
       expect(result.patientMeta).toEqual(patientMeta);
+    });
+  });
+
+  describe("Requirement R1 & R6 Validation", () => {
+    it("hungarianAlgorithm solves 2x2 and padded 3x2 assignment correctly", () => {
+      const costMatrix2x2 = [
+        [0.1, 0.4],
+        [0.3, 0.2],
+      ];
+      const result2x2 = hungarianAlgorithm(costMatrix2x2);
+      expect(result2x2).toEqual([0, 1]);
+
+      const costMatrix3x3Padded = [
+        [0.1, 0.5, 1e9],
+        [0.2, 0.3, 1e9],
+        [1e9, 1e9, 1e9],
+      ];
+      const resultPadded = hungarianAlgorithm(costMatrix3x3Padded);
+      expect(resultPadded[0]).toBe(0);
+      expect(resultPadded[1]).toBe(1);
+    });
+
+    it("computeBiometricSignature gates keypoints on visibility >= 0.4", () => {
+      const lms = new Array(33).fill(null).map(() => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+      lms[11] = { x: 0.4, y: 0.3, z: 0, visibility: 0.9 };
+      lms[12] = { x: 0.6, y: 0.3, z: 0, visibility: 0.9 };
+      lms[23] = { x: 0.42, y: 0.5, z: 0, visibility: 0.9 };
+      lms[24] = { x: 0.58, y: 0.5, z: 0, visibility: 0.9 };
+      lms[27] = { x: 0.42, y: 0.85, z: 0, visibility: 0.9 };
+      lms[28] = { x: 0.58, y: 0.85, z: 0, visibility: 0.9 };
+
+      const validBio = computeBiometricSignature(lms);
+      expect(validBio).toBeDefined();
+      expect(validBio?.meanVisibility).toBeCloseTo(0.9, 2);
+
+      // Low visibility joint (vis < 0.4) returns undefined
+      lms[11] = { x: 0.4, y: 0.3, z: 0, visibility: 0.35 };
+      const gatedBio = computeBiometricSignature(lms);
+      expect(gatedBio).toBeUndefined();
+    });
+
+    it("biometricDistance down-weights shoulderHipRatio in sagittal profile (aspectRatio < 0.35)", () => {
+      const bioFrontal1 = { aspectRatio: 0.45, torsoLegRatio: 0.6, shoulderHipRatio: 1.2 };
+      const bioFrontal2 = { aspectRatio: 0.45, torsoLegRatio: 0.6, shoulderHipRatio: 2.2 };
+      const distFrontal = biometricDistance(bioFrontal1, bioFrontal2);
+
+      const bioSagittal1 = { aspectRatio: 0.25, torsoLegRatio: 0.6, shoulderHipRatio: 1.2 };
+      const bioSagittal2 = { aspectRatio: 0.25, torsoLegRatio: 0.6, shoulderHipRatio: 2.2 };
+      const distSagittal = biometricDistance(bioSagittal1, bioSagittal2);
+
+      // In sagittal profile, shoulderHipRatio difference is suppressed (weight 0.05 vs 0.30)
+      expect(distSagittal).toBeLessThan(distFrontal * 0.5);
+    });
+
+    it("biometricDistance returns 0 when either signature is undefined", () => {
+      const bio = { aspectRatio: 0.4, torsoLegRatio: 0.6, shoulderHipRatio: 1.2 };
+      expect(biometricDistance(bio, undefined)).toBe(0);
+      expect(biometricDistance(undefined, bio)).toBe(0);
     });
   });
 });

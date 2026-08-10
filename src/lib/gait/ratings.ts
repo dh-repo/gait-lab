@@ -2,10 +2,18 @@ import type {
   DualTaskCost,
   EducatedGuess,
   GaitMetrics,
+  PatientMetadata,
   TaskMode,
   ViewAngle,
 } from "./types";
 import { clamp } from "./landmarks";
+import {
+  evaluateGaitNormatives,
+  type GaitDeviationIndexResult,
+  type NormativeEvaluationResult,
+  type PatientMetaInput,
+  type SexCategory,
+} from "./normatives";
 
 /** 5-band rating used consistently across the report. */
 export type RatingBand = "strong" | "good" | "fair" | "watch" | "elevated";
@@ -44,6 +52,10 @@ export type MetricRating = {
   favorability: number;
   band: RatingBand;
   note: string;
+  zScore?: number;
+  percentile?: number;
+  normativeMean?: number;
+  normativeSd?: number;
 };
 
 export type HypothesisRating = EducatedGuess & {
@@ -69,6 +81,8 @@ export type StructuredReport = {
   };
   qualityNotes: string[];
   disclaimer: string;
+  gdi?: GaitDeviationIndexResult;
+  normativeEvaluations?: NormativeEvaluationResult[];
 };
 
 function bandFromScore(score: number): RatingBand {
@@ -203,9 +217,31 @@ export function buildStructuredReport(
     taskMode: TaskMode;
     analyzedFrames: number;
     dualTaskCost?: DualTaskCost;
+    patientMeta?: PatientMetaInput;
+    age?: number;
+    sex?: SexCategory | string;
   },
 ): StructuredReport {
   const dq = dataQualityScore(m, opts.analyzedFrames);
+  const patientMeta = opts.patientMeta ?? { age: opts.age, sex: opts.sex };
+  const { gdi, evaluations } = evaluateGaitNormatives(m, patientMeta);
+
+  const evalMap = new Map<string, NormativeEvaluationResult>();
+  for (const ev of evaluations) {
+    evalMap.set(ev.paramId, ev);
+  }
+
+  const attachNorm = (rating: MetricRating, paramId: string): MetricRating => {
+    const ev = evalMap.get(paramId);
+    if (!ev) return rating;
+    return {
+      ...rating,
+      zScore: ev.zScore,
+      percentile: ev.percentile,
+      normativeMean: ev.normativeMean,
+      normativeSd: ev.normativeSd,
+    };
+  };
 
   const domains: DomainRating[] = [
     domain(
@@ -340,16 +376,19 @@ export function buildStructuredReport(
   ];
 
   const metrics: MetricRating[] = [
-    {
-      id: "cadence",
-      group: "Timing",
-      label: "Cadence",
-      display: m.cadenceSpm.toFixed(0),
-      unit: "spm",
-      favorability: clamp(100 - Math.abs(m.cadenceSpm - 110) * 1.2, 10, 95),
-      band: bandFromScore(clamp(100 - Math.abs(m.cadenceSpm - 110) * 1.2, 10, 95)),
-      note: "Typical casual walk often ~100–120 spm; context matters.",
-    },
+    attachNorm(
+      {
+        id: "cadence",
+        group: "Timing",
+        label: "Cadence",
+        display: m.cadenceSpm.toFixed(0),
+        unit: "spm",
+        favorability: clamp(100 - Math.abs(m.cadenceSpm - 110) * 1.2, 10, 95),
+        band: bandFromScore(clamp(100 - Math.abs(m.cadenceSpm - 110) * 1.2, 10, 95)),
+        note: "Typical casual walk often ~100–120 spm; context matters.",
+      },
+      "cadenceSpm",
+    ),
     {
       id: "symmetryAngle",
       group: "Symmetry",
@@ -360,28 +399,34 @@ export function buildStructuredReport(
       band: bandFromBurden(clamp((m.symmetryAngle ?? 0) / 10, 0, 1)),
       note: "Reference-free symmetry angle (Zifchock et al. 2008). 0% = perfect symmetry.",
     },
-    {
-      id: "zeniStance",
-      group: "Kinematics",
-      label: "Stance Phase % (L / R)",
-      display: m.leftStancePct != null && m.rightStancePct != null
-        ? `${m.leftStancePct.toFixed(0)}% / ${m.rightStancePct.toFixed(0)}%`
-        : "N/A",
-      unit: "% stride",
-      favorability: m.leftStancePct != null ? clamp(100 - Math.abs(m.leftStancePct - 60) * 5, 10, 95) : 50,
-      band: m.leftStancePct != null ? bandFromScore(clamp(100 - Math.abs(m.leftStancePct - 60) * 5, 10, 95)) : "fair",
-      note: m.leftStancePct != null ? "Zeni kinematic event algorithm (Zeni et al. 2008). Normal adult stance ~60%." : "N/A (Requires Side View)",
-    },
-    {
-      id: "stepTimeCV",
-      group: "Variability",
-      label: "Step-time CV",
-      display: (m.stepTimeCV * 100).toFixed(0),
-      unit: "%",
-      favorability: clamp(100 - m.stepTimeCV * 200, 5, 98),
-      band: bandFromBurden(clamp(m.stepTimeCV * 2, 0, 1)),
-      note: "Lower is more regular. Key research marker under dual-task.",
-    },
+    attachNorm(
+      {
+        id: "zeniStance",
+        group: "Kinematics",
+        label: "Stance Phase % (L / R)",
+        display: m.leftStancePct != null && m.rightStancePct != null
+          ? `${m.leftStancePct.toFixed(0)}% / ${m.rightStancePct.toFixed(0)}%`
+          : "N/A",
+        unit: "% stride",
+        favorability: m.leftStancePct != null ? clamp(100 - Math.abs(m.leftStancePct - 60) * 5, 10, 95) : 50,
+        band: m.leftStancePct != null ? bandFromScore(clamp(100 - Math.abs(m.leftStancePct - 60) * 5, 10, 95)) : "fair",
+        note: m.leftStancePct != null ? "Zeni kinematic event algorithm (Zeni et al. 2008). Normal adult stance ~60%." : "N/A (Requires Side View)",
+      },
+      "stancePct",
+    ),
+    attachNorm(
+      {
+        id: "stepTimeCV",
+        group: "Variability",
+        label: "Step-time CV",
+        display: (m.stepTimeCV * 100).toFixed(0),
+        unit: "%",
+        favorability: clamp(100 - m.stepTimeCV * 200, 5, 98),
+        band: bandFromBurden(clamp(m.stepTimeCV * 2, 0, 1)),
+        note: "Lower is more regular. Key research marker under dual-task.",
+      },
+      "stepTimeCV",
+    ),
     {
       id: "strideTimeCV",
       group: "Variability",
@@ -472,26 +517,32 @@ export function buildStructuredReport(
       band: bandFromScore(clamp(m.armSwingRight * 80, 10, 95)),
       note: "Relative wrist travel range.",
     },
-    {
-      id: "kneeL",
-      group: "Arms & knees",
-      label: "Knee flex L",
-      display: m.kneeFlexLeft != null ? m.kneeFlexLeft.toFixed(0) : "N/A",
-      unit: "°",
-      favorability: m.kneeFlexLeft != null ? clamp(m.kneeFlexLeft * 1.2, 10, 95) : 50,
-      band: m.kneeFlexLeft != null ? bandFromScore(clamp(m.kneeFlexLeft * 1.2, 10, 95)) : "fair",
-      note: m.kneeFlexLeft != null ? "Range of hip–knee–ankle angle (best in side view)." : "N/A (Requires Side View)",
-    },
-    {
-      id: "kneeR",
-      group: "Arms & knees",
-      label: "Knee flex R",
-      display: m.kneeFlexRight != null ? m.kneeFlexRight.toFixed(0) : "N/A",
-      unit: "°",
-      favorability: m.kneeFlexRight != null ? clamp(m.kneeFlexRight * 1.2, 10, 95) : 50,
-      band: m.kneeFlexRight != null ? bandFromScore(clamp(m.kneeFlexRight * 1.2, 10, 95)) : "fair",
-      note: m.kneeFlexRight != null ? "Range of hip–knee–ankle angle (best in side view)." : "N/A (Requires Side View)",
-    },
+    attachNorm(
+      {
+        id: "kneeL",
+        group: "Arms & knees",
+        label: "Knee flex L",
+        display: m.kneeFlexLeft != null ? m.kneeFlexLeft.toFixed(0) : "N/A",
+        unit: "°",
+        favorability: m.kneeFlexLeft != null ? clamp(m.kneeFlexLeft * 1.2, 10, 95) : 50,
+        band: m.kneeFlexLeft != null ? bandFromScore(clamp(m.kneeFlexLeft * 1.2, 10, 95)) : "fair",
+        note: m.kneeFlexLeft != null ? "Range of hip–knee–ankle angle (best in side view)." : "N/A (Requires Side View)",
+      },
+      "kneeFlexionRom",
+    ),
+    attachNorm(
+      {
+        id: "kneeR",
+        group: "Arms & knees",
+        label: "Knee flex R",
+        display: m.kneeFlexRight != null ? m.kneeFlexRight.toFixed(0) : "N/A",
+        unit: "°",
+        favorability: m.kneeFlexRight != null ? clamp(m.kneeFlexRight * 1.2, 10, 95) : 50,
+        band: m.kneeFlexRight != null ? bandFromScore(clamp(m.kneeFlexRight * 1.2, 10, 95)) : "fair",
+        note: m.kneeFlexRight != null ? "Range of hip–knee–ankle angle (best in side view)." : "N/A (Requires Side View)",
+      },
+      "kneeFlexionRom",
+    ),
     {
       id: "smooth",
       group: "Path",
@@ -502,16 +553,19 @@ export function buildStructuredReport(
       band: bandFromScore(m.pathSmoothness * 100),
       note: "1 − residual lateral deviation vs progress.",
     },
-    {
-      id: "ds",
-      group: "Timing",
-      label: "Double-support hint",
-      display: m.doubleSupportPct != null ? `${m.doubleSupportPct.toFixed(0)}` : "N/A",
-      unit: "%",
-      favorability: m.doubleSupportPct != null ? clamp(100 - m.doubleSupportPct * 2, 10, 95) : 50,
-      band: m.doubleSupportPct != null ? bandFromBurden(m.doubleSupportPct / 100) : "fair",
-      note: m.doubleSupportPct != null ? "Percentage of stride spent in double-limb support." : "N/A (Requires Side View)",
-    },
+    attachNorm(
+      {
+        id: "ds",
+        group: "Timing",
+        label: "Double-support hint",
+        display: m.doubleSupportPct != null ? `${m.doubleSupportPct.toFixed(0)}` : "N/A",
+        unit: "%",
+        favorability: m.doubleSupportPct != null ? clamp(100 - m.doubleSupportPct * 2, 10, 95) : 50,
+        band: m.doubleSupportPct != null ? bandFromBurden(m.doubleSupportPct / 100) : "fair",
+        note: m.doubleSupportPct != null ? "Percentage of stride spent in double-limb support." : "N/A (Requires Side View)",
+      },
+      "doubleSupportPct",
+    ),
   ];
 
   const sevBand = (s: EducatedGuess["severity"]): RatingBand =>
@@ -579,6 +633,8 @@ export function buildStructuredReport(
     qualityNotes: dq.notes,
     disclaimer:
       "Ratings are clip-level computer-vision estimates, not clinical grades, fall-risk certificates, or cognitive ability scores.",
+    gdi,
+    normativeEvaluations: evaluations,
   };
 }
 

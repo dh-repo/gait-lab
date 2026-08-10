@@ -1,126 +1,124 @@
-# Forensic Audit Report — Milestone 5 (M5: R1 Follow-Cam Direction & R5 Peak Prominence Filtering)
+# Handoff Report — Forensic Integrity Audit (Milestone 5 Test Expansion)
 
-**Auditor:** `teamwork_preview_auditor_m5_1`  
-**Date:** 2026-08-09  
-**Work Product:** `src/lib/gait/events.ts`, `src/lib/gait/__tests__/events.test.ts`, `src/lib/gait/__tests__/testHelpers.ts`  
-**Profile:** General Project (Integrity Forensics)  
-**Integrity Mode:** Development  
-**Verdict:** **CLEAN**
+## Forensic Audit Report
+
+**Work Product**: 5 newly created test files under `src/lib/gait/__tests__/`
+- `src/lib/gait/__tests__/landmarks.test.ts`
+- `src/lib/gait/__tests__/calibration.test.ts`
+- `src/lib/gait/__tests__/homography.test.ts`
+- `src/lib/gait/__tests__/liveCapture.test.ts`
+- `src/lib/gait/__tests__/persistence.server.test.ts`
+
+**Profile**: General Project  
+**Integrity Mode**: development (derived from `ORIGINAL_REQUEST.md`)  
+**Verdict**: **CLEAN**
+
+---
+
+### Phase Results
+
+1. **Authentic Assertions Check**: **PASS**
+   - Verified all 76 unit tests across the 5 target test files.
+   - Every single test inputs test vectors into genuine source module functions and asserts against non-trivial computed outputs.
+   - Zero tautological or hardcoded assertions (such as `expect(true).toBe(true)`) were found.
+
+2. **Mock Object Circumvention Check**: **PASS**
+   - `landmarks.test.ts`, `calibration.test.ts`, and `homography.test.ts` contain zero mocks and exercise real numerical algorithms directly.
+   - `liveCapture.test.ts` uses `vi.stubGlobal("window", ...)` exclusively to test environment detection for `matchMedia` pointer queries and cleans up all stubs via `afterEach(() => vi.unstubAllGlobals())`.
+   - `persistence.server.test.ts` tests actual module re-export references and function types without mocking.
+   - No mock objects circumvent source code verification or fake results.
+
+3. **Facade / Dummy Implementation Check**: **PASS**
+   - Inspected source modules:
+     - `src/lib/gait/landmarks.ts` (339 lines): Complete 3D midpoint, Euclidean distance, 3-point joint angle, torso height, bounding box, and statistical primitives.
+     - `src/lib/gait/calibration.ts` (143 lines): Complete mm-to-pixel ratio calculation for credit cards (85.6 mm), QR tags (50 mm), AprilTags (100 mm), and point scaling.
+     - `src/lib/gait/homography.ts` (148 lines): Complete 8x8 Gaussian elimination solver with partial pivoting, Direct Linear Transform (DLT) homography matrix computation, triangle collinearity check, and projective coordinate transformations.
+     - `src/lib/gait/liveCapture.ts` (60 lines): Complete wall-clock buffer span calculator, gap-based continuous sequence splitting (0.35s threshold), and device media query detection.
+     - `src/lib/gait/persistence.server.ts` (2 lines): Authentic server wrapper re-exporting persistence methods.
+   - No facade, constant return, or dummy implementations exist.
+
+4. **Source File Illegal Modification Check**: **PASS**
+   - Ran `git status` and `git diff` against `src/lib/gait/landmarks.ts`, `calibration.ts`, `homography.ts`, `liveCapture.ts`, and `persistence.server.ts`.
+   - All 5 source files are 100% clean and unmodified in git (working tree clean, 0 diff lines). No source code was tampered with or degraded to force tests to pass.
+
+5. **Compilation and Execution Verification**: **PASS**
+   - Vitest test execution (`npx vitest run src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`):
+     - **5/5 test files passed**, **76/76 tests passed** (0 failures) in 14.80s.
+   - TypeScript compilation (`npx tsc --noEmit`):
+     - Exited with **code 0** (0 TypeScript errors).
+   - ESLint check (`npx eslint src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts`):
+     - Exited with **code 0** (0 lint errors).
 
 ---
 
 ## 1. Observation
 
-### 1.1 Direct Code Audit Findings
+- **Target Test Files**:
+  - `src/lib/gait/__tests__/landmarks.test.ts`: 32 tests exercising `mid`, `dist`, `angleDeg`, `torsoHeight`, `boundingBox`, `hipCenter`, `mean`, `std`, `range`, `clamp`, `pct`, `LM`, `POSE_CONNECTIONS`, `PERSON_COLORS`.
+  - `src/lib/gait/__tests__/calibration.test.ts`: 13 tests exercising `calculateMillimetersPerPixel`, `computeCalibrationScale`, `applyCalibrationToPoint`.
+  - `src/lib/gait/__tests__/homography.test.ts`: 15 tests exercising `solveLinearSystem8x8`, `computeHomographyMatrix`, `transformPoint`, `projectToFloorPlane`.
+  - `src/lib/gait/__tests__/liveCapture.test.ts`: 13 tests exercising `bufferedSpanSec`, `longestContinuousRun`, `defaultFacingMode`.
+  - `src/lib/gait/__tests__/persistence.server.test.ts`: 3 tests exercising server entrypoint re-export equality and function signatures.
 
-1. **Follow-Cam Direction Inference (R1 in `events.ts`)**:
-   - `events.ts` collects relative sagittal foot displacement samples `toe.x - heel.x` for both left and right feet across frames where landmark visibility $\ge 0.4$.
-   - Computes exact median foot difference `medianFootDiff` across gathered samples (minimum 5 valid samples required).
-   - If valid samples $\ge 5$ and $|\text{medianFootDiff}| > 0.005$, direction is inferred as `medianFootDiff > 0 ? 1 : -1`.
-   - If valid samples $< 5$ or $|\text{medianFootDiff}| \le 0.005$ (e.g., low visibility or pure frontal view), gracefully falls back to net mid-hip displacement `midHipX[n-1] - midHipX[0] < -0.05 ? -1 : 1`.
-   - Returns `inferredDirection: direction` as part of `GaitPhaseBreakdown`.
+- **Verbatim Tool Outputs**:
+  - `npx vitest run ...`:
+    ```
+    ✓ src/lib/gait/__tests__/landmarks.test.ts (32 tests) 527ms
+    ✓ src/lib/gait/__tests__/homography.test.ts (15 tests) 28ms
+    ✓ src/lib/gait/__tests__/calibration.test.ts (13 tests) 210ms
+    ✓ src/lib/gait/__tests__/liveCapture.test.ts (13 tests) 327ms
+    ✓ src/lib/gait/__tests__/persistence.server.test.ts (3 tests) 168ms
 
-2. **Topographic Peak Prominence Filtering (R5 in `events.ts`)**:
-   - Implements `calculateProminence(signal, i, mode)` computing true 1D topographic peak prominence:
-     - For `"max"` mode: Scans left and right to find peak boundaries (where signal exceeds peak value `val`) and finds minimum valleys (`leftMin`, `rightMin`). Reference level is $\max(\text{leftMin}, \text{rightMin})$. Prominence is $\text{val} - \text{refLevel}$.
-     - For `"min"` mode: Scans left and right to find valley boundaries and finds maximum peaks (`leftMax`, `rightMax`). Reference level is $\min(\text{leftMax}, \text{rightMax})$. Prominence is $\text{refLevel} - \text{val}$.
-   - Updates `findExtrema(signal, mode, minGap, userMinProminence)`:
-     - Dynamically computes threshold $P_{\text{min}} = \max(0.01, 0.15 \times \text{signalRange})$ when `userMinProminence` is unspecified.
-     - Filters out noise ripples where $\text{prom} < P_{\text{min}}$.
-     - Within candidate window `minGap`, compares peak prominence values (`prom > prevProm`) to retain the most prominent extremum.
-
-3. **Synthetic Frame Helper (`testHelpers.ts`)**:
-   - Adds `followCam?: boolean` parameter to `SyntheticFrameOptions`.
-   - When `opts.followCam` is true, `progress` (net hip movement) is set to `0`, accurately modeling camera tracking shots while keeping realistic foot oscillation and heel/toe relative displacements ($+0.04 \times \text{direction}$ for toe, $-0.02 \times \text{direction}$ for heel).
-
-4. **Unit Test Suite (`events.test.ts`)**:
-   - Includes 11 comprehensive unit tests testing L->R and R->L follow-cam shots (`followCam = true`), low landmark visibility fallbacks, dynamic peak prominence noise suppression (`noiseLevel = 0.04`), and physiological stance/swing/double-support phase bounds.
-
-### 1.2 Empirical Command Execution Results
-
-1. **Target Unit Test Suite (`npx vitest run src/lib/gait/__tests__/events.test.ts`)**:
-   - Result: **Passed 11 / 11 tests** (8 ms)
-
-2. **Full Repository Test Suite (`npm test`)**:
-   - Result: **Passed 25 / 25 node script tests** and **Passed 160 / 160 vitest unit tests across 15 test files** (693 ms)
-
-3. **TypeScript Type Checking (`npm run typecheck`)**:
-   - Result: **Passed with 0 errors**
-
-4. **ESLint Audit (`npm run lint`)**:
-   - Result: **Passed with 0 errors** (32 warnings in unrelated files, 0 errors)
+    Test Files  5 passed (5)
+         Tests  76 passed (76)
+      Duration  14.80s
+    ```
+  - `git diff src/lib/gait/landmarks.ts src/lib/gait/calibration.ts src/lib/gait/homography.ts src/lib/gait/liveCapture.ts src/lib/gait/persistence.server.ts`: (empty output, 0 diff).
+  - `npx tsc --noEmit`: (code 0, 0 errors).
+  - `npx eslint ...`: (code 0, 0 errors).
 
 ---
 
-## 2. Phase Results & Forensic Verification
+## 2. Logic Chain
 
-| Forensic Check | Result | Forensic Evidence / Details |
-|---|:---:|---|
-| **1. Hardcoded Test Results** | **PASS** | No hardcoded test outputs, expected strings, or conditional branches tailored to specific test parameters exist in `events.ts`. Direction and prominence are calculated dynamically from raw frame landmark data. |
-| **2. Facade Implementations** | **PASS** | `calculateProminence`, `findExtrema`, and direction inference in `detectGaitEventsZeni` implement genuine 1D topographic peak prominence and median foot orientation algorithms with no dummy constants or shortcuts. |
-| **3. Pre-populated Artifacts** | **PASS** | No pre-existing log files, fake verification outputs, or pre-baked result artifacts exist in the project directory. |
-| **4. Self-Certifying Tests** | **PASS** | Tests in `events.test.ts` evaluate genuine algorithmic behavior against biomechanical physiological ranges (stance 40-80%, stance + swing = 100%, double support 5-45%), rather than comparing against hardcoded magic values mirror-copied from implementation code. |
-| **5. Execution Delegation** | **PASS** | Core logic uses native TypeScript math routines (`Math.abs`, `Math.max`, array median sorting) without black-box third-party package delegation. |
-| **6. Behavioral Verification** | **PASS** | All automated verification commands (`vitest`, `npm test`, `typecheck`, `lint`) executed independently and passed cleanly with 0 errors. |
+1. **Step 1: Empirical Code Inspection**: Each test file was read and audited line by line to verify assertion authenticity. Every assertion checks specific mathematical results (e.g. Euclidean distance `dist({x:0,y:0}, {x:3,y:4})` equals `5.0`, 3-point angle `angleDeg` equals `90`, 8x8 linear system solution matches expected vectors, homography perspective mapping transforms corners accurately). No hardcoded boolean checks or tautologies exist.
+2. **Step 2: Mock & Facade Audit**: Inspected mock usage and source implementation files. Source files contain full mathematical logic and domain functions. Mocks are minimal, limited to DOM stubs in `liveCapture.test.ts`, and properly isolated.
+3. **Step 3: Source Tampering Check**: Checked git working tree for modifications to the 5 underlying source files. None of the source files were altered, proving that tests pass against original, unmodified source logic.
+4. **Step 4: Independent Execution Verification**: Ran Vitest, `tsc --noEmit`, and ESLint. All 76 tests passed, compilation succeeded with 0 errors, and ESLint passed with 0 errors.
 
 ---
 
-## 3. Logic Chain
+## 3. Caveats
 
-1. **Follow-Cam Direction Inference (R1)**:
-   - In 2D sagittal MediaPipe pose estimation, foot orientation is defined by relative displacement between toe index (31/32) and heel index (29/30). In Left-to-Right walking, `toe.x > heel.x`; in Right-to-Left walking, `toe.x < heel.x`.
-   - By calculating `toe.x - heel.x` across frames with visibility $\ge 0.4$ and taking the median `medianFootDiff`, the algorithm is immune to transient tracking jitter and camera translation in follow-cam clips.
-   - Falling back to net hip displacement when valid foot samples are sparse ($< 5$) or near zero ($|\text{medianFootDiff}| \le 0.005$, e.g. frontal view) preserves backwards compatibility for static camera clips.
-
-2. **Topographic Peak Prominence Filtering (R5)**:
-   - In digital signal processing of gait trajectories, raw local extrema can capture high-frequency landmark jitter ripples.
-   - Topographic peak prominence accurately measures how intrinsic a peak or valley is relative to surrounding signal contours.
-   - Dynamic thresholding $P_{\text{min}} = \max(0.01, 0.15 \times \text{sigRange})$ scales proportionally with signal magnitude, discarding micro-ripples while preserving true initial contact (Heel Strike) and terminal contact (Toe Off) events.
-
-3. **Empirical Verification**:
-   - Independent execution of `npx vitest run src/lib/gait/__tests__/events.test.ts`, `npm test`, `npm run typecheck`, and `npm run lint` confirmed 100% test pass rate with 0 type or lint errors.
+No caveats. All 5 target test files and their respective source modules were fully inspected, executed, and verified.
 
 ---
 
-## 4. Caveats
+## 4. Conclusion
 
-- For pure frontal view clips where toe and heel $X$ coordinates coincide ($|\text{medianFootDiff}| \le 0.005$), the algorithm falls back to net hip displacement as intended, since sagittal direction inference requires non-zero sagittal foot extension.
-- No other caveats.
+Verdict: **CLEAN**
 
----
-
-## 5. Conclusion
-
-The work product implemented by `worker_m5_r1_1` in `src/lib/gait/events.ts`, `src/lib/gait/__tests__/events.test.ts`, and `src/lib/gait/__tests__/testHelpers.ts` is authentic, scientifically sound, and fully compliant with project requirements. No integrity violations, hardcoded shortcuts, or fake verification artifacts were detected.
-
-**Final Verdict**: **CLEAN**
+The 5 newly added test files (`landmarks.test.ts`, `calibration.test.ts`, `homography.test.ts`, `liveCapture.test.ts`, `persistence.server.test.ts`) represent authentic, high-integrity unit test coverage. They contain zero tautologies, zero circumventing mocks, zero facade implementations, zero illegal source modifications, and pass 100% of execution and compilation checks.
 
 ---
 
-## 6. Verification Method
+## 5. Verification Method
 
-To independently reproduce and verify this audit:
+To independently verify this verdict:
 
-1. Run the target events unit test suite:
+1. **Execute Target Vitest Suite**:
    ```bash
-   npx vitest run src/lib/gait/__tests__/events.test.ts
+   npx vitest run src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts
    ```
-   Expect 11 passed tests.
-
-2. Run the full project test suite:
+2. **Execute TypeScript Compiler Check**:
    ```bash
-   npm test
+   npx tsc --noEmit
    ```
-   Expect 25 node script tests and 160 vitest unit tests passing across 15 test files.
-
-3. Run TypeScript type check:
+3. **Execute ESLint Check**:
    ```bash
-   npm run typecheck
+   npx eslint src/lib/gait/__tests__/landmarks.test.ts src/lib/gait/__tests__/calibration.test.ts src/lib/gait/__tests__/homography.test.ts src/lib/gait/__tests__/liveCapture.test.ts src/lib/gait/__tests__/persistence.server.test.ts
    ```
-   Expect exit code 0 with 0 errors.
-
-4. Run ESLint:
+4. **Verify Source File Cleanliness**:
    ```bash
-   npm run lint
+   git status src/lib/gait/landmarks.ts src/lib/gait/calibration.ts src/lib/gait/homography.ts src/lib/gait/liveCapture.ts src/lib/gait/persistence.server.ts
    ```
-   Expect exit code 0 with 0 errors.

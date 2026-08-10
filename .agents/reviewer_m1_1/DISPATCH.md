@@ -1,23 +1,18 @@
-# Dispatch for Reviewer M1-1
+## 2026-08-10T07:35:43Z
+You are reviewer_m1_1.
+Your working directory is: /Users/damian/GitHub/gait-lab/.agents/reviewer_m1_1
+Project scope path: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
+Original request path: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
+Worker report path: /Users/damian/GitHub/gait-lab/.agents/worker_m1_1/report_m1.md
 
-**Role**: teamwork_preview_reviewer (Code Quality & Architecture Reviewer)
-**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/reviewer_m1_1
+MANDATORY INTEGRITY WARNING:
+Verify that all implementations are genuine. Ensure no hardcoded test results, facade logic, or test assertion weakenings were introduced.
 
-## Objective
-Independently review the Milestone M1 implementation for correctness, code quality, fallback handling, and interface compliance across:
-- `src/lib/gait/pose.ts` (Model candidate hierarchy heavy -> full -> lite, GPU/CPU delegates, local/CDN paths, interface updates, cache reset)
-- `src/lib/gait/signal.ts` & `src/lib/gait/types.ts` (5-point Savitzky-Golay 1D temporal filter, boundary reflection padding, short sequence handling N < 5, LandmarkFrame export)
-- `src/lib/gait/analysis.ts` (smoothPoseFrames integration at top of computeGaitMetricsCore)
-- `src/lib/gait/__tests__/pose.test.ts` & `signal.test.ts` (Unit test coverage)
+OBJECTIVE:
+Review Milestone 1 code changes in `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts`.
+1. Inspect the code diffs and logic changes.
+2. Run `npx vitest run`, `npx tsc --noEmit`, and `npx eslint .`.
+3. Verify that test assertions in `e2e_engine_enhancements.test.ts` and `split_half_stress_m8_2.test.ts` were NOT weakened.
+4. Verify algorithm correctness, mathematical soundness, and zero regressions.
 
-## Authoritative Reference Inputs
-- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
-- `/Users/damian/GitHub/gait-lab/PROJECT.md`
-- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
-- `/Users/damian/GitHub/gait-lab/.agents/worker_m1_1/handoff.md`
-
-## Verification Requirements
-Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`. Confirm that every test passes and zero errors remain.
-
-## Output Requirements
-Write your detailed review to `/Users/damian/GitHub/gait-lab/.agents/reviewer_m1_1/analysis.md` and deliver `handoff.md` with explicit Verdict (`APPROVE` or `REQUEST_CHANGES`). Communicate completion via `send_message`.
+OUTPUT: Deliver handoff.md in your working directory containing your explicit verdict (APPROVE or REQUEST_CHANGES) with rationale. Send a message to parent with summary and verdict.

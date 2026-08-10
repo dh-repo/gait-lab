@@ -1,46 +1,56 @@
-# BRIEFING — 2026-08-09T21:42:55Z
+# BRIEFING — 2026-08-10T03:52:18-04:00
 
 ## Mission
-Empirically verify the complete end-to-end verification pipeline (typecheck, lint, test, build) and issue an explicit verification verdict (APPROVE / REJECT).
+Empirically challenge worker_m4_1's reference gait video integration for Milestone 4 (Download & Integrate Reference Gait Video Data R4).
 
 ## 🔒 My Identity
 - Archetype: EMPIRICAL CHALLENGER
 - Roles: critic, specialist
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/challenger_m4_1
-- Original parent: 94e95a73-9eb4-49d3-8cd1-57371d44cd61
-- Milestone: Milestone 4 — E2E Test Suite & Deployment Verification (R4)
-- Instance: Challenger 1 of 2
+- Original parent: 1ba4b2df-5871-4912-b369-0df5db300b92
+- Milestone: M4
+- Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review and test execution only — run code/tests empirically.
-- Do NOT trust claims or logs without running verification code.
-- Must test edge cases: noisy/jittery landmarks, missing landmarks, camera shake, rapid gait cadence, micro-step cadence.
-- Must check numerical stability (no NaN / Infinity propagation, zero crashes).
-- State explicit verdict: APPROVE or REJECT in handoff report.
+- Review-only — do NOT modify implementation code (report findings/failures as findings, do NOT fix them yourself)
+- Empirical verification required — execute tests, stress-test assumptions, verify files, URLs, sizes, tracking deduplication
+- Zero false duplicate tracks on single-subject sample videos
+- Deliver handoff.md with APPROVE or REJECT verdict
 
 ## Current Parent
-- Conversation ID: 8e9e6af1-3d51-4143-bad5-f38a5c021929
-- Updated: 2026-08-09T21:42:55Z
+- Conversation ID: 1ba4b2df-5871-4912-b369-0df5db300b92
+- Updated: 2026-08-10T03:52:18-04:00
 
-## Attack Surface
-- **Hypotheses tested**: 
-  - `npm run typecheck` passes with 0 errors: VERIFIED (exit code 0).
-  - `npm run lint` passes with 0 warnings/errors: VERIFIED (exit code 0).
-  - `npm test` passes 55 test files / 530 tests + 25 script tests: VERIFIED (exit code 0).
-  - `npm run build` generates static & SSR bundles: VERIFIED (exit code 0).
-- **Vulnerabilities found**: None. Numerical stability, clip-length invariance, jitter/noise resilience, camera shake, micro-step handling, and fallback mechanics all pass 100%.
-- **Untested angles**: None. Full verification pipeline executed end-to-end.
-
-## Loaded Skills
-- None specified directly in dispatch prompt.
+## Review Scope
+- **Files to review**:
+  - ORIGINAL_REQUEST.md
+  - .agents/worker_m4_1/report_m4.md
+  - src/components/gait/SamplePicker.tsx
+  - src/lib/gait/__tests__/sample_picker.test.ts
+  - Video files referenced/downloaded for reference gait samples
+  - Code related to single-subject / multi-subject tracking deduplication
+- **Interface contracts**: PROJECT.md / ORIGINAL_REQUEST.md
+- **Review criteria**: correctness, empirical validation, test coverage, tracking deduplication, file integrity, zero false duplicates.
 
 ## Key Decisions Made
-- Executed all 4 verification pipeline steps sequentially and verified 100% pass rate.
-- Verified all 55 Vitest test files (530 tests) and 25 Node test runner scripts pass cleanly.
-- Issued verdict: **APPROVE**.
+- Executed full Vitest suite (74 test files, 960 passed tests).
+- Verified video files with ffprobe: H.264 mp4, 30-60 FPS, all sizes > 100 KB.
+- Added dedicated empirical test suite `src/lib/gait/__tests__/challenger_m4_1_empirical.test.ts` (8/8 passed).
+- Confirmed single-subject tracking deduplication produces 0 false duplicate tracks.
+- Issued verdict: APPROVE.
+
+## Attack Surface
+- **Hypotheses tested**:
+  - Video files exist and have valid H.264 stream encoding: PASSED
+  - SamplePicker URLs use local relative `/samples/` paths: PASSED
+  - Zero false duplicate person tracks on single-subject gait walk clips: PASSED
+  - Multi-subject clips separate target tracks without state corruption: PASSED
+  - Core test suites, tsc, eslint, and build pass 100%: PASSED
+- **Vulnerabilities found**: None.
+- **Untested angles**: None.
+
+## Loaded Skills
+- None loaded.
 
 ## Artifact Index
-- `/Users/damian/GitHub/gait-lab/.agents/challenger_m4_1/DISPATCH.md` — Dispatch log
-- `/Users/damian/GitHub/gait-lab/.agents/challenger_m4_1/BRIEFING.md` — Persistent briefing
-- `/Users/damian/GitHub/gait-lab/.agents/challenger_m4_1/progress.md` — Liveness heartbeat
-- `/Users/damian/GitHub/gait-lab/.agents/challenger_m4_1/handoff.md` — Handoff report with explicit verdict APPROVE
+- handoff.md — Handoff report with verdict (APPROVE)

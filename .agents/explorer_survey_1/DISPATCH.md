@@ -1,21 +1,10 @@
-## 2026-08-10T01:13:18Z
+## 2026-08-10T07:30:46Z
+Investigate R1: Fix 2 Failing Tests & Harden Algorithm Accuracy.
+1. Run `npx vitest run` or run specific tests (`e2e_engine_enhancements.test.ts` and `split_half_stress_m8_2.test.ts`) to observe current failures.
+2. Analyze the code in `src/engine/events.ts`, `src/engine/analysis.ts`, `src/engine/signal.ts`, and test files.
+3. Determine why steady-state stride filter over-trims valid asymmetry variability in `e2e_engine_enhancements.test.ts`.
+4. Determine why split-half CI bounds monotonicity breaks under extreme variance injection in `split_half_stress_m8_2.test.ts`.
+5. Check all 861+ tests to see full baseline pass/fail counts.
+6. Propose root-cause fix strategies without weakening assertions.
 
-Your working directory is: /Users/damian/GitHub/gait-lab/.agents/explorer_survey_1
-Your identity: teamwork_preview_explorer (Survey Explorer 1: Tracking & ReID)
-
-Objective:
-Investigate the codebase for Requirement R1 (Person Tracking Accuracy & Re-Identification in `src/lib/gait/analysis.ts` and `src/lib/gait/PoseTracker.ts`).
-
-Inputs:
-- Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md (specifically the latest follow-up section at 2026-08-10T01:13:18Z).
-- Investigate src/lib/gait/analysis.ts and src/lib/gait/PoseTracker.ts.
-
-Scope & Task:
-1. Examine existing person tracking logic, identity assignment, morphological biometric distance gating, and velocity extrapolation.
-2. Analyze how identity is currently maintained or lost during U-turns, scale changes, fast walking, and temporary occlusions (2-10 frames).
-3. Identify root causes of false duplicate person tracks.
-4. Document all relevant data structures, interfaces, mathematical models, and thresholds.
-5. Provide actionable fix recommendations (do NOT edit code).
-
-Output Requirement:
-Write a comprehensive report to /Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/handoff.md containing Observation, Logic Chain, Caveats, Conclusion, and Verification Method. When complete, send a message to the orchestrator referencing the report.
+OUTPUT: Write your detailed report to `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/survey_r1.md` and deliver handoff.md in your working directory. Send a message to parent with the summary and report path.

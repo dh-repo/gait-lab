@@ -658,8 +658,9 @@ describe("Comprehensive Person Identification & Track Consolidation Suite", () =
       it("T2-DS1: Extreme Minimum Scale Bound (h = 0.10)", () => {
         const lms = mockPersonLandmarks(0.5, 0.5, 0.10, 0.03);
         const bio = computeBiometricSignature(lms);
-        expect(Number.isNaN(bio.aspectRatio)).toBe(false);
-        expect(Number.isNaN(bio.torsoLegRatio)).toBe(false);
+        expect(bio).toBeDefined();
+        expect(Number.isNaN(bio!.aspectRatio)).toBe(false);
+        expect(Number.isNaN(bio!.torsoLegRatio)).toBe(false);
       });
 
       it("T2-DS2: Extreme Maximum Scale Bound (h = 0.90)", () => {
@@ -1089,7 +1090,6 @@ describe("Comprehensive Person Identification & Track Consolidation Suite", () =
       const tracks: PersonTrack[] = [];
       const nextId = { value: 1 };
       for (let f = 0; f < 50; f++) {
-        const t = f / 49;
         const x1 = f < 25 ? 0.2 + (f / 25) * 0.3 : 0.5 - ((f - 25) / 24) * 0.3;
         const x2 = f < 25 ? 0.6 + (f / 25) * 0.3 : 0.9 - ((f - 25) / 24) * 0.3;
         const p1 = mockPersonLandmarks(x1, 0.5, 0.6, 0.2);

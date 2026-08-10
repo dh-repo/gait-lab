@@ -1,22 +1,24 @@
-# Progress Log — Project Orchestrator
+# Progress Tracker — gait-lab Precision Engineering Pass (Phase 2)
 
-Last visited: 2026-08-10T01:22:30Z
+## Current Status
+Last visited: 2026-08-10T12:10:02Z
+Current phase: 1 (Milestones Execution)
+
+## Phase 2 Milestones Overview
+- [x] **Phase 0: Survey & Architecture Mapping** — Spawned 3 Explorers to survey R1-R9. Reports merged and PROJECT.md created.
+- [ ] **Milestone 1: Multi-Person Hungarian Assignment & Visibility-Gated Biometrics** (R1, R6) [in-progress: sub_orch_m1]
+- [x] **Milestone 2: 2-State Kalman Filter & Adaptive SG Window** (R2, R7) [DONE — 0 tsc, 0 eslint, clean audit]
+- [ ] **Milestone 3: Real-Time One Euro Filter & Biometric Target Lock** (R3, R4) [pending M1 & M2]
+- [x] **Milestone 4: Dynamic Walking Direction & Lateral Ankle Disambiguation** (R5) [DONE — 0 tsc, 0 eslint, clean audit]
+- [x] **Milestone 5: Expand Unit Test Coverage for Untested Modules** (R8: `landmarks`, `calibration`, `homography`, `liveCapture`, `persistence`) [DONE — 76 new tests, 0 tsc errors, clean audit]
+- [x] **Milestone 6: Clinical Normative Reference Integration & GDI** (R9: `normatives.ts`, `ratings.ts`, `guesses.ts`) [DONE — 1080/1080 green tests, 0 tsc errors, clean audit]
+- [ ] **Milestone 7: Documentation & Scientific Justification Alignment** (Citations, line-range mappings) [pending M1-M6]
+- [ ] **Final Verification & Victory Audit** (>= 1050 green tests, 0 tsc, 0 eslint, clean audit)
 
 ## Iteration Status
 Current iteration: 1 / 32
 
-## Current Status
-- [x] Orchestrator initialized
-- [x] State files DISPATCH.md and BRIEFING.md updated for full project scope
-- [x] Phase 0: Survey codebase and requirements via parallel Explorers (completed)
-  - [x] Explorer 1: R1 Survey completed (.agents/explorer_survey_1/handoff.md)
-  - [x] Explorer 2: R2 Survey completed (.agents/explorer_survey_2/handoff.md)
-  - [x] Explorer 3: R3 Survey completed (.agents/explorer_survey_3/handoff.md)
-- [x] Phase 1: Create PROJECT.md and TEST_INFRA.md (completed)
-- [/] Phase 2: Implementation & Testing Track execution
-  - [/] Sub-Orchestrator M1 (Core Tracking, Model Hierarchy, 1D Smoothing in `pose.ts`, `signal.ts`, `analysis.ts` - Conv ID `e4978e50-e48c-4d54-93a2-5d05726d31e6`) — IN PROGRESS
-  - [/] Sub-Orchestrator E2E (Ground-truth synthetic test suite creation - Conv ID `fcf72808-ec26-4c9f-a5d7-d352b976af84`) — IN PROGRESS
-  - [ ] Sub-Orchestrator M2 (WebRTC 60 FPS, Target Lock & Background Suppression in `PoseTracker.ts`, `calibration.ts`) — PENDING (depends on M1)
-  - [ ] Sub-Orchestrator M3 (Multi-Signal Fusion, Planar Homography & Person Identification Stress Tests) — PENDING (depends on M1, M2)
-  - [ ] Sub-Orchestrator M4 (Steady-State Stride Filtering & Final Hardening) — PENDING (depends on M1-M3)
-- [ ] Phase 3: Victory Audit & Final Handover
+## Log
+- 2026-08-10T11:33:48Z: Initiated Phase 2 Precision Engineering Pass. Set heartbeat cron (task-17).
+- 2026-08-10T11:35:40Z: Survey completed across R1-R9. Created PROJECT.md and milestone scope documents.
+- 2026-08-10T11:36:20Z: Dispatched 5 parallel sub-orchestrators for M1, M2, M4, M5, M6.

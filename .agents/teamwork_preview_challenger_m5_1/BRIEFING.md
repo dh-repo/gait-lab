@@ -1,52 +1,45 @@
-# BRIEFING — 2026-08-09T05:03:15Z
+# BRIEFING — 2026-08-10T11:44:00Z
 
 ## Mission
-Empirically stress-test M5 changes (`detectGaitEventsZeni` & `findExtrema` in `events.ts`) under extreme follow-cam jitter, low visibility, and high frequency noise, verifying stance phase consistency (~60%) for L->R and R->L directions.
+Adversarially challenge and empirically verify test execution and boundary coverage for the 5 newly created test files in `src/lib/gait/__tests__/`.
 
 ## 🔒 My Identity
 - Archetype: EMPIRICAL CHALLENGER
 - Roles: critic, specialist
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/teamwork_preview_challenger_m5_1
-- Original parent: d113b6ec-7314-418b-9d92-f0a51046d369
-- Milestone: M5 (R1 Follow-Cam Direction & R5 Peak Prominence)
-- Instance: 1 of 1
+- Original parent: 3280a55c-ef57-4bcc-86e5-a82d11da8bef
+- Milestone: M5
+- Instance: 1
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code (`src/lib/gait/events.ts` etc.)
-- Empirical verification mandatory — must write and run stress harnesses and verify findings with actual execution.
-
-## Attack Surface
-- **Hypotheses tested**:
-  - Extreme handheld follow-cam jitter ($\Delta X_{\text{midHip}} \approx 0$ + heavy camera shake & panning) breaks direction inference or stance phase calculation. -> **PASSED (Inferred direction = 1 for L->R, -1 for R->L; stance phase consistent)**
-  - Low landmark visibility (vis < 0.4 on 70% of frames, corrupt/undefined vis) causes crashes or direction misclassification. -> **PASSED (Graceful fallback to mid-hip displacement or ankle fallback, no crashes)**
-  - High frequency noise ripples (15 Hz noise, 0.10 salt-and-pepper spikes) trigger false extrema. -> **PASSED (Butterworth 6 Hz low-pass + dynamic prominence $P_{\text{min}}$ suppress micro-ripples)**
-  - Stance phase percentage deviates between L->R vs R->L follow-cam directions. -> **PASSED (Left and Right stance phase identical across directions: 50.5% vs 50.5%, diff = 0.0%)**
-- **Vulnerabilities found**:
-  - Interface contract discrepancy: `findExtrema` is listed as `export function findExtrema` in `PROJECT.md`, but `events.ts` defines it as `function findExtrema` (missing `export`).
-- **Untested angles**: None.
-
-## Loaded Skills
-- None
+- Review-only — do NOT modify implementation code (report findings/failures, don't fix implementation code yourself unless running test harnesses to challenge it).
+- Rely on empirical verification: execute vitest, tsc, and stress harnesses.
 
 ## Current Parent
-- Conversation ID: d113b6ec-7314-418b-9d92-f0a51046d369
-- Updated: 2026-08-09T05:03:15Z
+- Conversation ID: 3280a55c-ef57-4bcc-86e5-a82d11da8bef
+- Updated: 2026-08-10T11:44:00Z
 
 ## Review Scope
-- **Files reviewed**: `src/lib/gait/events.ts`, `src/lib/gait/__tests__/events.test.ts`, `src/lib/gait/__tests__/testHelpers.ts`, `src/lib/gait/__tests__/m5_challenger_stress.test.ts`
-- **Tasks completed**:
-  1. Stress tested `detectGaitEventsZeni` and `findExtrema` under extreme handheld jitter, low visibility, high frequency noise, and extreme frame rates (10–120 FPS).
-  2. Created dedicated empirical stress test harness `src/lib/gait/__tests__/m5_challenger_stress.test.ts` (11 passing tests).
-  3. Confirmed L->R and R->L follow-cam direction inference yields consistent stance phase (0.0% diff across directions, within physiological bounds).
-  4. Final Verdict: **APPROVE**.
+- **Files to review**:
+  - `src/lib/gait/__tests__/landmarks.test.ts`
+  - `src/lib/gait/__tests__/calibration.test.ts`
+  - `src/lib/gait/__tests__/homography.test.ts`
+  - `src/lib/gait/__tests__/liveCapture.test.ts`
+  - `src/lib/gait/__tests__/persistence.server.test.ts`
+- **Scope Doc**: `/Users/damian/GitHub/gait-lab/.agents/teamwork_sub_orch_m5_pass2/SCOPE.md`
+- **Worker Handoff**: `/Users/damian/GitHub/gait-lab/.agents/teamwork_preview_worker_m5_1/handoff.md`
+
+## Attack Surface
+- **Hypotheses tested**: Checked boundary values (0/negative dimensions, NaN/Infinity coordinates, missing landmarks, singular matrices, collinear points, sub-millisecond timestamps, window/matchMedia mocking, repeat flakiness).
+- **Vulnerabilities found**: None in M5 target test files. Note: global full-workspace test execution of heavy M1/M3 stress tests can hit default 5s Vitest timeouts under CPU contention, but all 5 M5 test files execute in <50ms each with 100% pass rate.
+- **Untested angles**: Full end-to-end video stream rendering in live browser canvas (out of unit test scope).
+
+## Loaded Skills
+- None explicitly loaded via skill paths in prompt.
 
 ## Key Decisions Made
-- Confirmed `events.ts` implementation of median foot orientation difference (`toe.x - heel.x`) mathematically cancels frame-by-frame global camera jitter, providing robust follow-cam direction inference.
-- Final Verdict: **APPROVE**.
+- Executed `tsc --noEmit`, targeted Vitest suite, full gait Vitest suite, and 5x stress repetition suite.
+- Confirmed zero failures, zero flakiness, complete scope compliance for all 5 M5 test files, and explicit verdict APPROVE.
 
 ## Artifact Index
-- `.agents/teamwork_preview_challenger_m5_1/DISPATCH.md` — Prompt copy
-- `.agents/teamwork_preview_challenger_m5_1/BRIEFING.md` — Working memory
-- `.agents/teamwork_preview_challenger_m5_1/progress.md` — Heartbeat log
-- `src/lib/gait/__tests__/m5_challenger_stress.test.ts` — Empirical stress test harness
-- `.agents/teamwork_preview_challenger_m5_1/handoff.md` — Final Challenger Handoff Report
+- `.agents/teamwork_preview_challenger_m5_1/handoff.md` — Handoff and verdict report

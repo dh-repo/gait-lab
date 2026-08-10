@@ -1,30 +1,18 @@
-## 2026-08-09T13:06:03Z
+## 2026-08-10T07:49:13Z
+Execute Milestone 4 (Download & Integrate Reference Gait Video Data R4).
+Project root: /Users/damian/GitHub/gait-lab
+Working directory: /Users/damian/GitHub/gait-lab/.agents/worker_m4_1
+Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md and /Users/damian/GitHub/gait-lab/.agents/explorer_survey_3/survey_r4.md.
 
-You are Worker M4-1 (teamwork_preview_worker).
-Your working directory is /Users/damian/GitHub/gait-lab/.agents/worker_m4_1.
+Detailed instructions:
+1. Download or generate at least 2 (up to 3) new open-access reference gait video MP4 clips into public/samples/ (e.g., clinical-parkinsonian-gait.mp4, pathological-asymmetric-gait.mp4, outdoor-follow-cam.mp4) using node/python scripts or open sources with standard FFmpeg encoding (-c:v libx264 -pix_fmt yuv420p -r 30).
+2. Register the new videos in src/components/gait/SamplePicker.tsx inside SAMPLE_VIDEOS with appropriate metadata (id, title, viewBadge, tone, duration, url, filename, description, features).
+3. Update src/lib/gait/__tests__/sample_picker.test.ts to include assertions for the new sample videos, checking physical existence, minimum file size (>10KB), duration, and registry length.
+4. Verify zero false duplicate tracks on single-subject sample videos.
+5. Run build/test verification:
+   - npx vitest run
+   - npx tsc --noEmit
+   - npx eslint .
+6. Write a complete report to /Users/damian/GitHub/gait-lab/.agents/worker_m4_1/report_m4.md and deliver handoff.md in your working directory.
 
-You MUST read:
-1. /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-2. /Users/damian/GitHub/gait-lab/.agents/sub_orch_m4/SCOPE.md
-3. /Users/damian/GitHub/gait-lab/.agents/explorer_m4_1/handoff.md
-4. /Users/damian/GitHub/gait-lab/.agents/explorer_m4_2/analysis.md
-5. /Users/damian/GitHub/gait-lab/.agents/explorer_m4_3/handoff.md
-
-MANDATORY INTEGRITY WARNING:
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
-
-Objective:
-Perform quality cleanup to resolve all 10 ESLint warnings and confirm 100% verification across all build and test commands:
-1. Fix ESLint warnings:
-   - In `src/components/gait/SessionComparisonView.tsx`: Add `/* eslint-disable-next-line react-refresh/only-export-components */` above `export function computeDelta` (or extract to `src/lib/gait/comparisonUtils.ts`).
-   - In `src/lib/gait/__tests__/challenger_m1_1_stress.test.ts`: Remove unused imports (`detectGaitEventsZeni`, `findExtrema`, `refinePeakTimestamp`, `computeDualTaskCost`, `generateStationaryPoseFrames`) and unused local variable `toe`.
-   - In `src/lib/gait/__tests__/m1_challenger_2_stress.test.tsx`: Prefix unused parameter `name` with underscore (`_name`).
-   - In `src/lib/gait/__tests__/m3_challenger_1_stress.test.ts`: Remove unused imports `parseWebcamError` and `WebcamError`.
-2. Run and document verification commands:
-   - `npm run lint` (verify 0 errors, 0 warnings)
-   - `npm run typecheck` (verify 0 errors)
-   - `npm test` (verify 100% pass across all tests)
-   - `npm run build` (verify exit code 0)
-
-Output:
-Write a comprehensive report to `/Users/damian/GitHub/gait-lab/.agents/worker_m4_1/handoff.md`. Include the exact commands run and output logs. Send a completion message back with the handoff report path.
+MANDATORY INTEGRITY WARNING — DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
