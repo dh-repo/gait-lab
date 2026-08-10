@@ -305,35 +305,80 @@ export function detectGaitEventsZeni(
   let rawLToeOffs = findExtrema(filtLToe, toeOffMode, minGap);
   let rawRToeOffs = findExtrema(filtRToe, toeOffMode, minGap);
 
+  // Peak-refinement signals (default AP); overwritten in frontal-Y mode
+  let refineLHeel = filtLHeel;
+  let refineRHeel = filtRHeel;
+  let refineLToe = filtLToe;
+  let refineRToe = filtRToe;
+
   // Frontal / near-frontal: AP heel–hip signal collapses (depth is along camera).
-  // When AP energy is weak, switch to vertical ankle motion (IC ≈ local Y max in image coords).
+  // Use combined lower-limb vertical motion + alternate L/R assignment for cadence.
   const apRange = Math.max(
     Math.max(...filtLHeel) - Math.min(...filtLHeel),
     Math.max(...filtRHeel) - Math.min(...filtRHeel),
   );
   const apEventCount =
     rawLHeelStrikes.length + rawRHeelStrikes.length + rawLToeOffs.length + rawRToeOffs.length;
-  if (apRange < 0.018 || apEventCount < 4) {
+  if (apRange < 0.022 || apEventCount < 4) {
     const leftAnkleY = new Array<number>(n);
     const rightAnkleY = new Array<number>(n);
+    const midAnkleY = new Array<number>(n);
     for (let i = 0; i < n; i++) {
       const frame = frames[i];
       const lA = frame?.landmarks?.[LM.L_ANKLE];
       const rA = frame?.landmarks?.[LM.R_ANKLE];
       const lH = frame?.landmarks?.[LM.L_HEEL];
       const rH = frame?.landmarks?.[LM.R_HEEL];
-      leftAnkleY[i] = (lA?.y ?? lH?.y ?? 0.5);
-      rightAnkleY[i] = (rA?.y ?? rH?.y ?? 0.5);
+      leftAnkleY[i] = lA?.y ?? lH?.y ?? 0.5;
+      rightAnkleY[i] = rA?.y ?? rH?.y ?? 0.5;
+      // Lowest ankle (max Y) captures stance contact for either foot
+      midAnkleY[i] = Math.max(leftAnkleY[i], rightAnkleY[i]);
     }
-    const filtLY = zeroPhaseButterworth(leftAnkleY, effectiveFps, 6.0);
-    const filtRY = zeroPhaseButterworth(rightAnkleY, effectiveFps, 6.0);
-    // In image coords, +Y is down: foot contact ≈ ankle lowest (max Y)
-    const yMinGap = Math.max(3, Math.floor(0.32 * effectiveFps));
-    rawLHeelStrikes = findExtrema(filtLY, "max", yMinGap);
-    rawRHeelStrikes = findExtrema(filtRY, "max", yMinGap);
-    // Toe-off ≈ ankle rising (local min Y between strikes) — approximate mid-swing reverse
-    rawLToeOffs = findExtrema(filtLY, "min", yMinGap);
-    rawRToeOffs = findExtrema(filtRY, "min", yMinGap);
+    const filtLY = zeroPhaseButterworth(leftAnkleY, effectiveFps, 5.0);
+    const filtRY = zeroPhaseButterworth(rightAnkleY, effectiveFps, 5.0);
+    const filtMidY = zeroPhaseButterworth(midAnkleY, effectiveFps, 5.0);
+    // ~0.28s min gap ≈ max ~210 spm; lower prominence to catch small frontal motion
+    const yMinGap = Math.max(3, Math.floor(0.28 * effectiveFps));
+    const midStrikes = findExtrema(filtMidY, "max", yMinGap, Math.max(0.0005, 0.08 * (Math.max(...filtMidY) - Math.min(...filtMidY))));
+
+    // Assign successive contacts to alternating sides (typical walk)
+    rawLHeelStrikes = [];
+    rawRHeelStrikes = [];
+    rawLToeOffs = [];
+    rawRToeOffs = [];
+    for (let k = 0; k < midStrikes.length; k++) {
+      const f = midStrikes[k];
+      if (k % 2 === 0) rawLHeelStrikes.push(f);
+      else rawRHeelStrikes.push(f);
+      // Toe-off: mid-swing trough after each contact when available
+      if (k + 1 < midStrikes.length) {
+        const a = midStrikes[k];
+        const b = midStrikes[k + 1];
+        let minI = a;
+        let minV = filtMidY[a];
+        for (let j = a + 1; j < b; j++) {
+          if (filtMidY[j] < minV) {
+            minV = filtMidY[j];
+            minI = j;
+          }
+        }
+        if (minI > a && minI < b) {
+          if (k % 2 === 0) rawLToeOffs.push(minI);
+          else rawRToeOffs.push(minI);
+        }
+      }
+    }
+    // Prefer the more active unilateral signal when mid-foot is weak
+    if (midStrikes.length < 4) {
+      rawLHeelStrikes = findExtrema(filtLY, "max", yMinGap);
+      rawRHeelStrikes = findExtrema(filtRY, "max", yMinGap);
+      rawLToeOffs = findExtrema(filtLY, "min", yMinGap);
+      rawRToeOffs = findExtrema(filtRY, "min", yMinGap);
+    }
+    refineLHeel = filtLY;
+    refineRHeel = filtRY;
+    refineLToe = filtLY;
+    refineRToe = filtRY;
   }
 
   const allEvents: GaitEvent[] = [];
@@ -341,25 +386,25 @@ export function detectGaitEventsZeni(
   // Filter and build left foot events (sequence: IC -> TO -> IC...) with parabolic subframe timestamp refinement
   for (const f of rawLHeelStrikes) {
     const baseTimeSec = frames[f]?.timeMs ? frames[f].timeMs / 1000 : f / effectiveFps;
-    const timeSec = refinePeakTimestamp(filtLHeel, f, baseTimeSec, effectiveFps);
+    const timeSec = refinePeakTimestamp(refineLHeel, f, baseTimeSec, effectiveFps);
     allEvents.push({ frame: f, timeSec, type: "heel_strike", side: "left" });
   }
 
   for (const f of rawLToeOffs) {
     const baseTimeSec = frames[f]?.timeMs ? frames[f].timeMs / 1000 : f / effectiveFps;
-    const timeSec = refinePeakTimestamp(filtLToe, f, baseTimeSec, effectiveFps);
+    const timeSec = refinePeakTimestamp(refineLToe, f, baseTimeSec, effectiveFps);
     allEvents.push({ frame: f, timeSec, type: "toe_off", side: "left" });
   }
 
   for (const f of rawRHeelStrikes) {
     const baseTimeSec = frames[f]?.timeMs ? frames[f].timeMs / 1000 : f / effectiveFps;
-    const timeSec = refinePeakTimestamp(filtRHeel, f, baseTimeSec, effectiveFps);
+    const timeSec = refinePeakTimestamp(refineRHeel, f, baseTimeSec, effectiveFps);
     allEvents.push({ frame: f, timeSec, type: "heel_strike", side: "right" });
   }
 
   for (const f of rawRToeOffs) {
     const baseTimeSec = frames[f]?.timeMs ? frames[f].timeMs / 1000 : f / effectiveFps;
-    const timeSec = refinePeakTimestamp(filtRToe, f, baseTimeSec, effectiveFps);
+    const timeSec = refinePeakTimestamp(refineRToe, f, baseTimeSec, effectiveFps);
     allEvents.push({ frame: f, timeSec, type: "toe_off", side: "right" });
   }
 

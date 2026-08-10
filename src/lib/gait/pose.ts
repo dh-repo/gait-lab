@@ -82,6 +82,12 @@ export function nextVideoTimestamp(): number {
   return tsCounter;
 }
 
+/** Bump the VIDEO timestamp base after seeks / mode switches so the graph never sees reverse time. */
+export function bumpVideoTimestampBase(ms = 1000): number {
+  tsCounter += Math.max(1000, ms);
+  return tsCounter;
+}
+
 function viIsMock(fn: unknown): boolean {
   return Boolean(
     fn &&
@@ -418,17 +424,20 @@ export async function playAndDetectFrames(
   if (typeof landmarker.setOptions === "function") {
     try {
       await landmarker.setOptions({ runningMode: "VIDEO" });
+      // Mode switch resets calculator expectations — advance synthetic clock
+      bumpVideoTimestampBase(5000);
     } catch (e) {
       console.warn("[playAndDetectFrames] VIDEO mode switch failed", e);
     }
   }
 
   await seekVideo(video, startSec, 800);
-  video.playbackRate = 1;
+  // Slightly faster than 1× so short clips finish even when detect steals main-thread time
+  video.playbackRate = Math.min(1.75, Math.max(1, 14 / Math.max(4, endSec - startSec)));
   video.muted = true;
 
   let lastSampleT = -Infinity;
-  let lastTs = 0;
+  let detecting = false;
 
   const stop = async () => {
     try {
@@ -452,41 +461,50 @@ export async function playAndDetectFrames(
       settled = true;
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("error", onEnded);
+      video.removeEventListener("timeupdate", onTime);
       resolve();
     };
     const onEnded = () => finish();
     video.addEventListener("ended", onEnded);
     video.addEventListener("error", onEnded);
 
-    const tick = () => {
-      if (options.isAborted?.() || settled) {
-        finish();
-        return;
-      }
+    const sampleNow = () => {
+      if (options.isAborted?.() || settled || detecting) return;
       const t = video.currentTime;
       if (t >= endSec - 0.02) {
         finish();
         return;
       }
-      if (t - lastSampleT >= minIntervalSec) {
-        lastSampleT = t;
-        const ts = Math.max(lastTs + 1, Math.round(t * 1000));
-        lastTs = ts;
-        try {
-          const res = landmarker.detectForVideo(video, ts);
-          const dets = (res.landmarks || []).map(toLandmarks);
-          if (dets.length) {
-            out.push({ timeMs: t * 1000, detections: dets });
-          }
-        } catch {
-          /* drop frame */
+      if (t - lastSampleT < minIntervalSec) return;
+      lastSampleT = t;
+      detecting = true;
+      // Never use video.currentTime as MediaPipe ts — seeks reverse wall clock and break the graph
+      const ts = nextVideoTimestamp();
+      try {
+        const res = landmarker.detectForVideo(video, ts);
+        const dets = (res.landmarks || []).map(toLandmarks);
+        if (dets.length) {
+          out.push({ timeMs: t * 1000, detections: dets });
         }
-        const span = Math.max(0.001, endSec - startSec);
-        options.onProgress?.(Math.min(99, Math.round(((t - startSec) / span) * 100)));
+      } catch {
+        /* drop frame — common after mode switch until graph stabilizes */
+      } finally {
+        detecting = false;
       }
+      const span = Math.max(0.001, endSec - startSec);
+      options.onProgress?.(Math.min(99, Math.round(((t - startSec) / span) * 100)));
+    };
+
+    // timeupdate fires as the playhead advances even when rAF is starved by detect
+    const onTime = () => sampleNow();
+    video.addEventListener("timeupdate", onTime);
+
+    const tick = () => {
+      if (settled) return;
+      sampleNow();
       if (!video.paused && !video.ended && !settled) {
         requestAnimationFrame(tick);
-      } else if (!settled) {
+      } else if (!settled && (video.ended || video.currentTime >= endSec - 0.02)) {
         finish();
       }
     };
@@ -496,8 +514,8 @@ export async function playAndDetectFrames(
       .then(() => requestAnimationFrame(tick))
       .catch(() => finish());
 
-    // Allow slow CPU decode (~3× real-time) without hanging forever
-    const maxMs = Math.max(25000, (endSec - startSec) * 3500 + 8000);
+    // Hard deadline: real-time + small buffer (don't wait multi-minute)
+    const maxMs = Math.max(18000, (endSec - startSec) * 1200 + 6000);
     setTimeout(finish, maxMs);
   });
 

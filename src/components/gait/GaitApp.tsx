@@ -782,33 +782,53 @@ export function GaitApp() {
         let totalDetections = 0;
         let bestFramePoses: { id: number; landmarks: Landmark[] }[] = [];
 
-        // Fixed small seek grid for person inventory — reliable and bounded time
-        // (VIDEO playback+detect can stall the main thread in headless/CPU).
-        const sampleCount = Math.min(10, Math.max(6, Math.ceil(duration)));
-        for (let i = 0; i < sampleCount; i++) {
+        // Prefer VIDEO-mode scan (near real-time). Cap seek fallback hard — IMAGE seeks
+        // are multi-second on CPU and must never burn minutes for person inventory.
+        const scanSamples = await playAndDetectFrames(landmarker, video, {
+          startSec: 0,
+          endSec: duration,
+          minIntervalSec: Math.max(0.35, duration / 12),
+          isAborted: () => runId !== abortRef.current,
+          onProgress: (pct) => {
+            setProgress(15 + Math.round(pct * 0.35));
+            if (pct % 15 < 4) {
+              setMessage(
+                totalDetections > 0
+                  ? `Scanning… ${totalDetections} pose hits`
+                  : `Scanning video… ${pct}%`,
+              );
+            }
+          },
+        });
+        for (let i = 0; i < scanSamples.length; i++) {
           if (runId !== abortRef.current) return;
-          const timeSec = (i / Math.max(1, sampleCount - 1)) * Math.max(0, duration - 0.05);
-          const res = await seekAndDetect(landmarker, video, timeSec);
-          const dets = (res.landmarks || []).map(toLandmarks);
-          if (dets.length) {
-            totalDetections += dets.length;
-            const ids = matchPeople(dets, tracks as any, nextId, i);
-            lastPoses = dets.map((landmarks, di) => ({
-              id: ids[di],
-              landmarks,
-            }));
-            if (dets.length >= bestFramePoses.length) bestFramePoses = lastPoses;
-            setScanPoses(lastPoses);
-          }
-          setProgress(15 + Math.round((i / sampleCount) * 35));
-          if (i % 2 === 0) {
-            setMessage(
-              totalDetections > 0
-                ? `Scanning… ${totalDetections} pose hits (${i + 1}/${sampleCount})`
-                : `Scanning frames… ${i + 1}/${sampleCount}`,
-            );
-          }
+          const dets = scanSamples[i].detections;
+          if (!dets.length) continue;
+          totalDetections += dets.length;
+          const ids = matchPeople(dets, tracks as any, nextId, i);
+          lastPoses = dets.map((landmarks, di) => ({ id: ids[di], landmarks }));
+          if (dets.length >= bestFramePoses.length) bestFramePoses = lastPoses;
+          setScanPoses(lastPoses);
           sampleIdx = i;
+        }
+
+        if (totalDetections === 0) {
+          const sampleCount = Math.min(8, Math.max(5, Math.ceil(duration * 0.6)));
+          for (let i = 0; i < sampleCount; i++) {
+            if (runId !== abortRef.current) return;
+            const timeSec = (i / Math.max(1, sampleCount - 1)) * Math.max(0, duration - 0.05);
+            const res = await seekAndDetect(landmarker, video, timeSec);
+            const dets = (res.landmarks || []).map(toLandmarks);
+            if (dets.length) {
+              totalDetections += dets.length;
+              const ids = matchPeople(dets, tracks as any, nextId, i);
+              lastPoses = dets.map((landmarks, di) => ({ id: ids[di], landmarks }));
+              if (dets.length >= bestFramePoses.length) bestFramePoses = lastPoses;
+              setScanPoses(lastPoses);
+            }
+            setProgress(15 + Math.round((i / sampleCount) * 35));
+            sampleIdx = i;
+          }
         }
 
         let found = tracksToPeople(tracks, sampleIdx);
@@ -973,10 +993,10 @@ export function GaitApp() {
       }
 
       if (rawFrames.length < 8) {
-        setMessage("Playback sparse — refining with seek sampling…");
-        const targetFps = 8;
-        const sampleCount = Math.max(15, Math.floor(windowDuration * targetFps));
-        const dt = windowDuration > 0 && sampleCount > 1 ? windowDuration / sampleCount : 1 / targetFps;
+        setMessage("Playback sparse — capped seek refine…");
+        // Hard cap: never more than 20 seeks (IMAGE mode is expensive on CPU)
+        const sampleCount = Math.min(20, Math.max(12, Math.floor(windowDuration * 2)));
+        const dt = windowDuration > 0 && sampleCount > 1 ? windowDuration / sampleCount : 0.5;
         for (let i = 0; i < sampleCount; i++) {
           if (runId !== abortRef.current) return;
           const t = Math.min(Math.max(0, duration - 0.033), windowStart + i * dt);
