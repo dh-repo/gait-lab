@@ -300,10 +300,41 @@ export function detectGaitEventsZeni(
   const heelStrikeMode: "max" | "min" = direction === 1 ? "max" : "min";
   const toeOffMode: "max" | "min" = direction === 1 ? "min" : "max";
 
-  const rawLHeelStrikes = findExtrema(filtLHeel, heelStrikeMode, minGap);
-  const rawRHeelStrikes = findExtrema(filtRHeel, heelStrikeMode, minGap);
-  const rawLToeOffs = findExtrema(filtLToe, toeOffMode, minGap);
-  const rawRToeOffs = findExtrema(filtRToe, toeOffMode, minGap);
+  let rawLHeelStrikes = findExtrema(filtLHeel, heelStrikeMode, minGap);
+  let rawRHeelStrikes = findExtrema(filtRHeel, heelStrikeMode, minGap);
+  let rawLToeOffs = findExtrema(filtLToe, toeOffMode, minGap);
+  let rawRToeOffs = findExtrema(filtRToe, toeOffMode, minGap);
+
+  // Frontal / near-frontal: AP heel–hip signal collapses (depth is along camera).
+  // When AP energy is weak, switch to vertical ankle motion (IC ≈ local Y max in image coords).
+  const apRange = Math.max(
+    Math.max(...filtLHeel) - Math.min(...filtLHeel),
+    Math.max(...filtRHeel) - Math.min(...filtRHeel),
+  );
+  const apEventCount =
+    rawLHeelStrikes.length + rawRHeelStrikes.length + rawLToeOffs.length + rawRToeOffs.length;
+  if (apRange < 0.018 || apEventCount < 4) {
+    const leftAnkleY = new Array<number>(n);
+    const rightAnkleY = new Array<number>(n);
+    for (let i = 0; i < n; i++) {
+      const frame = frames[i];
+      const lA = frame?.landmarks?.[LM.L_ANKLE];
+      const rA = frame?.landmarks?.[LM.R_ANKLE];
+      const lH = frame?.landmarks?.[LM.L_HEEL];
+      const rH = frame?.landmarks?.[LM.R_HEEL];
+      leftAnkleY[i] = (lA?.y ?? lH?.y ?? 0.5);
+      rightAnkleY[i] = (rA?.y ?? rH?.y ?? 0.5);
+    }
+    const filtLY = zeroPhaseButterworth(leftAnkleY, effectiveFps, 6.0);
+    const filtRY = zeroPhaseButterworth(rightAnkleY, effectiveFps, 6.0);
+    // In image coords, +Y is down: foot contact ≈ ankle lowest (max Y)
+    const yMinGap = Math.max(3, Math.floor(0.32 * effectiveFps));
+    rawLHeelStrikes = findExtrema(filtLY, "max", yMinGap);
+    rawRHeelStrikes = findExtrema(filtRY, "max", yMinGap);
+    // Toe-off ≈ ankle rising (local min Y between strikes) — approximate mid-swing reverse
+    rawLToeOffs = findExtrema(filtLY, "min", yMinGap);
+    rawRToeOffs = findExtrema(filtRY, "min", yMinGap);
+  }
 
   const allEvents: GaitEvent[] = [];
 

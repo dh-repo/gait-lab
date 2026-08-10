@@ -18,6 +18,8 @@ export {
   computeGaitMetrics,
   computeBiometricSignature,
   biometricDistance,
+  humanLikenessScore,
+  isLikelyHumanTrack,
   matchPeople,
   mergeFragmentedTracks,
   trackPriorityScore,

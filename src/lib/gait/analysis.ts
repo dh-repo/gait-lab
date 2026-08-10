@@ -714,6 +714,53 @@ export function biometricDistance(a?: BiometricSignature, b?: BiometricSignature
   return dAspect * 0.35 + dTorsoLeg * 0.35 + dShoulderHip * 0.30;
 }
 
+/**
+ * Likelihood that a detection is a standing human (vs pet / furniture noise).
+ * aspectRatio is bbox width/height — upright bipeds are taller than wide (~0.2–0.7).
+ * Pets and ground-level detections are typically wider relative to height.
+ * Returns 0..1.
+ */
+export function humanLikenessScore(
+  bio?: BiometricSignature,
+  box?: { w: number; h: number },
+): number {
+  const ar = bio?.aspectRatio ?? (box ? box.w / Math.max(0.01, box.h) : 0.5);
+  // Peak score for upright human frontal/sagittal; penalize square/wide (dogs, chairs)
+  let arScore = 0;
+  if (ar >= 0.18 && ar <= 0.62) arScore = 1;
+  else if (ar > 0.62 && ar <= 0.85) arScore = 1 - (ar - 0.62) / 0.35;
+  else if (ar > 0.85 && ar <= 1.15) arScore = 0.25;
+  else if (ar < 0.18 && ar >= 0.1) arScore = ar / 0.18;
+  else arScore = 0.05;
+
+  const tl = bio?.torsoLegRatio ?? 0.55;
+  // Human torso/leg ~0.3–1.0; extreme values are non-biped or broken landmarks
+  let tlScore = 0.4;
+  if (tl >= 0.28 && tl <= 1.05) tlScore = 1;
+  else if (tl > 1.05 && tl <= 1.6) tlScore = 0.5;
+  else if (tl >= 0.15 && tl < 0.28) tlScore = 0.55;
+
+  const sh = bio?.shoulderHipRatio ?? 1.1;
+  let shScore = 0.5;
+  if (sh >= 0.7 && sh <= 1.8) shScore = 1;
+  else if (sh > 1.8 && sh <= 2.5) shScore = 0.45;
+
+  // Prefer larger subjects in frame (primary walker vs distant pet)
+  const area = box ? box.w * box.h : 0.08;
+  const areaScore = Math.min(1, Math.max(0.15, area / 0.12));
+
+  return clamp(arScore * 0.45 + tlScore * 0.3 + shScore * 0.1 + areaScore * 0.15, 0, 1);
+}
+
+/** True when biometrics/box look like a walking human rather than a pet. */
+export function isLikelyHumanTrack(
+  bio?: BiometricSignature,
+  box?: { w: number; h: number },
+  minScore = 0.42,
+): boolean {
+  return humanLikenessScore(bio, box) >= minScore;
+}
+
 /** Multi-person tracking via velocity motion extrapolation, biometric signature matching, and spatial gating. */
 export function matchPeople(
   detections: Landmark[][],
@@ -962,12 +1009,19 @@ export function mergeFragmentedTracks(tracks: PersonTrack[]): PersonTrack[] {
   return result;
 }
 
-/** Score tracks: prefer persistent, large, nearer (lower in frame) subjects — typical handheld follow shot. */
+/** Score tracks: prefer persistent, large, nearer (lower in frame) humans — demote pets. */
 export function trackPriorityScore(t: PersonTrack): number {
   const meanArea = t.areaSum / Math.max(1, t.frames);
   const meanHipY = t.hipYSum / Math.max(1, t.frames);
   const speed = Math.hypot(t.velocity?.vx ?? 0, t.velocity?.vy ?? 0);
-  return t.frames * 3 + meanArea * 80 + meanHipY * 8 + Math.min(1.0, speed * 10) * 20;
+  const human = humanLikenessScore(t.biometrics, t.box);
+  return (
+    t.frames * 3 +
+    meanArea * 80 +
+    meanHipY * 8 +
+    Math.min(1.0, speed * 10) * 20 +
+    human * 55
+  );
 }
 
 export function tracksToPeople(
@@ -977,8 +1031,18 @@ export function tracksToPeople(
   const consolidated = mergeFragmentedTracks(tracks);
   const maxFrames = Math.max(1, ...consolidated.map((t) => t.frames));
 
-  return consolidated
-    .filter((t) => t.frames >= 2 || (maxFrames <= 2 && t.frames >= 1))
+  const humans = consolidated.filter((t) => {
+    if (!(t.frames >= 2 || (maxFrames <= 2 && t.frames >= 1))) return false;
+    // Drop clear non-humans (pets) when we have any plausible human track
+    return isLikelyHumanTrack(t.biometrics, t.box, 0.45);
+  });
+
+  // Fallback: if filter emptied the list (odd poses / occlusion), keep original gate
+  const pool = humans.length > 0 ? humans : consolidated.filter(
+    (t) => t.frames >= 2 || (maxFrames <= 2 && t.frames >= 1),
+  );
+
+  return pool
     .sort((a, b) => trackPriorityScore(b) - trackPriorityScore(a))
     .map((t, i) => ({
       id: i + 1,
@@ -986,6 +1050,7 @@ export function tracksToPeople(
       sampleBox: t.box,
       sampleFrameIndex: sampleIndex,
       frameCount: t.frames,
+      biometrics: t.biometrics,
     }));
 }
 

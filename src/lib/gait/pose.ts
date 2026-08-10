@@ -1,5 +1,8 @@
 import type { Landmark, PoseFrame } from "./types";
 
+// re-export Landmark for MultiPoseSample typing convenience
+export type { Landmark };
+
 export type PoseDetectionResult = {
   landmarks: Array<Array<{ x: number; y: number; z: number; visibility?: number }>>;
   worldLandmarks?: Array<Array<{ x: number; y: number; z: number; visibility?: number }>>;
@@ -16,12 +19,16 @@ export type ModelCandidate = {
   paths: string[];
 };
 
+/**
+ * Lite first for interactive seek analysis (full/heavy IMAGE mode is too slow on CPU).
+ * Full is still tried after lite if lite fails to load.
+ */
 export const MODEL_CANDIDATES: ModelCandidate[] = [
   {
-    tier: "heavy",
+    tier: "lite",
     paths: [
-      "/models/pose_landmarker_heavy.task",
-      "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task",
+      "/models/pose_landmarker_lite.task",
+      "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
     ],
   },
   {
@@ -32,10 +39,10 @@ export const MODEL_CANDIDATES: ModelCandidate[] = [
     ],
   },
   {
-    tier: "lite",
+    tier: "heavy",
     paths: [
-      "/models/pose_landmarker_lite.task",
-      "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+      "/models/pose_landmarker_heavy.task",
+      // No CDN fallback for heavy — multi-MB download stalls cold start when absent
     ],
   },
 ];
@@ -147,8 +154,11 @@ export async function getPoseLandmarker(): Promise<PoseLandmarkerLike> {
                 : isTestEnv
                   ? 50
                   : modelAssetPath.startsWith("http")
-                    ? 1500
-                    : 4000;
+                    ? 2500
+                    : // Full/heavy local assets can be 9–30MB; allow cold decode time
+                      candidate.tier === "lite"
+                        ? 6000
+                        : 20000;
               const landmarker = await createLandmarkerWithTimeout(
                 PoseLandmarker,
                 fileset,
@@ -258,7 +268,7 @@ export function seekVideo(video: HTMLVideoElement, timeSec: number, timeoutMs = 
   return new Promise<void>((resolve) => {
     const duration = Number.isFinite(video.duration) ? video.duration : 0;
     const target = Math.min(Math.max(0, timeSec), Math.max(0, duration > 0 ? duration - 0.001 : timeSec));
-    if (Math.abs(video.currentTime - target) < 0.03 && video.readyState >= 2) {
+    if (Math.abs(video.currentTime - target) < 0.02 && video.readyState >= 2) {
       resolve();
       return;
     }
@@ -273,7 +283,10 @@ export function seekVideo(video: HTMLVideoElement, timeSec: number, timeoutMs = 
     };
     const onSeeked = () => finish();
     const onError = () => finish();
-    const timer = setTimeout(finish, timeoutMs);
+    // Dense forward seeks decode quickly — use a short fuse for small steps
+    const fuse =
+      Math.abs(target - video.currentTime) < 0.25 ? Math.min(timeoutMs, 280) : timeoutMs;
+    const timer = setTimeout(finish, fuse);
     video.addEventListener("seeked", onSeeked);
     video.addEventListener("error", onError);
     try {
@@ -310,8 +323,9 @@ export function detectPosesOnVideoFrame(
     return { landmarks: [] };
   }
 
-  // Cap resolution for speed while keeping body detail
-  const maxSide = 720;
+  // Cap resolution aggressively for seek-mode throughput (full-body still visible at 360–480)
+  const tier = landmarker.loadedModelTier ?? landmarker.modelTier;
+  const maxSide = tier === "full" || tier === "heavy" ? 360 : 480;
   const scale = Math.min(1, maxSide / Math.max(w, h));
   const dw = Math.max(1, Math.round(w * scale));
   const dh = Math.max(1, Math.round(h * scale));
@@ -333,12 +347,10 @@ export function detectPosesOnVideoFrame(
     return { landmarks: [] };
   }
 
-  // Skip blank/black frames (common right after seek before decode)
+  // Skip blank/black frames (common right after seek before decode) — single sample read
   try {
     const sample = ctx.getImageData(Math.floor(dw / 2), Math.floor(dh / 2), 1, 1).data;
-    const mid = ctx.getImageData(Math.floor(dw * 0.25), Math.floor(dh * 0.25), 1, 1).data;
-    const brightness =
-      (sample[0] + sample[1] + sample[2] + mid[0] + mid[1] + mid[2]) / 6;
+    const brightness = (sample[0] + sample[1] + sample[2]) / 3;
     if (brightness < 2) {
       return { landmarks: [] };
     }
@@ -364,16 +376,133 @@ export async function seekAndDetect(
   video: HTMLVideoElement,
   timeSec: number,
 ): Promise<PoseDetectionResult> {
-  await seekVideo(video, timeSec, 800);
+  await seekVideo(video, timeSec, 500);
   await new Promise((r) => requestAnimationFrame(() => r(null)));
 
   let res = detectPosesOnVideoFrame(landmarker, video);
   if ((res.landmarks?.length ?? 0) === 0) {
-    await new Promise((r) => setTimeout(r, 25));
+    await new Promise((r) => setTimeout(r, 16));
     await new Promise((r) => requestAnimationFrame(() => r(null)));
     res = detectPosesOnVideoFrame(landmarker, video);
   }
   return res;
+}
+
+export type MultiPoseSample = {
+  timeMs: number;
+  detections: Landmark[][];
+};
+
+/**
+ * Continuous VIDEO-mode capture: plays the clip and samples poses near real-time.
+ * Orders of magnitude faster than seek+IMAGE on CPU (used for full-clip analysis).
+ */
+export async function playAndDetectFrames(
+  landmarker: PoseLandmarkerLike,
+  video: HTMLVideoElement,
+  options: {
+    startSec?: number;
+    endSec?: number;
+    /** Minimum interval between accepted samples (default ~80ms ≈ 12.5 Hz) */
+    minIntervalSec?: number;
+    onProgress?: (pct: number) => void;
+    isAborted?: () => boolean;
+  } = {},
+): Promise<MultiPoseSample[]> {
+  const startSec = Math.max(0, options.startSec ?? 0);
+  const duration = Number.isFinite(video.duration) ? video.duration : startSec + 1;
+  const endSec = Math.min(duration, options.endSec ?? duration);
+  const minIntervalSec = options.minIntervalSec ?? 0.08;
+  const out: MultiPoseSample[] = [];
+
+  if (typeof landmarker.setOptions === "function") {
+    try {
+      await landmarker.setOptions({ runningMode: "VIDEO" });
+    } catch (e) {
+      console.warn("[playAndDetectFrames] VIDEO mode switch failed", e);
+    }
+  }
+
+  await seekVideo(video, startSec, 800);
+  video.playbackRate = 1;
+  video.muted = true;
+
+  let lastSampleT = -Infinity;
+  let lastTs = 0;
+
+  const stop = async () => {
+    try {
+      video.pause();
+    } catch {
+      /* ignore */
+    }
+    if (typeof landmarker.setOptions === "function") {
+      try {
+        await landmarker.setOptions({ runningMode: "IMAGE" });
+      } catch {
+        /* leave VIDEO if IMAGE switch fails */
+      }
+    }
+  };
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      video.removeEventListener("ended", onEnded);
+      video.removeEventListener("error", onEnded);
+      resolve();
+    };
+    const onEnded = () => finish();
+    video.addEventListener("ended", onEnded);
+    video.addEventListener("error", onEnded);
+
+    const tick = () => {
+      if (options.isAborted?.() || settled) {
+        finish();
+        return;
+      }
+      const t = video.currentTime;
+      if (t >= endSec - 0.02) {
+        finish();
+        return;
+      }
+      if (t - lastSampleT >= minIntervalSec) {
+        lastSampleT = t;
+        const ts = Math.max(lastTs + 1, Math.round(t * 1000));
+        lastTs = ts;
+        try {
+          const res = landmarker.detectForVideo(video, ts);
+          const dets = (res.landmarks || []).map(toLandmarks);
+          if (dets.length) {
+            out.push({ timeMs: t * 1000, detections: dets });
+          }
+        } catch {
+          /* drop frame */
+        }
+        const span = Math.max(0.001, endSec - startSec);
+        options.onProgress?.(Math.min(99, Math.round(((t - startSec) / span) * 100)));
+      }
+      if (!video.paused && !video.ended && !settled) {
+        requestAnimationFrame(tick);
+      } else if (!settled) {
+        finish();
+      }
+    };
+
+    void video
+      .play()
+      .then(() => requestAnimationFrame(tick))
+      .catch(() => finish());
+
+    // Allow slow CPU decode (~3× real-time) without hanging forever
+    const maxMs = Math.max(25000, (endSec - startSec) * 3500 + 8000);
+    setTimeout(finish, maxMs);
+  });
+
+  await stop();
+  return out;
 }
 
 /**

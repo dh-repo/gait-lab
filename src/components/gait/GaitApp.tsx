@@ -41,6 +41,7 @@ import {
   tracksToPeople,
   computeBiometricSignature,
   biometricDistance,
+  humanLikenessScore,
 } from "@/lib/gait/analysis";
 import { computeGaitAngleAnalysis, calculateKneeFlexion } from "@/lib/gait/angles";
 import { detectGaitEventsZeni } from "@/lib/gait/events";
@@ -53,6 +54,7 @@ import {
 import { PoseTracker, parseWebcamError } from "@/lib/gait/PoseTracker";
 import {
   getPoseLandmarker,
+  playAndDetectFrames,
   resamplePoseFrames,
   seekAndDetect,
   toLandmarks,
@@ -754,13 +756,12 @@ export function GaitApp() {
           );
         }
 
-        // Scan pass: detect people
+        // Scan pass: continuous VIDEO-mode playback for person inventory (fast on CPU)
         setPhase("scanning");
         setMessage("Scanning video for people…");
         setProgress(15);
 
         const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
-        const sampleCount = Math.min(40, Math.max(16, Math.floor(duration * 3.5)));
         const tracks: {
           id: number;
           lastHip: Landmark;
@@ -768,6 +769,12 @@ export function GaitApp() {
           box: ReturnType<typeof boundingBox>;
           areaSum: number;
           hipYSum: number;
+          biometrics?: ReturnType<typeof computeBiometricSignature>;
+          firstHip?: Landmark;
+          firstFrameIndex?: number;
+          lastFrameIndex?: number;
+          frameIndices?: number[];
+          velocity?: { vx: number; vy: number };
         }[] = [];
         const nextId = { value: 0 };
         let lastPoses: { id: number; landmarks: Landmark[] }[] = [];
@@ -775,6 +782,9 @@ export function GaitApp() {
         let totalDetections = 0;
         let bestFramePoses: { id: number; landmarks: Landmark[] }[] = [];
 
+        // Fixed small seek grid for person inventory — reliable and bounded time
+        // (VIDEO playback+detect can stall the main thread in headless/CPU).
+        const sampleCount = Math.min(10, Math.max(6, Math.ceil(duration)));
         for (let i = 0; i < sampleCount; i++) {
           if (runId !== abortRef.current) return;
           const timeSec = (i / Math.max(1, sampleCount - 1)) * Math.max(0, duration - 0.05);
@@ -782,22 +792,19 @@ export function GaitApp() {
           const dets = (res.landmarks || []).map(toLandmarks);
           if (dets.length) {
             totalDetections += dets.length;
-            const ids = matchPeople(dets, tracks, nextId, i);
+            const ids = matchPeople(dets, tracks as any, nextId, i);
             lastPoses = dets.map((landmarks, di) => ({
               id: ids[di],
               landmarks,
             }));
-            if (dets.length >= bestFramePoses.length) {
-              bestFramePoses = lastPoses;
-            }
+            if (dets.length >= bestFramePoses.length) bestFramePoses = lastPoses;
             setScanPoses(lastPoses);
           }
-          const pct = 15 + Math.round((i / sampleCount) * 35);
-          setProgress(pct);
-          if (i % 3 === 0) {
+          setProgress(15 + Math.round((i / sampleCount) * 35));
+          if (i % 2 === 0) {
             setMessage(
               totalDetections > 0
-                ? `Scanning… found people in ${totalDetections} detections (${i + 1}/${sampleCount})`
+                ? `Scanning… ${totalDetections} pose hits (${i + 1}/${sampleCount})`
                 : `Scanning frames… ${i + 1}/${sampleCount}`,
             );
           }
@@ -864,16 +871,11 @@ export function GaitApp() {
       setResult(null);
 
       const duration = video.duration || 1;
-      const targetFps = 30;
-      // 20s target: a variability estimate's error scales as 1/sqrt(strides), so a 10s
-      // window (~9 strides) carries ~24% relative error on stepTimeCV plus a ~17% low
-      // bias. 20s (~18 strides) roughly halves both. Beyond 20s returns diminish (4x the
-      // strides to halve the error again) while seek cost grows linearly.
+      // 20s target window; short tuning clips use the whole file.
       const WINDOW_TARGET_SEC = ANALYSIS_WINDOW_SEC;
       const windowDuration = duration > WINDOW_TARGET_SEC ? WINDOW_TARGET_SEC : duration;
       const windowStart = duration > WINDOW_TARGET_SEC ? (duration - windowDuration) / 2 : 0;
-      const sampleCount = Math.max(15, Math.floor(windowDuration * targetFps));
-      const dt = windowDuration > 0 && sampleCount > 1 ? windowDuration / sampleCount : 1 / targetFps;
+      const windowEnd = windowStart + windowDuration;
       const rawFrames: PoseFrame[] = [];
 
       const selectedMeta = people.find((p) => p.id === selectedPersonId);
@@ -887,16 +889,8 @@ export function GaitApp() {
       let lastVelocity = { vx: 0, vy: 0 };
       let lastBiometric = selectedMeta?.biometrics;
 
-      for (let i = 0; i < sampleCount; i++) {
-        if (runId !== abortRef.current) return;
-        const t = Math.min(Math.max(0, duration - 0.033), windowStart + i * dt);
-        const res = await seekAndDetect(landmarker, video, t);
-        const dets = (res.landmarks || []).map(toLandmarks);
-        if (!dets.length) {
-          setProgress(55 + Math.round((i / sampleCount) * 35));
-          continue;
-        }
-
+      const lockPersonFromDets = (dets: Landmark[][], timeMs: number) => {
+        if (!dets.length) return;
         let best = -1;
         let bestScore = -Infinity;
         for (let di = 0; di < dets.length; di++) {
@@ -909,6 +903,8 @@ export function GaitApp() {
           const b = boundingBox(lm);
           const area = b.w * b.h;
           const bio = computeBiometricSignature(lm);
+          const human = humanLikenessScore(bio, b);
+          if (human < 0.32 && dets.length > 1) continue;
 
           if (lastHip) {
             const predHip = {
@@ -919,29 +915,22 @@ export function GaitApp() {
             const rawDist = Math.hypot(hip.x - lastHip.x, hip.y - lastHip.y);
             const minDist = Math.min(spatialDist, rawDist);
             const bioDist = lastBiometric ? biometricDistance(bio, lastBiometric) : 0;
-
-            const maxAllowedDist = 0.35 + (bioDist < 0.25 ? 0.10 : 0);
+            const maxAllowedDist = 0.38 + (bioDist < 0.25 ? 0.12 : 0) + (human > 0.55 ? 0.05 : 0);
             if (minDist > maxAllowedDist) continue;
-
-            const score = area * 2 - minDist * 3 - bioDist * 4;
+            const score = area * 2 - minDist * 3 - bioDist * 4 + human * 2.5;
             if (score > bestScore) {
               bestScore = score;
               best = di;
             }
           } else {
-            const score = area * 2;
+            const score = area * 2 + human * 3;
             if (score > bestScore) {
               bestScore = score;
               best = di;
             }
           }
         }
-
-        if (best < 0) {
-          setProgress(55 + Math.round((i / sampleCount) * 35));
-          continue;
-        }
-
+        if (best < 0) return;
         const lm = dets[best];
         const newHip = {
           x: (lm[23].x + lm[24].x) / 2,
@@ -949,7 +938,6 @@ export function GaitApp() {
           z: 0,
         };
         const newBio = computeBiometricSignature(lm);
-
         if (lastHip) {
           lastVelocity = {
             vx: 0.5 * lastVelocity.vx + 0.5 * (newHip.x - lastHip.x),
@@ -964,10 +952,39 @@ export function GaitApp() {
               shoulderHipRatio: 0.7 * lastBiometric.shoulderHipRatio + 0.3 * newBio.shoulderHipRatio,
             }
           : newBio;
-
-        rawFrames.push({ timeMs: t * 1000, landmarks: lm });
+        rawFrames.push({ timeMs, landmarks: lm });
         setScanPoses([{ id: selectedPersonId, landmarks: lm }]);
-        setProgress(55 + Math.round((i / sampleCount) * 35));
+      };
+
+      // Prefer continuous VIDEO-mode playback (near real-time). Fall back to seek+IMAGE
+      // if playback yields too few frames (codec/autoplay quirks).
+      setMessage("Extracting gait kinematics (playback)…");
+      const playback = await playAndDetectFrames(landmarker, video, {
+        startSec: windowStart,
+        endSec: windowEnd,
+        // ~10 Hz target; denser when clip is short
+        minIntervalSec: windowDuration <= 12 ? 0.1 : 0.12,
+        isAborted: () => runId !== abortRef.current,
+        onProgress: (pct) => setProgress(55 + Math.round(pct * 0.35)),
+      });
+      for (const sample of playback) {
+        if (runId !== abortRef.current) return;
+        lockPersonFromDets(sample.detections, sample.timeMs);
+      }
+
+      if (rawFrames.length < 8) {
+        setMessage("Playback sparse — refining with seek sampling…");
+        const targetFps = 8;
+        const sampleCount = Math.max(15, Math.floor(windowDuration * targetFps));
+        const dt = windowDuration > 0 && sampleCount > 1 ? windowDuration / sampleCount : 1 / targetFps;
+        for (let i = 0; i < sampleCount; i++) {
+          if (runId !== abortRef.current) return;
+          const t = Math.min(Math.max(0, duration - 0.033), windowStart + i * dt);
+          const res = await seekAndDetect(landmarker, video, t);
+          const dets = (res.landmarks || []).map(toLandmarks);
+          lockPersonFromDets(dets, t * 1000);
+          setProgress(55 + Math.round((i / sampleCount) * 35));
+        }
       }
 
       if (rawFrames.length < 8) {
@@ -1023,6 +1040,11 @@ export function GaitApp() {
       setPhase("results");
       setMessage("Analysis complete");
       setTab("clusters");
+      // Agent / Playwright tuning harness reads this after analysis completes
+      if (typeof window !== "undefined") {
+        (window as unknown as { __GAIT_LAST_RESULT__?: AnalysisResult }).__GAIT_LAST_RESULT__ =
+          analysis;
+      }
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : "Analysis failed");
