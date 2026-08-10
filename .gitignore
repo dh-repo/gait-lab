@@ -20,3 +20,7 @@ tmp/
 .grok/
 vendor/
 .vercel
+
+# Local ProRes source clips (use public/samples/tuning-*.mp4)
+IMG_*.MOV
+*.MOV

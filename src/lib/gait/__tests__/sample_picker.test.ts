@@ -4,8 +4,8 @@ import path from "path";
 import { SAMPLE_VIDEOS } from "@/components/gait/SamplePicker";
 
 describe("SamplePicker Reference Video Assets", () => {
-  it("defines the 5 required reference sample video entries", () => {
-    expect(SAMPLE_VIDEOS).toHaveLength(5);
+  it("defines required reference sample video entries including tuning clips", () => {
+    expect(SAMPLE_VIDEOS.length).toBeGreaterThanOrEqual(7);
 
     const ids = SAMPLE_VIDEOS.map((s) => s.id);
     expect(ids).toContain("sagittal");
@@ -14,6 +14,9 @@ describe("SamplePicker Reference Video Assets", () => {
     expect(ids).toContain("general");
     // Fallback offered to users who have no clip of their own and cannot record one.
     expect(ids).toContain("store_aisle");
+    // Real-world home captures for algorithm tuning (from IMG_3992 / IMG_3993).
+    expect(ids).toContain("tuning_3992");
+    expect(ids).toContain("tuning_3993");
   });
 
   it("has complete metadata for each sample video entry", () => {
@@ -38,6 +41,8 @@ describe("SamplePicker Reference Video Assets", () => {
       "frontal-gait.mp4",
       "follow-cam-gait.mp4",
       "general-gait.mp4",
+      "tuning-3992.mp4",
+      "tuning-3993.mp4",
     ];
 
     requiredFiles.forEach((file) => {
@@ -71,13 +76,16 @@ describe("SamplePicker Reference Video Assets", () => {
 
   it("declares sample durations matching the shipped media files", () => {
     // Verified with ffprobe: sagittal/frontal/follow-cam = 12.000s,
-    // general = 23.533s, store_aisle = 23.533s
+    // general = 23.533s, store_aisle = 23.533s,
+    // tuning-3992 = 10.55s, tuning-3993 = 12.42s
     const expected: Record<string, string> = {
       sagittal: "12.0s",
       frontal: "12.0s",
       follow_cam: "12.0s",
       general: "23.5s",
       store_aisle: "23.5s",
+      tuning_3992: "10.5s",
+      tuning_3993: "12.4s",
     };
     SAMPLE_VIDEOS.forEach((sample) => {
       expect(sample.duration).toBe(expected[sample.id]);

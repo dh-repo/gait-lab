@@ -20,6 +20,30 @@ export interface SampleVideoInfo {
 // eslint-disable-next-line react-refresh/only-export-components
 export const SAMPLE_VIDEOS: SampleVideoInfo[] = [
   {
+    id: "tuning_3992",
+    title: "Tuning: Home frontal (single)",
+    viewBadge: "Tuning · Frontal",
+    tone: "primary",
+    duration: "10.5s",
+    url: "/samples/tuning-3992.mp4",
+    filename: "tuning-3992.mp4",
+    description:
+      "Real-world indoor frontal walk (IMG_3992) for algorithm tuning — single subject, home hallway lighting, barefoot/partial footwear, full-body tracking under typical phone-capture conditions.",
+    features: ["Home Capture", "Frontal", "Single Subject", "Tuning"],
+  },
+  {
+    id: "tuning_3993",
+    title: "Tuning: Home frontal (multi)",
+    viewBadge: "Tuning · Multi",
+    tone: "warn",
+    duration: "12.4s",
+    url: "/samples/tuning-3993.mp4",
+    filename: "tuning-3993.mp4",
+    description:
+      "Real-world indoor frontal walk (IMG_3993) for algorithm tuning — primary subject with pets in frame to stress multi-candidate tracking, person selection, and occlusion robustness.",
+    features: ["Home Capture", "Multi-Subject", "Occlusion", "Tuning"],
+  },
+  {
     id: "sagittal",
     title: "Sagittal View (Side)",
     viewBadge: "Sagittal View",
