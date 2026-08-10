@@ -1,92 +1,69 @@
-# Milestone 2 Empirical Challenger Handoff Report
-
-**Author:** challenger_m2_2  
-**Date:** 2026-08-10  
-**Verdict:** **APPROVE**  
-
----
+# Handoff Report — Milestone 2 Independent Stress Test (Challenger 2)
 
 ## 1. Observation
 
-Direct empirical observations from terminal command execution and test harness runs on `/Users/damian/GitHub/gait-lab`:
+- **Implementation & test files inspected**:
+  - `src/lib/gait/angles.ts`: Inspected `calculateArmSwingAsymmetry` (R6) and `calculateTrunkSway` (R7). Confirmed keypoint index guards (`frame.length >= 27` / `25`), visibility thresholds (`visibility >= 0.3`), detrending FFT bounds (`signal.length >= 8`, `oddSum < 1e-6`), and zero division protections (`maxAmp > 0`, `den < 1e-8`).
+  - `src/lib/gait/guesses.ts`: Inspected 6 new clinical hypothesis rules (R8: `steppage-gait`, `festinating-gait`, `scissoring-gait`, `waddling-gait`, `trendelenburg-sign`, `circumduction-gait`), confidence clamping (`clamp()`), and normative Z-score lookups.
+  - `src/lib/gait/normatives.ts`: Inspected `calculateGPSAndMAP` (R9 101-point curve RMSE), `calculateZScore` boundary checks (`sd <= 0` or non-finite inputs), and lifespan age tier resolution in `getNormativeReference`.
+  - `src/lib/gait/__tests__/m2_challenger_2_empirical.test.ts`: Authored and executed an empirical stress test suite containing 18 targeted edge-case assertions.
 
-1. **Vitest Test Suite Execution:**
-   - Command: `npx vitest run`
-   - Result: 70 test files passed, 918 tests passed (0 failures).
-   - Execution duration: ~7.23s.
-
-2. **TypeScript & Linter Integrity:**
-   - Command: `npx tsc --noEmit` -> 0 errors.
-   - Command: `npx eslint .` -> 0 errors (18 pre-existing unused variable warnings in test files).
-
-3. **Core Parameter Calibration Verification:**
-   - `events.ts`:
-     - Peak prominence threshold $P_{\text{min}}$ in `findExtrema`: `Math.max(0.0005, 0.12 * sigRange)` (lowered from `0.001, 0.15 * sigRange`).
-     - Frontal-Y trigger hysteresis in `detectGaitEventsZeni`: `apRange < 0.028 && apEventCount < 5` (refined from `apRange < 0.022 || apEventCount < 4`).
-     - Min gap parameters: `minGap = Math.max(3, Math.floor(0.18 * effectiveFps))` and `yMinGap = Math.max(3, Math.floor(0.18 * effectiveFps))`.
-   - `analysis.ts`:
-     - `MIN_STEP_SEC`: `0.15s` (lowered from `0.30s`).
-     - `filterSteadyStateStrides`: Relative deviation cutoff `0.40` with retention guard `minKeep = Math.max(3, Math.floor(0.50 * strideIntervals.length))`.
-   - `PoseTracker.ts`:
-     - Exponentially smoothed velocity tracking (`vx, vy`) and motion projection $x_{\text{pred}} = x_{t-1} + v \cdot \Delta t$ used in candidate distance scoring $d = \min(d_{\text{last}}, d_{\text{pred}})$.
-     - Clean state reset in `clearBuffer()`.
-
-4. **Tuning Clips Stability (`tuning-3992.mp4` / `tuning-3993.mp4`):**
-   - Verified physical existence in `public/samples/tuning-3992.mp4` (8.2 MB, 10.5s duration) and `public/samples/tuning-3993.mp4` (9.7 MB, 12.4s duration).
-   - Verified metadata in `SamplePicker.tsx` and `sample_picker.test.ts` (6/6 tests passing).
-
-5. **Empirical Adversarial Stress Harness (`src/lib/gait/__tests__/m2_challenger_2_empirical_stress.test.ts`):**
-   - Authored 12 new adversarial stress tests covering low-amplitude frontal walks (`tuning-3992.mp4`), target lock velocity projection with distractors (`tuning-3993.mp4`), antalgic asymmetry preservation, acceleration/deceleration stride trimming, zero-phase Butterworth filtering, and fall risk model bounds.
-   - Result: 12/12 passing green.
-
----
+- **Empirical test execution commands & results**:
+  - `npx vitest run src/lib/gait/__tests__/m2_challenger_2_empirical.test.ts`:
+    - Result: `18 passed (18)` in 6.05s.
+  - `npx vitest run`:
+    - Result: `93 passed (93)` test files, `1284 passed (1284)` tests, 0 failures.
+  - `npx tsc --noEmit`:
+    - Result: `Exit code 0`. 0 TypeScript compiler errors.
+  - `npx eslint`:
+    - Result: `Exit code 0`. 0 ESLint errors.
 
 ## 2. Logic Chain
 
-1. **Observation:** `npx vitest run` executes 918 tests across 70 test files with 100% pass rate. `npx tsc --noEmit` and `npx eslint .` produce zero errors.
-   - **Inference:** The codebase is syntactically sound, type-safe, and free of regression failures.
+1. **R6 & R7 Robustness Verification**:
+   - *NaN / Missing Keypoint Safety*: Frames with missing keypoints, `visibility < 0.3`, or `NaN` coordinates fall back to 0 angle values without throwing or leaking `NaN` to caller.
+   - *Single Frame & Empty Input*: `calculateArmSwingAsymmetry([])` returns zeroed metrics (`asymmetryIndex: 0`, `phaseCorrelation: 0`). `calculateTrunkSway([])` returns `{ lateralExcursionDeg: 0, sagittalExcursionDeg: 0, harmonicRatio: 1.0 }`.
+   - *Zero Division Safety*: `asymmetryIndex` checks `maxAmp > 0`. `pearsonCorrelation` checks `den < 1e-8`. `computeHarmonicRatio` checks `oddSum < 1e-6` and `signal.length < 8`. Zero division is impossible.
 
-2. **Observation:** The refined Frontal-Y fallback condition `apRange < 0.028 && apEventCount < 5` and lower prominence threshold $P_{\text{min}} = \max(0.0005, 0.12 \times \text{sigRange})$ were tested on synthetic indoor frontal walk frames simulating `tuning-3992.mp4`.
-   - **Inference:** Low-amplitude heel strikes compressed along the camera line-of-sight are reliably detected without mode flipping between AP displacement and vertical ankle motion.
+2. **R8 Hypothesis Rule & False Positive Resistance Verification**:
+   - *Confidence Bounding*: All R8 rules (`steppage-gait`, `festinating-gait`, `scissoring-gait`, `waddling-gait`, `trendelenburg-sign`, `circumduction-gait`) utilize `clamp()`, guaranteeing confidence values stay strictly in $[0.0, 1.0]$.
+   - *Z-score Bounds*: `calculateZScore` returns `0` when `sd <= 0` or when receiving `NaN`/`Infinity` inputs.
+   - *False Positive Resistance*: Evaluated against standard healthy normative gait metrics (cadence 105 spm, step time CV 0.02, knee flex 60°, step width 0.16m, pelvic obliquity 1.15°). Verified 0 false positive triggers across all 6 rules.
+   - *True Positive Activation*: Verified each rule correctly activates with elevated confidence when presented with pathological metrics.
 
-3. **Observation:** Candidate scoring in `PoseTracker.ts` using velocity projection $x_{\text{pred}} = x_{t-1} + v \cdot \Delta t$ was tested when a secondary distractor candidate passes right next to the target subject (`tuning-3993.mp4` scenario).
-   - **Inference:** Biometric target lock is maintained without track stealing or false duplicate track generation.
-
-4. **Observation:** `filterSteadyStateStrides` with 40% deviation cutoff and retention guard `minKeep = Math.max(3, Math.floor(0.50 * N))` was tested on antalgic stride sequences (alternating 0.85s / 0.55s).
-   - **Inference:** Real pathological asymmetry is preserved without over-trimming, while extreme lead-in acceleration and lead-out deceleration strides are filtered correctly.
-
-5. **Observation:** All clinical rating domains, educated guesses, and fall risk models (Model A & B) maintain numerical stability within `[0, 100]` bounds without producing `NaN` or `Infinity` under extreme inputs.
-   - **Inference:** Milestone 2 parameter calibrations deepen signal processing accuracy without destabilizing down-stream clinical metrics.
-
----
+3. **R9 GPS/MAP 101-Point Interpolation & Age Tier Verification**:
+   - *Curve Interpolation & RMSE*: `calculateGPSAndMAP` evaluates 101 normalized points against Perry & Burnfield normative mean curves. Joint sub-scores ($MAP_j$) and overall Gait Profile Score ($GPS$) are computed in degrees.
+   - *Frontal Suppression*: When frontal view is detected or kinematics are suppressed, `calculateGPSAndMAP` returns $GPS = 0^\circ$ with clear interpretation: `"Unevaluated: Sagittal joint angle kinematics suppressed in frontal camera view."`
+   - *Age Tier Defaults*: `getNormativeReference` maps ages to 7 distinct tiers (`pediatric` <18, `young` 18-49, `middle` 50-64, `elderly` 65-74, `advanced_75_84` 75-84, `advanced_85_plus` 85+, `combined` for unspecified). Unknown parameters or sexes fall back to Winter (2009) or combined reference data cleanly.
 
 ## 3. Caveats
 
-1. Real video validation via `scripts/tune-gait-samples.mjs` requires a live browser environment (`HEADED=1` or Playwright Chrome with WebGL/GPU). In headless container mode, Vitest unit/integration mocks supply equivalent synthetic frame streams.
-2. Adversarial coverage for synthetic landmark jitter, 180° U-turn occlusion, and camera shake is scheduled for Milestone 3 expansion.
-
----
+- In frontal camera views, sagittal joint angles (knee, hip, ankle) are suppressed as per system design, returning $GPS = 0^\circ$ with clear suppression messaging while frontal metrics (trunk sway, pelvic obliquity) remain fully active.
+- `computeHarmonicRatio` requires $\ge 8$ samples for FFT detrending; for shorter clips ($N < 8$), it defaults to 1.0 without failing.
 
 ## 4. Conclusion
 
 **Verdict: APPROVE**
 
-Milestone 2 signal tuning across core modules (`events.ts`, `analysis.ts`, `PoseTracker.ts`, `signal.ts`, `ratings.ts`, `guesses.ts`, `fallrisk.ts`) is empirically validated, stable, and 100% green across the full Vitest suite.
-
----
+Milestone 2 changes (R6–R9) are mathematically sound, numerical stability is guaranteed under adversarial inputs (NaNs, missing keypoints, single frame, zero division), confidence scores are strictly bounded, false positive resistance is verified, and GPS/MAP 101-point curve interpolation and age tier defaults function accurately.
 
 ## 5. Verification Method
 
-To independently verify this verdict:
+To independently verify this report:
 
-```bash
-# 1. Run the full Vitest suite (all 70 test files, 918 tests)
-npx vitest run
-
-# 2. Run the specific M2 empirical stress harness
-npx vitest run src/lib/gait/__tests__/m2_challenger_2_empirical_stress.test.ts
-
-# 3. Verify static typing & ESLint compliance
-npx tsc --noEmit
-npx eslint .
-```
+1. Run the empirical stress test suite:
+   ```bash
+   npx vitest run src/lib/gait/__tests__/m2_challenger_2_empirical.test.ts
+   ```
+2. Run the full project test suite:
+   ```bash
+   npx vitest run
+   ```
+3. Run TypeScript type check:
+   ```bash
+   npx tsc --noEmit
+   ```
+4. Run ESLint:
+   ```bash
+   npx eslint
+   ```

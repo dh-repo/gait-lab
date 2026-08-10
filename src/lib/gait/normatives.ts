@@ -1,7 +1,15 @@
 import type { GaitMetrics, PatientMetadata } from "./types";
+import { getNormativeGaitCurves, type GaitAngleAnalysis } from "./angles";
 
 export type SexCategory = "male" | "female" | "combined";
-export type AgeGroupCategory = "young" | "middle" | "elderly" | "combined";
+export type AgeGroupCategory =
+  | "pediatric"
+  | "young"
+  | "middle"
+  | "elderly"
+  | "advanced_75_84"
+  | "advanced_85_plus"
+  | "combined";
 
 export interface NormativeReferenceRange {
   paramId: string;
@@ -11,7 +19,7 @@ export interface NormativeReferenceRange {
   sd: number;
   min95: number;
   max95: number;
-  citation: "Winter (2009)" | "Bovi et al. (2011)";
+  citation: "Winter (2009)" | "Bovi et al. (2011)" | "Hollman et al. (2010)";
 }
 
 export interface NormativeEvaluationResult {
@@ -35,29 +43,64 @@ export interface GaitDeviationIndexResult {
   paramZScores: Record<string, number>;
 }
 
+export interface MAPSubScores {
+  pelvicTilt?: number | null;
+  hipFlexionExtension: number | null;
+  kneeFlexionExtension: number | null;
+  ankleDorsiflexionPlantarflexion: number | null;
+  pelvicObliquity?: number | null;
+}
+
+export interface GaitProfileScoreResult {
+  /** Overall Gait Profile Score in degrees (RMS of MAP sub-scores) */
+  gpsScore: number;
+  /** Movement Analysis Profile per-joint RMSE sub-scores in degrees */
+  map: MAPSubScores;
+  /** Number of joint variables evaluated in GPS */
+  evaluatedJointCount: number;
+  /** Qualitative interpretation based on GPS score */
+  interpretation: string;
+  /** Citation reference */
+  citation: "Baker et al. (2009)";
+}
+
 export type PatientMetaInput =
   | (Partial<PatientMetadata> & { age?: number; sex?: SexCategory | string })
   | undefined;
 
-// Dataset 1: Winter (2009) — Biomechanics and Motor Control of Human Movement (4th Ed.)
+// Dataset 1: Winter (2009) & Hollman (2010) Baseline Normatives
 const WINTER_NORMATIVES: Record<string, { label: string; unit: string; mean: number; sd: number }> = {
   cadenceSpm: { label: "Cadence", unit: "spm", mean: 105.0, sd: 8.0 },
   stepTimeCV: { label: "Step Time CV", unit: "ratio", mean: 0.02, sd: 0.006 },
   stancePct: { label: "Stance Phase %", unit: "%", mean: 60.5, sd: 2.0 },
   doubleSupportPct: { label: "Double Support Phase %", unit: "%", mean: 20.8, sd: 2.5 },
   kneeFlexionRom: { label: "Knee Flexion ROM", unit: "°", mean: 58.0, sd: 4.5 },
+  gaitSpeed: { label: "Gait Speed", unit: "m/s", mean: 1.35, sd: 0.15 },
+  stepLength: { label: "Step Length", unit: "m", mean: 0.68, sd: 0.06 },
+  hipRom: { label: "Hip Flexion ROM", unit: "°", mean: 42.0, sd: 4.0 },
+  ankleRom: { label: "Ankle ROM", unit: "°", mean: 27.0, sd: 3.5 },
+  ankleDorsiflexion: { label: "Ankle Dorsiflexion", unit: "°", mean: 10.0, sd: 3.0 },
+  stepWidth: { label: "Step Width", unit: "m", mean: 0.16, sd: 0.03 },
+  pelvicObliquity: { label: "Pelvic Obliquity", unit: "°", mean: 2.0, sd: 1.0 },
+  trunkLateralSway: { label: "Trunk Lateral Sway", unit: "°", mean: 3.0, sd: 1.2 },
+  swingLateralArc: { label: "Swing Lateral Arc", unit: "m", mean: 0.04, sd: 0.02 },
 };
 
 // Dataset 2: Bovi et al. (2011) — Lifespan Stratified Reference Data
 type BoviDataPoint = { mean: number; sd: number };
 type BoviSexMap = Record<SexCategory, BoviDataPoint>;
-type BoviAgeMap = Record<AgeGroupCategory, BoviSexMap>;
+type BoviAgeMap = Record<string, BoviSexMap>;
 
 const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviAgeMap }> = {
   cadenceSpm: {
     label: "Cadence",
     unit: "spm",
     data: {
+      pediatric: {
+        male: { mean: 124.0, sd: 9.0 },
+        female: { mean: 128.0, sd: 8.5 },
+        combined: { mean: 126.0, sd: 8.8 },
+      },
       young: {
         male: { mean: 112.4, sd: 7.5 },
         female: { mean: 117.8, sd: 6.8 },
@@ -73,6 +116,16 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
         female: { mean: 109.5, sd: 8.8 },
         combined: { mean: 106.35, sd: 9.15 },
       },
+      advanced_75_84: {
+        male: { mean: 98.5, sd: 9.8 },
+        female: { mean: 104.0, sd: 9.2 },
+        combined: { mean: 101.25, sd: 9.5 },
+      },
+      advanced_85_plus: {
+        male: { mean: 92.0, sd: 10.5 },
+        female: { mean: 97.5, sd: 10.0 },
+        combined: { mean: 94.75, sd: 10.25 },
+      },
       combined: {
         male: { mean: 108.1, sd: 8.3 },
         female: { mean: 113.8, sd: 7.6 },
@@ -84,6 +137,11 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
     label: "Step Time CV",
     unit: "ratio",
     data: {
+      pediatric: {
+        male: { mean: 0.028, sd: 0.008 },
+        female: { mean: 0.026, sd: 0.007 },
+        combined: { mean: 0.027, sd: 0.0075 },
+      },
       young: {
         male: { mean: 0.021, sd: 0.005 },
         female: { mean: 0.020, sd: 0.005 },
@@ -99,6 +157,16 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
         female: { mean: 0.030, sd: 0.010 },
         combined: { mean: 0.031, sd: 0.0105 },
       },
+      advanced_75_84: {
+        male: { mean: 0.038, sd: 0.013 },
+        female: { mean: 0.035, sd: 0.012 },
+        combined: { mean: 0.0365, sd: 0.0125 },
+      },
+      advanced_85_plus: {
+        male: { mean: 0.046, sd: 0.016 },
+        female: { mean: 0.042, sd: 0.015 },
+        combined: { mean: 0.044, sd: 0.0155 },
+      },
       combined: {
         male: { mean: 0.0257, sd: 0.0077 },
         female: { mean: 0.0243, sd: 0.007 },
@@ -110,6 +178,11 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
     label: "Stance Phase %",
     unit: "%",
     data: {
+      pediatric: {
+        male: { mean: 58.5, sd: 1.8 },
+        female: { mean: 58.2, sd: 1.6 },
+        combined: { mean: 58.35, sd: 1.7 },
+      },
       young: {
         male: { mean: 60.2, sd: 1.5 },
         female: { mean: 59.8, sd: 1.4 },
@@ -125,6 +198,16 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
         female: { mean: 62.1, sd: 2.2 },
         combined: { mean: 62.45, sd: 2.35 },
       },
+      advanced_75_84: {
+        male: { mean: 64.2, sd: 2.8 },
+        female: { mean: 63.5, sd: 2.6 },
+        combined: { mean: 63.85, sd: 2.7 },
+      },
+      advanced_85_plus: {
+        male: { mean: 65.8, sd: 3.2 },
+        female: { mean: 65.0, sd: 3.0 },
+        combined: { mean: 65.4, sd: 3.1 },
+      },
       combined: {
         male: { mean: 61.47, sd: 1.93 },
         female: { mean: 60.9, sd: 1.73 },
@@ -136,6 +219,11 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
     label: "Double Support Phase %",
     unit: "%",
     data: {
+      pediatric: {
+        male: { mean: 17.5, sd: 2.1 },
+        female: { mean: 17.0, sd: 1.9 },
+        combined: { mean: 17.25, sd: 2.0 },
+      },
       young: {
         male: { mean: 20.1, sd: 2.0 },
         female: { mean: 19.6, sd: 1.8 },
@@ -151,6 +239,16 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
         female: { mean: 23.1, sd: 2.8 },
         combined: { mean: 23.45, sd: 2.9 },
       },
+      advanced_75_84: {
+        male: { mean: 26.5, sd: 3.5 },
+        female: { mean: 25.8, sd: 3.2 },
+        combined: { mean: 26.15, sd: 3.35 },
+      },
+      advanced_85_plus: {
+        male: { mean: 29.2, sd: 4.2 },
+        female: { mean: 28.5, sd: 3.8 },
+        combined: { mean: 28.85, sd: 4.0 },
+      },
       combined: {
         male: { mean: 21.8, sd: 2.4 },
         female: { mean: 21.2, sd: 2.2 },
@@ -162,6 +260,11 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
     label: "Knee Flexion ROM",
     unit: "°",
     data: {
+      pediatric: {
+        male: { mean: 63.0, sd: 4.2 },
+        female: { mean: 62.5, sd: 4.0 },
+        combined: { mean: 62.75, sd: 4.1 },
+      },
       young: {
         male: { mean: 60.5, sd: 3.8 },
         female: { mean: 59.2, sd: 3.5 },
@@ -176,6 +279,16 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
         male: { mean: 53.5, sd: 4.8 },
         female: { mean: 54.1, sd: 4.5 },
         combined: { mean: 53.8, sd: 4.65 },
+      },
+      advanced_75_84: {
+        male: { mean: 49.5, sd: 5.2 },
+        female: { mean: 50.2, sd: 4.9 },
+        combined: { mean: 49.85, sd: 5.05 },
+      },
+      advanced_85_plus: {
+        male: { mean: 45.0, sd: 5.8 },
+        female: { mean: 46.0, sd: 5.5 },
+        combined: { mean: 45.5, sd: 5.65 },
       },
       combined: {
         male: { mean: 57.13, sd: 4.2 },
@@ -248,6 +361,30 @@ function normalizeParamId(paramId: string): string {
     case "kneeL":
     case "kneeR":
       return "kneeFlexionRom";
+    case "speed":
+    case "gaitSpeed":
+    case "gaitSpeedMps":
+      return "gaitSpeed";
+    case "hipRom":
+    case "hipFlexion":
+    case "hipFlexionRom":
+      return "hipRom";
+    case "ankleRom":
+    case "ankleFlexion":
+    case "ankleFlexionRom":
+      return "ankleRom";
+    case "stepLength":
+      return "stepLength";
+    case "ankleDorsiflexion":
+      return "ankleDorsiflexion";
+    case "stepWidth":
+      return "stepWidth";
+    case "pelvicObliquity":
+      return "pelvicObliquity";
+    case "trunkLateralSway":
+      return "trunkLateralSway";
+    case "swingLateralArc":
+      return "swingLateralArc";
     default:
       return paramId;
   }
@@ -268,26 +405,41 @@ export function getNormativeReference(
 
   let ageGroup: AgeGroupCategory = "combined";
   if (typeof age === "number" && Number.isFinite(age)) {
-    if (age < 50) ageGroup = "young";
+    if (age < 18) ageGroup = "pediatric";
+    else if (age < 50) ageGroup = "young";
     else if (age <= 64) ageGroup = "middle";
-    else ageGroup = "elderly";
+    else if (age <= 74) ageGroup = "elderly";
+    else if (age <= 84) ageGroup = "advanced_75_84";
+    else ageGroup = "advanced_85_plus";
   }
 
   // If age or sex is explicitly provided, look up in Bovi et al. (2011)
   if (age !== undefined || (sex && sex !== "combined")) {
     const boviEntry = BOVI_NORMATIVES[normKey];
     if (boviEntry) {
-      const dataPoint = boviEntry.data[ageGroup][parsedSex];
-      return {
-        paramId: normKey,
-        label: boviEntry.label,
-        unit: boviEntry.unit,
-        mean: dataPoint.mean,
-        sd: dataPoint.sd,
-        min95: dataPoint.mean - 1.96 * dataPoint.sd,
-        max95: dataPoint.mean + 1.96 * dataPoint.sd,
-        citation: "Bovi et al. (2011)",
-      };
+      let dataPoint = boviEntry.data[ageGroup]?.[parsedSex];
+      if (!dataPoint) {
+        // Fallback for age groups not directly defined in Bovi table
+        const fallbackAge =
+          ageGroup === "pediatric"
+            ? "young"
+            : ageGroup === "advanced_75_84" || ageGroup === "advanced_85_plus"
+            ? "elderly"
+            : "combined";
+        dataPoint = boviEntry.data[fallbackAge]?.[parsedSex] || boviEntry.data.combined[parsedSex];
+      }
+      if (dataPoint) {
+        return {
+          paramId: normKey,
+          label: boviEntry.label,
+          unit: boviEntry.unit,
+          mean: dataPoint.mean,
+          sd: dataPoint.sd,
+          min95: dataPoint.mean - 1.96 * dataPoint.sd,
+          max95: dataPoint.mean + 1.96 * dataPoint.sd,
+          citation: "Bovi et al. (2011)",
+        };
+      }
     }
   }
 
@@ -302,6 +454,134 @@ export function getNormativeReference(
     min95: winterEntry.mean - 1.96 * winterEntry.sd,
     max95: winterEntry.mean + 1.96 * winterEntry.sd,
     citation: "Winter (2009)",
+  };
+}
+
+/**
+ * Calculates Gait Profile Score (GPS) & Movement Analysis Profile (MAP) per Baker et al. (2009).
+ * Computes RMSE between patient joint angle curves and Perry & Burnfield normative mean curves
+ * at 101 gait cycle points (0% to 100%).
+ */
+export function calculateGPSAndMAP(
+  angleAnalysis?: GaitAngleAnalysis,
+): GaitProfileScoreResult {
+  const defaultResult: GaitProfileScoreResult = {
+    gpsScore: 0,
+    map: {
+      pelvicTilt: null,
+      hipFlexionExtension: null,
+      kneeFlexionExtension: null,
+      ankleDorsiflexionPlantarflexion: null,
+      pelvicObliquity: null,
+    },
+    evaluatedJointCount: 0,
+    interpretation: angleAnalysis?.isSuppressed
+      ? "Unevaluated: Sagittal joint angle kinematics suppressed in frontal camera view."
+      : "Unevaluated: No joint angle curve data available.",
+    citation: "Baker et al. (2009)",
+  };
+
+  if (
+    !angleAnalysis ||
+    angleAnalysis.isSuppressed ||
+    !angleAnalysis.normalizedPoints ||
+    angleAnalysis.normalizedPoints.length < 101
+  ) {
+    return defaultResult;
+  }
+
+  const patientPoints = angleAnalysis.normalizedPoints;
+  const normCurves = angleAnalysis.normativeData || getNormativeGaitCurves();
+
+  if (!normCurves || normCurves.length < 101) return defaultResult;
+
+  let kneeSumSq = 0, kneeCount = 0;
+  let hipSumSq = 0, hipCount = 0;
+  let ankleSumSq = 0, ankleCount = 0;
+  let tiltSumSq = 0, tiltCount = 0;
+  let oblSumSq = 0, oblCount = 0;
+
+  for (let i = 0; i < 101; i++) {
+    const pt = patientPoints[i];
+    const norm = normCurves[i];
+
+    // Knee
+    const kVals: number[] = [];
+    if (typeof pt.kneeAngleLeft === "number" && Number.isFinite(pt.kneeAngleLeft)) kVals.push(pt.kneeAngleLeft);
+    if (typeof pt.kneeAngleRight === "number" && Number.isFinite(pt.kneeAngleRight)) kVals.push(pt.kneeAngleRight);
+    if (kVals.length > 0) {
+      const diff = (kVals.reduce((a, b) => a + b, 0) / kVals.length) - norm.kneeMean;
+      kneeSumSq += diff * diff;
+      kneeCount++;
+    }
+
+    // Hip
+    const hVals: number[] = [];
+    if (typeof pt.hipAngleLeft === "number" && Number.isFinite(pt.hipAngleLeft)) hVals.push(pt.hipAngleLeft);
+    if (typeof pt.hipAngleRight === "number" && Number.isFinite(pt.hipAngleRight)) hVals.push(pt.hipAngleRight);
+    if (hVals.length > 0) {
+      const diff = (hVals.reduce((a, b) => a + b, 0) / hVals.length) - norm.hipMean;
+      hipSumSq += diff * diff;
+      hipCount++;
+    }
+
+    // Ankle
+    const aVals: number[] = [];
+    if (typeof pt.ankleAngleLeft === "number" && Number.isFinite(pt.ankleAngleLeft)) aVals.push(pt.ankleAngleLeft);
+    if (typeof pt.ankleAngleRight === "number" && Number.isFinite(pt.ankleAngleRight)) aVals.push(pt.ankleAngleRight);
+    if (aVals.length > 0) {
+      const diff = (aVals.reduce((a, b) => a + b, 0) / aVals.length) - norm.ankleMean;
+      ankleSumSq += diff * diff;
+      ankleCount++;
+    }
+
+    // Pelvic Tilt (if present)
+    if (typeof (pt as any).pelvicTiltAngle === "number" && Number.isFinite((pt as any).pelvicTiltAngle)) {
+      const diff = (pt as any).pelvicTiltAngle - ((norm as any).pelvicTiltMean ?? 10.0);
+      tiltSumSq += diff * diff;
+      tiltCount++;
+    }
+
+    // Pelvic Obliquity (if present)
+    if (typeof (pt as any).pelvicObliquityAngle === "number" && Number.isFinite((pt as any).pelvicObliquityAngle)) {
+      const diff = (pt as any).pelvicObliquityAngle - ((norm as any).pelvicObliquityMean ?? 0.0);
+      oblSumSq += diff * diff;
+      oblCount++;
+    }
+  }
+
+  const mapSubScores: MAPSubScores = {
+    kneeFlexionExtension: kneeCount >= 101 ? Number(Math.sqrt(kneeSumSq / 101).toFixed(2)) : null,
+    hipFlexionExtension: hipCount >= 101 ? Number(Math.sqrt(hipSumSq / 101).toFixed(2)) : null,
+    ankleDorsiflexionPlantarflexion: ankleCount >= 101 ? Number(Math.sqrt(ankleSumSq / 101).toFixed(2)) : null,
+    pelvicTilt: tiltCount >= 101 ? Number(Math.sqrt(tiltSumSq / 101).toFixed(2)) : null,
+    pelvicObliquity: oblCount >= 101 ? Number(Math.sqrt(oblSumSq / 101).toFixed(2)) : null,
+  };
+
+  const validScores: number[] = [];
+  if (mapSubScores.kneeFlexionExtension != null) validScores.push(mapSubScores.kneeFlexionExtension);
+  if (mapSubScores.hipFlexionExtension != null) validScores.push(mapSubScores.hipFlexionExtension);
+  if (mapSubScores.ankleDorsiflexionPlantarflexion != null) validScores.push(mapSubScores.ankleDorsiflexionPlantarflexion);
+  if (mapSubScores.pelvicTilt != null) validScores.push(mapSubScores.pelvicTilt);
+  if (mapSubScores.pelvicObliquity != null) validScores.push(mapSubScores.pelvicObliquity);
+
+  if (validScores.length === 0) return defaultResult;
+
+  const sumSq = validScores.reduce((s, val) => s + val * val, 0);
+  const gpsScore = Number(Math.sqrt(sumSq / validScores.length).toFixed(2));
+
+  let interpretation = "";
+  if (gpsScore < 3.0) interpretation = "Normal normative kinematic profile (GPS < 3.0°).";
+  else if (gpsScore < 5.0) interpretation = "Mild kinematic gait deviation (GPS 3.0°–5.0°).";
+  else if (gpsScore < 8.0) interpretation = "Moderate kinematic gait deviation (GPS 5.0°–8.0°).";
+  else interpretation = "Severe / pathological kinematic gait deviation (GPS ≥ 8.0°).";
+
+  return {
+    gpsScore,
+    map: mapSubScores,
+    evaluatedJointCount: validScores.length,
+    interpretation,
+    citation: "Baker et al. (2009)",
   };
 }
 

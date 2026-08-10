@@ -3,6 +3,9 @@ import {
   computeFallRiskModelA,
   computeFallRiskModelB,
   evaluatePredictiveAgreement,
+  estimateGaitSpeed,
+  computePatientBaseline,
+  detectAcuteWeaknessAnomalies,
 } from "../fallrisk";
 import { createMockMetrics } from "./testHelpers";
 import type { DualTaskCost, GaitMetrics } from "../types";
@@ -327,9 +330,7 @@ describe("Dual Fall Risk Predictive Engine (fallrisk.ts)", () => {
       }).not.toThrow();
 
       expect(isNaN(result.compositeScore)).toBe(false);
-      expect(isNaN(result.subScores.kinematicsScore)).toBe(false);
-      expect(isNaN(result.subScores.trunkSwayScore)).toBe(false);
-      expect(isNaN(result.subScores.variabilityScore)).toBe(false);
+      expect(isNaN(result.subScores.variabilityScore ?? 0)).toBe(false);
     });
   });
 
@@ -353,7 +354,6 @@ describe("Dual Fall Risk Predictive Engine (fallrisk.ts)", () => {
     });
 
     it("returns MILD_DIVERGENCE (kappa = 0.25, Pa = 50%) when categories differ by 1 ordinal step", () => {
-      // Model A = low risk, Model B = moderate risk
       const modelA = {
         score: 10,
         category: "low" as const,
@@ -425,6 +425,128 @@ describe("Dual Fall Risk Predictive Engine (fallrisk.ts)", () => {
       expect(agreement.percentageAgreement).toBe(0.0);
       expect(agreement.scoreDifference).toBe(78.0);
       expect(agreement.summary).toContain("Stark inter-model divergence");
+    });
+  });
+
+  // =========================================================================
+  // 4. Milestone 3 Fall Risk Hardening (R10 Specific Tests)
+  // =========================================================================
+  describe("Milestone 3 Fall Risk Hardening (R10)", () => {
+    describe("Item 1: estimateGaitSpeed formula", () => {
+      it("calculates height-adjusted gait speed proxy when heightMeters is available", () => {
+        const metrics = createMockMetrics({
+          cadenceSpm: 110,
+          gaitSpeedMps: null,
+          heightMeters: 1.70,
+        });
+
+        const speed = estimateGaitSpeed(metrics);
+        // (110 * (0.414 * 1.70) * 2) / 60 = 2.58
+        expect(speed).toBe(2.58);
+      });
+
+      it("calculates step-length-based gait speed proxy when stepLength is available", () => {
+        const metrics = createMockMetrics({
+          cadenceSpm: 100,
+          gaitSpeedMps: null,
+          heightMeters: null,
+          stepLength: 0.65,
+        });
+
+        const speed = estimateGaitSpeed(metrics);
+        // (100 * 0.65 * 2) / 60 = 2.17
+        expect(speed).toBe(2.17);
+      });
+
+      it("falls back to default adult height (1.70m) when only cadence is available", () => {
+        const metrics = createMockMetrics({
+          cadenceSpm: 100,
+          gaitSpeedMps: null,
+          heightMeters: null,
+          stepLength: null,
+        });
+
+        const speed = estimateGaitSpeed(metrics);
+        // (100 * (0.414 * 1.70) * 2) / 60 = 2.35
+        expect(speed).toBe(2.35);
+      });
+
+      it("uses explicit gaitSpeedMps when provided", () => {
+        const metrics = createMockMetrics({
+          gaitSpeedMps: 1.25,
+          cadenceSpm: 110,
+          heightMeters: 1.75,
+        });
+
+        const speed = estimateGaitSpeed(metrics);
+        expect(speed).toBe(1.25);
+      });
+    });
+
+    describe("Item 2: Model A Frontal View Dynamic STEADI Thresholds", () => {
+      it("triggers HIGH risk in frontal view when evaluatedCount=2 and breachedCount=2", () => {
+        const frontalMetrics = createMockMetrics({
+          viewAngle: "frontal",
+          doubleSupportPct: null,
+          doubleSupportHint: undefined,
+          symmetryAngle: null,
+          gaitSpeedMps: 0.60, // BREACHED (<0.80 m/s)
+          stepTimeCV: 0.08, // BREACHED (>6.0%)
+        });
+
+        const result = computeFallRiskModelA(frontalMetrics);
+
+        expect(result.evaluatedCount).toBe(2);
+        expect(result.breachedCount).toBe(2);
+        expect(result.category).toBe("high");
+      });
+    });
+
+    describe("Item 3 & Item 4: Model B Dynamic Weight Re-Normalization & Orthogonal Separation", () => {
+      it("marks missing lateralSway as null and re-normalizes weights without substituting verticalBounce", () => {
+        const metrics = createMockMetrics({
+          lateralSway: null,
+          verticalBounce: 0.08, // High vertical bounce (Y axis) - must NOT be substituted for lateral sway (X axis)
+          stepTimeCV: 0.04,
+        });
+
+        const result = computeFallRiskModelB(metrics);
+
+        expect(result.subScores.trunkSwayScore).toBeNull();
+        expect(result.weights.trunkSway).toBe(0);
+        // Remaining domains (Kinematics + Variability in single task mode) receive re-normalized weight sum = 1.0
+        const totalWeight = result.weights.kinematics + result.weights.trunkSway + result.weights.dte + result.weights.variability;
+        expect(totalWeight).toBeCloseTo(1.0, 2);
+        expect(isNaN(result.compositeScore)).toBe(false);
+      });
+
+      it("excludes missing lateral sway from patient baseline without substituting vertical bounce", () => {
+        const sessionRecord = {
+          id: "s1",
+          patientId: "p1",
+          createdAt: new Date().toISOString(),
+          metricsJson: createMockMetrics({
+            lateralSway: null,
+            verticalBounce: 0.06,
+          }),
+        };
+
+        const baseline = computePatientBaseline([sessionRecord as any], "p1");
+
+        expect(baseline.metrics.lateralSway.sampleCount).toBe(0);
+      });
+
+      it("skips acute sway spike detection when lateralSway is null instead of using vertical bounce", () => {
+        const baseline = computePatientBaseline([], "p1");
+        const currentMetrics = createMockMetrics({
+          lateralSway: null,
+          verticalBounce: 0.12, // High vertical bounce
+        });
+
+        const result = detectAcuteWeaknessAnomalies(currentMetrics, baseline);
+
+        expect(result.spikeFlags.some(f => f.ruleId === "SWAY_SPIKE_ACUTE")).toBe(false);
+      });
     });
   });
 });

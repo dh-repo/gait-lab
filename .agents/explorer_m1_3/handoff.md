@@ -1,74 +1,247 @@
-# Handoff Report: Milestone M1 — Landmark Coordinate Smoothing & Test Infrastructure Audit
-
-**Author**: Explorer M1-3  
-**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3`  
-**Target Milestone**: Milestone M1 (Computer Vision & Model Fidelity Upgrades)  
-**Date**: 2026-08-09  
-
----
+# Handoff Report — Requirement R4: Stride Duration Ceiling & Double Support Search Limits
 
 ## 1. Observation
 
-1. **`src/lib/gait/analysis.ts` Execution Flow**:
-   - `computeGaitMetricsCore(frames: PoseFrame[])` begins at line 242.
-   - At line 247, `detectViewAngle(frames)` is called directly on `frames`.
-   - At line 287, `detectGaitEventsZeni(frames, fpsEffective)` is called directly on `frames`.
-   - 6.0 Hz zero-phase Butterworth filtering (`zeroPhaseButterworth`) is applied at lines 279–284 ONLY to derived 1D arrays (`midHipX`, `midHipY`, `leftWristRel`, `rightWristRel`, `leftKneeAngle`, `rightKneeAngle`).
-   - Landmark spatial trajectories (`leftAnkleY`, `rightAnkleY`, `stepWidth`, `hipDrop`) and `detectGaitEventsZeni` input keypoints remain unfiltered raw MediaPipe coordinates.
+### Target Codebase Locations & Verbatim Snippets
 
-2. **`src/lib/gait/types.ts` & `src/lib/gait/index.ts` Interface Contracts**:
-   - `src/lib/gait/types.ts` defines `Landmark`, `PoseFrame`, `GaitMetrics`, and `AnalysisResult`.
-   - `src/lib/gait/index.ts` re-exports `./signal` (`export * from "./signal"`), `./landmarks`, `./events`, `./angles`, `./symmetry`, `./dte`, `./guesses`, `./persistence`, `./ratings`.
-   - `src/lib/gait/index.ts` currently does NOT export `./pose`.
-   - `BiometricSignature` is declared in both `types.ts` (line 27) and `analysis.ts` (line 621), resolved in `index.ts` (lines 16–28) via explicit exports.
+#### Location 1: `src/lib/gait/events.ts` (Line 584)
+```typescript
+581:       // Record valid contact assignment and update running step duration estimate
+582:       if (lastAssignedSide !== null && lastAssignedFrame !== null && side !== lastAssignedSide) {
+583:         const stepDur = f - lastAssignedFrame;
+584:         if (stepDur >= 6 && stepDur <= 2.5 * effectiveFps) {
+585:           estimatedStepFrames = Math.round(0.7 * estimatedStepFrames + 0.3 * stepDur);
+586:         }
+587:       }
+```
 
-3. **Existing Test Infrastructure (`src/lib/gait/__tests__/`)**:
-   - Total test suites: 59 files across unit, integration, and synthetic stress categories. Total tests: 604 tests.
-   - `signal.test.ts`: 11 tests covering `olsDetrend`, `butterworthLowPass`, and `zeroPhaseButterworth`.
-   - `cat1_landmark_jitter_noise.test.ts`: 3 synthetic stress tests covering single-frame spikes (+0.55/-0.60 pops), joint-correlated high-frequency noise, out-of-bounds coords, and NaN/Infinity injection.
-   - `m2_challenger_verification.test.ts`: 19 tests exercising Catmull-Rom cubic spline resampling via `resamplePoseFrames` in `pose.ts`.
-   - `PoseTracker.test.ts`: 13 tests exercising camera tracking, constraints, and landmarker mock fallbacks.
+#### Location 2: `src/lib/gait/events.ts` (Lines 677–681)
+```typescript
+675:       const ic1 = strikes[i];
+676:       const ic2 = strikes[i + 1];
+677:       const strideDur = ic2.timeSec - ic1.timeSec;
+678: 
+679:       if (strideDur > 0.3 && strideDur < 2.5) {
+680:         const matchingTo = offs.find(
+681:           (to) => to.timeSec > ic1.timeSec && to.timeSec < ic2.timeSec,
+682:         );
+```
 
-4. **Test & Build Execution Verification**:
-   - `npm test`: Executed Vitest across all 59 test files. Output: `Test Files 59 passed (59), Tests 604 passed (604)`.
-   - `npm run typecheck`: Executed `tsc --noEmit`. Output: `exited with code 0` (0 TypeScript errors).
-   - `npm run lint`: Executed `eslint .`. Output: `0 errors, 1 warning` (`exited with code 0`).
-   - `npm run build`: Executed `vite build` with Nitro Vercel preset. Output: `✓ built in 1.19s`, `exited with code 0`.
+#### Location 3: `src/lib/gait/events.ts` (Lines 720–738 & Lines 747–753)
+```typescript
+720:   // Left IC to Right TO
+721:   for (const lic of leftStrikes) {
+722:     const rto = rightOffs.find(
+723:       (to) => to.timeSec > lic.timeSec && to.timeSec - lic.timeSec < 0.5,
+724:     );
+725:     if (rto) {
+726:       dsIntervals.push(rto.timeSec - lic.timeSec);
+727:     }
+728:   }
+729: 
+730:   // Right IC to Left TO
+731:   for (const ric of rightStrikes) {
+732:     const lto = leftOffs.find(
+733:       (to) => to.timeSec > ric.timeSec && to.timeSec - ric.timeSec < 0.5,
+734:     );
+735:     if (lto) {
+736:       dsIntervals.push(lto.timeSec - ric.timeSec);
+737:     }
+738:   }
+...
+747:     for (let i = 0; i < leftStrikes.length - 1; i++) {
+748:       const dur = leftStrikes[i + 1].timeSec - leftStrikes[i].timeSec;
+749:       if (dur > 0.4 && dur < 2.5) {
+750:         totalStrideDur += dur;
+751:         strideCount++;
+752:       }
+753:     }
+```
+
+#### Location 4: `src/lib/gait/analysis.ts` (Line 363)
+```typescript
+361:   const avgStepTimeSec = mean(cvIntervals.length >= 2 ? cvIntervals : stepIntervals) || 0;
+362:   // Prefer interval-based cadence (ignores lead-in/out standing); fall back to count/duration
+363:   const cadenceFromIntervals = avgStepTimeSec > 0.2 && avgStepTimeSec < 1.5 ? 60 / avgStepTimeSec : 0;
+```
 
 ---
 
 ## 2. Logic Chain
 
-1. **Observation 1 $\rightarrow$ Integration Placement**: `detectGaitEventsZeni` and `detectViewAngle` rely directly on frame landmark spatial coordinates. Calling `const frames = smoothPoseFrames(rawFrames);` at line 246 of `computeGaitMetricsCore` filters noise across all 33 landmarks BEFORE any event detection, angle computation, or metric extraction occurs.
-2. **Observation 1 $\rightarrow$ Split-Half Consistency**: `computeGaitMetrics(frames)` calls `computeGaitMetricsCore` on the full frame sequence and twice on half-split sub-arrays (`m1` and `m2`). Placing `smoothPoseFrames` inside `computeGaitMetricsCore` automatically guarantees consistent signal filtering for both full-session metrics and split-half reliability bounds (`confidenceIntervals`).
-3. **Observation 2 $\rightarrow$ Interface Contract Alignment**: Exporting `SmoothingMethod`, `PoseLandmarkerModelTier`, `PoseLandmarkerDelegate`, and `PoseLandmarkerLike` from `types.ts` (or `pose.ts`), and adding `export * from "./pose";` to `index.ts` cleanly exposes all Milestone M1 capabilities to the application barrel without export name collisions.
-4. **Observation 3 & 4 $\rightarrow$ Regression Baseline**: The existing test suite of 604 tests (100% passing) and `cat1_landmark_jitter_noise.test.ts` provide a robust regression boundary. Integrating 1D temporal coordinate smoothing preserves 100% test pass rates and zero typecheck/lint/build errors while enhancing metric stability against salt-and-pepper tracking noise.
+1. **Stride Duration Ceiling Issue (2.5s -> 4.0s)**:
+   - In `events.ts` lines 679 and 749, any stride with a duration `strideDur >= 2.5s` is excluded from stance phase calculation (`computeStanceForSide`) and average stride duration calculation (`avgStrideDur`).
+   - Walker-assisted or severely impaired Parkinsonian patients often exhibit slow walking with stride durations between 2.5s and 4.0s (cadence 30–48 spm).
+   - Rejecting `strideDur >= 2.5s` causes slow strides to be ignored, falling back to static 60.0% default stance phase or default `1.1s` stride duration estimate.
+   - Raising the stride duration ceiling from `2.5` to `4.0` in lines 584, 679, and 749 of `events.ts` enables valid processing of slow strides up to 4.0s.
+
+2. **Double Support Search Limit Scaling (0.5s -> min(0.75 * meanStepTime, 1.0))**:
+   - In `events.ts` lines 723 and 733, double support candidate toe-offs (`rto` and `lto`) are searched within a hardcoded `< 0.5s` window after initial contact (`lic` and `ric`).
+   - For slow gait, double support duration routinely reaches 0.4s–0.6s. The fixed 0.5s cap clips valid double support events occurring between 0.5s and 0.6s.
+   - Conversely, for very fast gait (step time ~0.35s), a fixed 0.5s limit could mistakenly match a toe-off from a subsequent stance phase.
+   - Computing `meanStepTime` from consecutive heel strikes and dynamically setting `dsSearchLimit = Math.min(0.75 * meanStepTime, 1.0)` properly scales the search window:
+     - For slow gait (`meanStepTime = 0.8s`): limit is `0.60s` (captures 0.4–0.6s double support).
+     - For fast gait (`meanStepTime = 0.4s`): limit is `0.30s` (prevents cross-stride matching).
+     - Capped at `1.0s` for extreme slow gait.
+
+3. **Analysis Interval-Based Cadence Guard (`analysis.ts` line 363)**:
+   - In `analysis.ts` line 363, `avgStepTimeSec < 1.5` rejects interval-based cadence when average step time reaches 1.5s (which corresponds to 40 spm cadence or 3.0s stride duration).
+   - Changing `< 1.5` to `<= 2.5` ensures interval-based cadence estimation functions down to 24 spm (supporting the 40–140 spm clinical requirement).
 
 ---
 
 ## 3. Caveats
 
-- **Minimum Frame Requirement**: Both `smoothPoseFrames` (5-point Savitzky-Golay) and `computeGaitMetricsCore` require $N \ge 5$ frames. For $N < 5$, `computeGaitMetricsCore` returns `emptyMetrics(rawFrames)` prior to smoothing.
-- **Model Fallback Network Dependency**: Model fallback testing for `pose_landmarker_heavy.task` $\rightarrow$ `full` $\rightarrow$ `lite` in unit tests should mock `fetch` / `createFromOptions` to prevent network requests during offline test execution.
+- **Fallback when step events are sparse**: When `heelStrikes.length < 2` or `stepIntervals.length === 0`, `meanStepTime` defaults to `0.55s`, yielding `dsSearchLimit = Math.min(0.75 * 0.55, 1.0) = 0.4125s` (which falls back safely).
+- **Computed Double Support % Bounds**: `events.ts` line 758 enforces `if (computedDs >= 5 && computedDs <= 45)`. Extreme pathological double support values outside 5%–45% will fall back to `20.0%`.
+- **No changes to source code files during investigation**: As per instructions, this report specifies the exact fix strategy for worker implementation.
 
 ---
 
-## 4. Conclusion
+## 4. Conclusion & Proposed Fix Strategy
 
-- **Pre-Metric Placement**: Call `const frames = smoothPoseFrames(rawFrames);` at the top of `computeGaitMetricsCore()` in `src/lib/gait/analysis.ts`.
-- **Interface Exports**: Add `export * from "./pose";` to `src/lib/gait/index.ts` and define `SmoothingMethod` / landmarker metadata types in `types.ts`.
-- **Test Infrastructure Readiness**: Existing test infrastructure is 100% passing (59 files, 604 tests, 0 typecheck/lint/build errors). `cat1_landmark_jitter_noise.test.ts` validates jitter noise resilience.
-- Complete findings and code blueprints are published in `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md`.
+### Detailed Proposed Modifications
+
+#### File 1: `src/lib/gait/events.ts`
+
+**Edit 1 (Line 584):** Update step duration ceiling for running step frame estimate.
+```typescript
+<<<<
+        if (stepDur >= 6 && stepDur <= 2.5 * effectiveFps) {
+====
+        if (stepDur >= 6 && stepDur <= 4.0 * effectiveFps) {
+>>>>
+```
+
+**Edit 2 (Line 679):** Update stride duration ceiling in stance phase calculation.
+```typescript
+<<<<
+      if (strideDur > 0.3 && strideDur < 2.5) {
+====
+      if (strideDur > 0.3 && strideDur < 4.0) {
+>>>>
+```
+
+**Edit 3 (Lines 718–756):** Scale double support search limit and update stride duration ceiling in double support calculation.
+```typescript
+<<<<
+  const dsIntervals: number[] = [];
+
+  // Left IC to Right TO
+  for (const lic of leftStrikes) {
+    const rto = rightOffs.find(
+      (to) => to.timeSec > lic.timeSec && to.timeSec - lic.timeSec < 0.5,
+    );
+    if (rto) {
+      dsIntervals.push(rto.timeSec - lic.timeSec);
+    }
+  }
+
+  // Right IC to Left TO
+  for (const ric of rightStrikes) {
+    const lto = leftOffs.find(
+      (to) => to.timeSec > ric.timeSec && to.timeSec - ric.timeSec < 0.5,
+    );
+    if (lto) {
+      dsIntervals.push(lto.timeSec - ric.timeSec);
+    }
+  }
+
+  if (dsIntervals.length > 0) {
+    const avgDsTime =
+      dsIntervals.reduce((a, b) => a + b, 0) / dsIntervals.length;
+    // Estimate stride duration from consecutive strikes
+    let totalStrideDur = 0;
+    let strideCount = 0;
+
+    for (let i = 0; i < leftStrikes.length - 1; i++) {
+      const dur = leftStrikes[i + 1].timeSec - leftStrikes[i].timeSec;
+      if (dur > 0.4 && dur < 2.5) {
+        totalStrideDur += dur;
+        strideCount++;
+      }
+    }
+====
+  const allStrikes = allEvents
+    .filter((e) => e.type === "heel_strike")
+    .sort((a, b) => a.timeSec - b.timeSec);
+
+  const stepIntervals: number[] = [];
+  for (let i = 1; i < allStrikes.length; i++) {
+    const dt = allStrikes[i].timeSec - allStrikes[i - 1].timeSec;
+    if (dt > 0.15 && dt < 4.0) {
+      stepIntervals.push(dt);
+    }
+  }
+  const meanStepTime =
+    stepIntervals.length > 0
+      ? stepIntervals.reduce((a, b) => a + b, 0) / stepIntervals.length
+      : 0.55;
+
+  const dsSearchLimit = Math.min(0.75 * meanStepTime, 1.0);
+
+  const dsIntervals: number[] = [];
+
+  // Left IC to Right TO
+  for (const lic of leftStrikes) {
+    const rto = rightOffs.find(
+      (to) => to.timeSec > lic.timeSec && to.timeSec - lic.timeSec < dsSearchLimit,
+    );
+    if (rto) {
+      dsIntervals.push(rto.timeSec - lic.timeSec);
+    }
+  }
+
+  // Right IC to Left TO
+  for (const ric of rightStrikes) {
+    const lto = leftOffs.find(
+      (to) => to.timeSec > ric.timeSec && to.timeSec - ric.timeSec < dsSearchLimit,
+    );
+    if (lto) {
+      dsIntervals.push(lto.timeSec - ric.timeSec);
+    }
+  }
+
+  if (dsIntervals.length > 0) {
+    const avgDsTime =
+      dsIntervals.reduce((a, b) => a + b, 0) / dsIntervals.length;
+    // Estimate stride duration from consecutive strikes
+    let totalStrideDur = 0;
+    let strideCount = 0;
+
+    for (let i = 0; i < leftStrikes.length - 1; i++) {
+      const dur = leftStrikes[i + 1].timeSec - leftStrikes[i].timeSec;
+      if (dur > 0.4 && dur < 4.0) {
+        totalStrideDur += dur;
+        strideCount++;
+      }
+    }
+>>>>
+```
+
+#### File 2: `src/lib/gait/analysis.ts`
+
+**Edit 1 (Line 363):** Update `avgStepTimeSec` upper bound for interval-based cadence.
+```typescript
+<<<<
+  const cadenceFromIntervals = avgStepTimeSec > 0.2 && avgStepTimeSec < 1.5 ? 60 / avgStepTimeSec : 0;
+====
+  const cadenceFromIntervals = avgStepTimeSec > 0.2 && avgStepTimeSec <= 2.5 ? 60 / avgStepTimeSec : 0;
+>>>>
+```
 
 ---
 
 ## 5. Verification Method
 
-To independently verify all findings and test requirements:
+1. **Test Suite Execution**:
+   Run `npx vitest run` to ensure all existing 1224+ tests pass.
 
-1. **Detailed Technical Report**: Inspect `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md`.
-2. **Unit & Integration Test Suite**: Run `npm test` in `/Users/damian/GitHub/gait-lab`. (Expected: 59 passed test files, 604 passed tests).
-3. **Synthetic Noise Test Suite**: Run `npx vitest run src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts`. (Expected: 3/3 passed tests).
-4. **TypeScript Verification**: Run `npm run typecheck`. (Expected: 0 errors).
-5. **Lint Verification**: Run `npm run lint`. (Expected: 0 errors).
-6. **Production Build Verification**: Run `npm run build`. (Expected: successful build).
+2. **TypeScript & Linting Check**:
+   - `npx tsc --noEmit`
+   - `npx eslint`
+
+3. **New Target Unit Tests (for M4 / test suite)**:
+   - Verify stride duration 3.5s is accepted by `detectGaitEventsZeni` without returning default fallback.
+   - Verify double support search with `meanStepTime = 0.8s` uses `dsSearchLimit = 0.6s` and correctly detects double support interval of 0.55s.
+   - Verify `computeGaitMetrics` with step duration 1.5s correctly computes cadence 40 spm using interval-based calculation.

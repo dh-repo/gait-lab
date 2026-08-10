@@ -12,7 +12,7 @@ describe("Gait Symmetry Module (symmetry.ts)", () => {
       const sa2 = symmetryAngle(5, 10);
       expect(sa1).toBeCloseTo(sa2, 5);
       expect(sa1).toBeGreaterThan(0);
-      expect(sa1).toBeLessThan(50);
+      expect(sa1).toBeLessThan(100);
     });
 
     it("handles near-zero epsilon threshold (1e-6)", () => {
@@ -29,23 +29,23 @@ describe("Gait Symmetry Module (symmetry.ts)", () => {
       // 1:1 ratio -> 0%
       expect(symmetryAngle(100, 100)).toBe(0.0);
 
-      // 2:1 ratio (100, 50) -> atan2(100, 50) = 63.4349deg => |45 - 63.4349|/90 * 100 = 20.483% -> rounded to 20.48%
+      // 2:1 ratio (100, 50) -> atan2(100, 50) = 63.4349deg => |45 - 63.4349|/45 * 100 = 40.966% -> rounded to 40.97%
       const sa2_1 = symmetryAngle(100, 50);
-      expect(sa2_1).toBeCloseTo(20.48, 1);
+      expect(sa2_1).toBeCloseTo(40.97, 1);
 
-      // 3:1 ratio (30, 10) -> atan2(30, 10) = 71.565deg => |45 - 71.565|/90 * 100 = 29.516% -> rounded to 29.52%
+      // 3:1 ratio (30, 10) -> atan2(30, 10) = 71.565deg => |45 - 71.565|/45 * 100 = 59.033% -> rounded to 59.03%
       const sa3_1 = symmetryAngle(30, 10);
-      expect(sa3_1).toBeCloseTo(29.52, 1);
+      expect(sa3_1).toBeCloseTo(59.03, 1);
 
-      // 10:1 ratio (100, 10) -> atan2(100, 10) = 84.289deg => |45 - 84.289|/90 * 100 = 43.654% -> rounded to 43.65%
+      // 10:1 ratio (100, 10) -> atan2(100, 10) = 84.289deg => |45 - 84.289|/45 * 100 = 87.310% -> rounded to 87.31%
       const sa10_1 = symmetryAngle(100, 10);
-      expect(sa10_1).toBeCloseTo(43.65, 1);
+      expect(sa10_1).toBeCloseTo(87.31, 1);
     });
 
-    it("enforces absolute maximum cap of 50.0%", () => {
-      // One limb zero -> 50.0%
-      expect(symmetryAngle(10, 0)).toBe(50.0);
-      expect(symmetryAngle(0, 100)).toBe(50.0);
+    it("enforces absolute maximum cap of 100.0%", () => {
+      // One limb zero -> 100.0%
+      expect(symmetryAngle(10, 0)).toBe(100.0);
+      expect(symmetryAngle(0, 100)).toBe(100.0);
 
       // Both zero -> 0.0%
       expect(symmetryAngle(0, 0)).toBe(0.0);

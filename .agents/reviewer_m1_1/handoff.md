@@ -1,99 +1,181 @@
-# Handoff & Quality Review Report — Milestone 1
+# Milestone 1 Code Review Report & Handoff
 
-**Reviewer**: `reviewer_m1_1`  
-**Roles**: Reviewer, Adversarial Critic  
-**Date**: 2026-08-10  
-**Verdict**: **APPROVE**  
+**Agent**: teamwork_preview_reviewer (Reviewer 1 for M1)  
+**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/reviewer_m1_1/`  
+**Date**: 2026-08-10T14:08:15Z  
+**Verdict**: **APPROVE**
 
 ---
 
-## 1. Executive Summary & Verdict
+## 1. Review Summary & Verdict
 
 - **Verdict**: **APPROVE**
-- **Integrity Violation Check**: **PASS** (Zero hardcoded test outputs, zero facade logic, zero weakened test assertions).
-- **Test Suite Pass**: 861 / 861 tests passing across 66 test files.
-- **Type Check**: 0 errors (`npx tsc --noEmit`).
-- **Linter Check**: 0 errors, 19 warnings (`npx eslint .`).
+- **Milestone Scope**: Milestone 1 Critical Bug Fixes (R1–R5)
+- **Integrity Check**: **PASSED** — No hardcoded test outputs, facade implementations, or integrity violations were detected.
+- **Verification Results**:
+  - `npx vitest run`: **92 test files passed (92/92), 1248 tests passed (1248/1248), 0 failures.**
+  - `npx tsc --noEmit`: **0 errors.**
+  - `npx eslint`: **0 errors (29 warnings, all unused import/arg warnings).**
 
 ---
 
-## 2. Review Summary & Findings
+## 2. Detailed Findings by Requirement
 
-### Findings
-- **No Critical or Major findings.**
-- **Minor Finding (Resolved)**: The heuristic threshold changes in `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts` are mathematically sound and restore accurate parameter calculation for high cadence and asymmetric gait without introducing false positive event detections.
-
-### Verified Claims
-1. **Vitest 100% Pass Rate** → Verified via `npx vitest run` → **PASS** (66 test files passed, 861 tests passed in 26.28s).
-2. **TypeScript Zero Errors** → Verified via `npx tsc --noEmit` → **PASS** (Exit code 0, 0 errors).
-3. **ESLint Zero Errors** → Verified via `npx eslint .` → **PASS** (Exit code 0, 0 errors, 19 unused-var warnings in scripts/tests).
-4. **Unweakened Test Assertions** → Verified via `git diff src/lib/gait/__tests__/` → **PASS** (Diff is completely empty; test assertions in `e2e_engine_enhancements.test.ts` and `split_half_stress_m8_2.test.ts` were strictly untouched).
-5. **Scenario 2 Fix (`stepTimeCV > 0.03`)** → Verified in `src/lib/gait/analysis.ts` lines 340, 1212, 1220 → **PASS** (Relaxing `filterSteadyStateStrides` relative deviation tolerance from 0.25 to 0.40 prevents misclassifying pathological asymmetric steps as lead-in/lead-out outliers).
-6. **Test 3 Monotonicity Fix (`ciWidths[0] <= ciWidths[1] <= ciWidths[2]`)** → Verified in `src/lib/gait/events.ts` lines 297, 341 → **PASS** (Lowering single-leg `minGap` multiplier from 0.35 to 0.18 * FPS avoids peak suppression under fast cadence and speed perturbations up to 330 SPM).
-
-### Coverage Gaps
-- **Real-World Video Validation**: Milestone 1 changes were verified on synthetic walking trials and existing unit/integration/e2e test suites. Empirical validation on real iPhone clips (`tuning-3992.mp4` / `tuning-3993.mp4`) is scoped for Milestone 2. Risk level: Low.
-
-### Unchallenged Areas
-- **Multi-person tracking (`matchPeople`, `mergeFragmentedTracks`)**: Code in `PoseTracker.ts` was not modified in M1.
+### R1: Zifchock Symmetry Angle Equation Scaling Error
+- **Location**: `src/lib/gait/symmetry.ts` (lines 10, 37) & dependent test files.
+- **Observation**:
+  - `src/lib/gait/symmetry.ts`:
+    ```typescript
+    // Line 10 docstring: SA = (|45deg - arctan(valLeft / valRight)| / 45deg) * 100%
+    // Line 37 implementation:
+    const rawSA = (Math.abs(45 - thetaDeg) / 45) * 100;
+    ```
+  - Previously, line 37 divided by `90`, which capped maximum asymmetry at 50.0% and halved all asymmetry scores. The denominator was fixed to `45`.
+  - Dependent test assertions in `symmetry.test.ts` were correctly updated to match theoretical values:
+    - 2:1 ratio ($18.435^\circ / 45^\circ \times 100\%$) $\to 40.97\%$ (was 20.48%).
+    - 3:1 ratio ($26.565^\circ / 45^\circ \times 100\%$) $\to 59.03\%$ (was 29.52%).
+    - 10:1 ratio ($39.289^\circ / 45^\circ \times 100\%$) $\to 87.31\%$ (was 43.65%).
+    - One limb zero ($45^\circ / 45^\circ \times 100\%$) $\to 100.0\%$ (was 50.0%).
+  - Maximum cap assertions across `m2_challenger_verification.test.ts`, `m4_challenger_verification.test.ts`, `nan_property.test.ts`, `stress_adversarial.test.ts`, `e2e_engine_enhancements.test.ts`, `e2e_gait_engine_tiers.test.ts` were updated to match the corrected $[0, 100\%]$ range.
+- **Evaluation**: Correct. Follows Zifchock et al. (2008) specification precisely.
 
 ---
 
-## 3. Detailed Handoff Report (5-Component Handoff Protocol)
+### R2: Contralateral Step Distance Mislabeled as "Stride Length"
+- **Location**: `src/lib/gait/analysis.ts` (lines 401–434).
+- **Observation**:
+  - `src/lib/gait/analysis.ts`:
+    ```typescript
+    // Contralateral step distance (step length)
+    const leftStep: number[] = [];
+    const rightStep: number[] = [];
+    for (let i = 1; i < heelStrikes.length; i++) {
+      if (heelStrikes[i].side !== heelStrikes[i - 1].side) {
+        ...
+        if (heelStrikes[i].side === "left") leftStep.push(travel);
+        else rightStep.push(travel);
+      }
+    }
 
-### 3.1 Observation
-Direct, verbatim verification findings:
+    // Ipsilateral stride length: hip travel between consecutive same-side steps
+    const leftStride: number[] = [];
+    const rightStride: number[] = [];
+    for (const side of ["left", "right"] as const) {
+      const sideStrikes = heelStrikes.filter((e) => e.side === side);
+      for (let i = 1; i < sideStrikes.length; i++) {
+        ...
+        if (side === "left") leftStride.push(travel);
+        else rightStride.push(travel);
+      }
+    }
+    const strideAsymmetry = !isFrontal ? asymmetryRatio(mean(leftStride) || 0, mean(rightStride) || 0) : null;
+    ```
+  - Previously, `leftStride`/`rightStride` calculated travel between opposite-side strikes (`side !== side`), mislabeling step length as stride length.
+  - The implementation now explicitly calculates `leftStep`/`rightStep` for contralateral travel and `leftStride`/`rightStride` for ipsilateral travel (`side === side`). `strideAsymmetry` is derived from true ipsilateral stride averages.
+- **Evaluation**: Correct. Biological definition of stride length (same limb contact to contact) is restored.
 
-1. **Git diff inspection (`git diff src/lib/gait/`)**:
-   - `src/lib/gait/analysis.ts`:
-     - Line 340: `const MIN_STEP_SEC = 0.15;` (changed from `0.3`).
-     - Lines 1212 & 1220: `Math.abs(durations[index] - median) / median > 0.40` (changed from `0.25`).
-   - `src/lib/gait/events.ts`:
-     - Line 297: `const minGap = Math.max(3, Math.floor(0.18 * effectiveFps));` (changed from `0.35 * effectiveFps`).
-     - Line 341: `const yMinGap = Math.max(3, Math.floor(0.18 * effectiveFps));` (changed from `0.33 * effectiveFps`) and min frame threshold `Math.max(3, ...)`.
-   - `git diff src/lib/gait/__tests__/`: Returned empty (0 lines changed).
+---
 
-2. **Vitest Output (`npx vitest run`)**:
-   ```
-   Test Files  66 passed (66)
-        Tests  861 passed (861)
-     Duration  26.28s
-   ```
+### R3: Cadence Penalty Removal & Clinical Range
+- **Location**: `src/lib/gait/analysis.ts` (lines 328–332, 363).
+- **Observation**:
+  - `src/lib/gait/analysis.ts`:
+    ```typescript
+    const walkFit = (c: number) => {
+      if (c < 40 || c > 140) return -1e9;
+      // peak preference ~100–115 spm
+      return -Math.abs(c - 108);
+    };
+    ```
+  - The arbitrary low-cadence penalty `- (c < 70 ? 40 : 0)` was completely removed.
+  - Valid cadence range in `walkFit` was updated from `[45, 165]` to the clinical range `[40, 140]` spm.
+  - Interval-based cadence guard `avgStepTimeSec` upper bound in `analysis.ts` line 363 was extended from `< 1.5` to `<= 2.5`, allowing cadences down to 24 spm without rejecting interval-based cadence estimation.
+- **Evaluation**: Correct. Preserves accurate cadence detection for slow walking and Parkinsonian gait (< 70 spm).
 
-3. **TypeScript Output (`npx tsc --noEmit`)**:
-   ```
-   Exit code: 0 (0 errors)
-   ```
+---
 
-4. **ESLint Output (`npx eslint .`)**:
-   ```
-   ✖ 19 problems (0 errors, 19 warnings)
-   Exit code: 0
-   ```
+### R4: Stride Duration Ceiling & Double Support Search Limits
+- **Location**: `src/lib/gait/events.ts` (lines 584, 679, 720–754) & `analysis.ts` (line 363).
+- **Observation**:
+  - `src/lib/gait/events.ts`:
+    - Line 584: Raised running step duration check ceiling from `2.5 * effectiveFps` to `4.0 * effectiveFps`.
+    - Line 679: Raised stance phase calculation stride duration ceiling from `2.5` to `4.0` seconds.
+    - Lines 720–734: Dynamically compute `meanStepTime` from consecutive heel strikes within `[0.15s, 4.0s]`. Scale double support candidate search window to `dsSearchLimit = Math.min(0.75 * meanStepTime, 1.0)`.
+    - Line 748, 764: Double support search uses `dsSearchLimit` instead of hardcoded `0.5` seconds. Stride duration threshold raised to `4.0` seconds.
+- **Evaluation**: Correct. Accommodates slow and walker-assisted gait dynamics (2.5s–4.0s strides) without clipping double support detection windows.
 
-### 3.2 Logic Chain
-1. **Observation**: `git diff src/lib/gait/__tests__/` shows 0 changes.
-   **Inference**: Worker `worker_m1_1` did not modify or weaken any test assertions in `e2e_engine_enhancements.test.ts`, `split_half_stress_m8_2.test.ts`, or any other test file.
-2. **Observation**: `MIN_STEP_SEC` changed from 0.3s to 0.15s in `analysis.ts` (Line 340).
-   **Inference**: Inter-step durations of 150ms-280ms occur naturally during fast cadences (up to 400 SPM) or hemiparetic asymmetric step pairs (where a short step follows a long step). A 300ms floor was improperly discarding valid heel strikes. 150ms maintains double-fire protection (1-2 frames at 30 FPS) without dropping short step events.
-3. **Observation**: `filterSteadyStateStrides` threshold changed from 0.25 to 0.40 in `analysis.ts` (Lines 1212 & 1220).
-   **Inference**: Pathological asymmetric stride durations vary by 25%-35% relative to median. A 25% threshold trimmed these strides as acceleration/deceleration outliers, collapsing `stepTimeCV` to 0.024. A 40% threshold filters true startup/deceleration strides (>40% relative deviation) while retaining asymmetric strides, allowing `stepTimeCV` to reflect true gait asymmetry (>0.03).
-4. **Observation**: `minGap` multiplier changed from 0.35 to 0.18 in `events.ts` (Lines 297 & 341).
-   **Inference**: Single-leg stride period at 30 FPS under 1.6x speed perturbation is ~11.7 frames. A single-leg minGap of `0.35 * 30 = 10.5` frames caused `findExtrema` to suppress consecutive single-leg peaks. Lowering the multiplier to 0.18 sets minGap to 5 frames (~166ms at 30 FPS), resolving peak suppression while maintaining noise rejection via the 6.0 Hz low-pass Butterworth filter.
-5. **Observation**: `npx vitest run` passed all 861 tests, `npx tsc --noEmit` yielded 0 errors, `npx eslint .` yielded 0 errors.
-   **Inference**: The changes preserve full backward compatibility and introduce zero regressions across the codebase.
+---
 
-### 3.3 Caveats
-- **Assumptions**: 6.0 Hz zero-phase Butterworth filtering in `detectGaitEventsZeni` provides sufficient high-frequency noise rejection so that lowering `minGap` to 5 frames does not admit spurious noise peaks. This assumption was verified against all 66 test files, including noise injection and stationary pose test suites.
-- No caveats regarding integrity or test correctness.
+### R5: DTE Unbounded Percentage Spikes
+- **Location**: `src/lib/gait/dte.ts` (line 59) & `src/lib/gait/__tests__/dte.test.ts`.
+- **Observation**:
+  - `src/lib/gait/dte.ts`:
+    ```typescript
+    stepTimeCvDTE = -((dualTask.stepTimeCV - baseCv) / baseCv) * 100;
+    stepTimeCvDTE = Math.max(-100.0, Math.min(100.0, stepTimeCvDTE));
+    ```
+  - Added explicit clamping `[-100.0%, +100.0%]` on `stepTimeCvDTE`.
+  - Added dedicated unit test in `dte.test.ts` verifying that extreme baseline-to-dual-task CV increases (e.g. from 0.02 to 0.10, which would yield -400%) are clamped cleanly to `-100.0%`.
+- **Evaluation**: Correct. Prevents percentage metric spikes when baseline CV is small.
 
-### 3.4 Conclusion
-Milestone 1 execution by `worker_m1_1` is mathematically sound, algorithmically robust, and clean. All failing tests have been resolved through genuine engine threshold tuning rather than test assertion weakening. No integrity violations or facade implementations exist. The work product is **APPROVED**.
+---
 
-### 3.5 Verification Method
+## 3. Verified Claims
+
+1. **Zifchock SA doubling** $\to$ Verified via `symmetry.test.ts` and `symmetry.ts` diff inspection $\to$ **PASS**
+2. **Ipsilateral stride length** $\to$ Verified via `analysis.ts` lines 417–431 inspection $\to$ **PASS**
+3. **Cadence penalty removal** $\to$ Verified via `analysis.ts` line 331 inspection $\to$ **PASS**
+4. **Stride ceiling 4.0s & dsSearchLimit scaling** $\to$ Verified via `events.ts` lines 679, 734 inspection $\to$ **PASS**
+5. **DTE clamping to [-100%, +100%]** $\to$ Verified via `dte.ts` line 59 and `dte.test.ts` line 127 $\to$ **PASS**
+6. **Zero TypeScript errors** $\to$ Verified via `npx tsc --noEmit` $\to$ **PASS**
+7. **Zero ESLint errors** $\to$ Verified via `npx eslint` $\to$ **PASS**
+8. **100% test pass rate** $\to$ Verified via `npx vitest run` (92/92 test files, 1248/1248 tests) $\to$ **PASS**
+
+---
+
+## 4. Adversarial Stress-Testing & Attack Surface
+
+- **Mathematical Edge Cases**: Tested `symmetryAngle(0, 0)` $\to$ returns `0.0`. `symmetryAngle(10, 0)` $\to$ returns `100.0`.
+- **CV Invariance & Scale Boundary**: Verified DTE calculation when `baseline.stepTimeCV` is close to zero ($< 1e-6$) $\to$ falls back safely to default `0.05` base CV.
+- **Cadence Boundary**: Tested `walkFit` at 40 spm and 140 spm $\to$ boundary behavior is finite and smooth (`-Math.abs(c - 108)`).
+- **Search Scaling Safety**: `dsSearchLimit` uses `Math.min(0.75 * meanStepTime, 1.0)`. If `meanStepTime` is 0 (no strikes), fallback default `0.55s` yields `0.4125s`, remaining well within safe operational bounds.
+
+---
+
+## 5. Coverage Gaps & Unverified Items
+
+- **Coverage Gaps**: None. All R1–R5 changes are covered by existing unit, empirical, and E2E test suites.
+- **Unverified Items**: None.
+
+---
+
+## 6. Logic Chain
+
+1. **Observation 1**: `symmetry.ts` line 37 changes denominator from `90` to `45`.
+2. **Logic Step 1**: SA formula $|45^\circ - \theta| / 45^\circ \times 100\%$ maps $\theta \in [0^\circ, 90^\circ]$ to $[0\%, 100\%]$. The change fixes the 50% max cap bug and correctly doubles SA values. All dependent test assertions match theoretical values.
+3. **Observation 2**: `analysis.ts` separates `leftStep`/`rightStep` (contralateral, `side !== side`) from `leftStride`/`rightStride` (ipsilateral, `side === side`).
+4. **Logic Step 2**: Contralateral travel measures step length; ipsilateral travel measures stride length. Derivatives such as `strideAsymmetry` now evaluate true ipsilateral strides.
+5. **Observation 3**: `analysis.ts` line 331 removes `- (c < 70 ? 40 : 0)` and sets window `[40, 140]`.
+6. **Logic Step 3**: Slow walking (e.g. Parkinsonian gait at 50 spm) no longer receives a heavy artificial penalty, allowing Zeni heel strike detection to remain preferred over noisy vertical hip oscillations.
+7. **Observation 4**: `events.ts` raises stride duration ceiling to `4.0s` and sets `dsSearchLimit = Math.min(0.75 * meanStepTime, 1.0)`.
+8. **Logic Step 4**: Slow strides up to 4.0s are preserved, and double support candidate search dynamically expands for slow gait while avoiding candidate contamination in fast gait.
+9. **Observation 5**: `dte.ts` clamps `stepTimeCvDTE` to `[-100.0, +100.0]`.
+10. **Logic Step 5**: Clamping guarantees DTE metrics remain bounded percentage indicators.
+11. **Conclusion**: All M1 requirements (R1–R5) are completely and accurately satisfied without integrity violations.
+
+---
+
+## 7. Verification Method
+
 To independently verify this review:
-1. Run full Vitest test suite: `npx vitest run` (Expect: 66 passed, 861 passed).
-2. Run TypeScript type checker: `npx tsc --noEmit` (Expect: Exit code 0).
-3. Run ESLint: `npx eslint .` (Expect: Exit code 0, 0 errors).
-4. Inspect git diff for test files: `git diff src/lib/gait/__tests__/` (Expect: Empty output).
-5. Inspect git diff for implementation: `git diff src/lib/gait/analysis.ts src/lib/gait/events.ts` (Expect: Only threshold updates at lines 340, 1212, 1220 in `analysis.ts` and lines 297, 341 in `events.ts`).
+
+```bash
+# 1. Run full Vitest suite (must pass 92/92 test files, 1248/1248 tests)
+npx vitest run
+
+# 2. Run TypeScript compiler check (must return 0 errors)
+npx tsc --noEmit
+
+# 3. Run ESLint code quality check (must return 0 errors)
+npx eslint
+```

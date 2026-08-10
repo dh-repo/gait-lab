@@ -1,41 +1,38 @@
-# BRIEFING — 2026-08-09T21:08:27Z
+# BRIEFING — 2026-08-10T14:03:00Z
 
 ## Mission
-Investigate `src/lib/gait/analysis.ts`, `src/lib/gait/types.ts`, and test infrastructure in `src/lib/gait/__tests__/` for Milestone M1 (Computer Vision & Model Fidelity Upgrades).
+Investigate requirement R4 (Stride Duration Ceiling & Double Support Search Limits) for Milestone 1 in src/lib/gait/events.ts and src/lib/gait/analysis.ts, and formulate a detailed investigation report and fix strategy in handoff.md.
 
 ## 🔒 My Identity
-- Archetype: Explorer
-- Roles: Metrics Integration & Regression Test Specialist
+- Archetype: Teamwork explorer
+- Roles: Read-only investigator
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3
-- Original parent: e4978e50-e48c-4d54-93a2-5d05726d31e6
-- Milestone: M1 (Computer Vision & Model Fidelity Upgrades)
+- Original parent: c11afa06-5f20-4640-9263-a2abefb4a134
+- Milestone: M1
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement codebase changes directly (no editing src/ files outside .agents/explorer_m1_3/)
-- Write detailed technical report to /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md
-- Deliver handoff report to /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/handoff.md
-- Send message to parent (ID: e4978e50-e48c-4d54-93a2-5d05726d31e6) upon completion
+- Read-only investigation — do NOT implement
+- Do NOT edit source code files directly
 
 ## Current Parent
-- Conversation ID: e4978e50-e48c-4d54-93a2-5d05726d31e6
-- Updated: 2026-08-09T21:08:27Z
+- Conversation ID: c11afa06-5f20-4640-9263-a2abefb4a134
+- Updated: 2026-08-10T14:03:00Z
 
 ## Investigation State
-- **Explored paths**: `src/lib/gait/analysis.ts`, `src/lib/gait/types.ts`, `src/lib/gait/signal.ts`, `src/lib/gait/pose.ts`, `src/lib/gait/index.ts`, `src/lib/gait/__tests__/` (all 39 test files)
+- **Explored paths**: `src/lib/gait/events.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/__tests__/events.test.ts`
 - **Key findings**:
-  1. `smoothPoseFrames` must be called at line 246 at top of `computeGaitMetricsCore(rawFrames)` in `analysis.ts` prior to `detectViewAngle`, `detectGaitEventsZeni`, and joint angle calculation.
-  2. `types.ts` & `pose.ts` require type exports for `SmoothingMethod`, `PoseLandmarkerModelTier`, `PoseLandmarkerDelegate`, `PoseLandmarkerLike`. `index.ts` must add `export * from "./pose";`.
-  3. Audited 59 test suites (604 tests) across `src/lib/gait/__tests__/` including `signal.test.ts` and `cat1_landmark_jitter_noise.test.ts`.
-  4. Executed and confirmed 100% pass rates: `npm test` (59/59 files, 604/604 tests), `npm run typecheck` (0 errors), `npm run lint` (0 errors), `npm run build` (success).
-- **Unexplored areas**: None for Explorer M1-3 scope.
+  - `events.ts` lines 584, 679, 749 hardcode 2.5s ceiling for step/stride durations. Slow strides (walker-assisted) are incorrectly rejected.
+  - `events.ts` lines 723 & 733 hardcode 0.5s ceiling for double support search. Slow patients with double support 0.4–0.6s lose events > 0.5s.
+  - `analysis.ts` line 363 caps interval-based cadence at step time < 1.5s (40 spm).
+  - Fix strategy raises stride ceiling to 4.0s and scales double support limit to `Math.min(0.75 * meanStepTime, 1.0)`.
+- **Unexplored areas**: None for R4.
 
 ## Key Decisions Made
-- Written detailed technical report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md`.
-- Written 5-component handoff report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/handoff.md`.
+- Initialized workspace metadata files (DISPATCH.md, BRIEFING.md, progress.md).
+- Formulated complete 5-component report in handoff.md.
 
 ## Artifact Index
-- DISPATCH.md — Received dispatch instructions & timestamped prompt
-- BRIEFING.md — Persistent context index
-- progress.md — Liveness heartbeat tracking
-- analysis.md — Detailed technical analysis report
-- handoff.md — 5-component handoff report
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/DISPATCH.md — Dispatch log
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/BRIEFING.md — Working memory
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/progress.md — Heartbeat progress
+- /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/handoff.md — 5-component handoff report

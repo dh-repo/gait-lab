@@ -148,19 +148,19 @@ describe("Milestone M4 Verification 1 - Empirical DSP & Math Stress Harness", ()
     test("Zifchock Symmetry Angle (SA) edge cases", () => {
       expect(symmetryAngle(0, 0)).toBe(0.0);
       expect(symmetryAngle(10, 10)).toBe(0.0);
-      expect(symmetryAngle(100, 0)).toBe(50.0);
-      expect(symmetryAngle(0, 100)).toBe(50.0);
+      expect(symmetryAngle(100, 0)).toBe(100.0);
+      expect(symmetryAngle(0, 100)).toBe(100.0);
       expect(symmetryAngle(-20, 20)).toBe(0.0);
       expect(symmetryAngle(-50, -50)).toBe(0.0);
       expect(symmetryAngle(1e-15, 1e-15)).toBe(0.0);
 
-      // Verify mathematical ceiling is exactly 50%
+      // Verify mathematical ceiling is exactly 100%
       for (let i = 0; i < 1000; i++) {
         const valL = Math.random() * 1e6;
         const valR = Math.random() * 1e6;
         const sa = symmetryAngle(valL, valR);
         expect(sa).toBeGreaterThanOrEqual(0.0);
-        expect(sa).toBeLessThanOrEqual(50.0);
+        expect(sa).toBeLessThanOrEqual(100.0);
         expect(Number.isFinite(sa)).toBe(true);
       }
     });

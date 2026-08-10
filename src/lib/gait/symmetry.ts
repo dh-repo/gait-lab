@@ -10,7 +10,7 @@
  * Zifchock's Symmetry Angle (SA).
  * Quantifies asymmetry in percentage [0, 100]% independently of reference limb selection.
  *
- * SA = (|45deg - arctan(valLeft / valRight)| / 90deg) * 100%
+ * SA = (|45deg - arctan(valLeft / valRight)| / 45deg) * 100%
  *
  * @param valLeft Metric value for left limb
  * @param valRight Metric value for right limb
@@ -34,7 +34,7 @@ export function symmetryAngle(valLeft: number, valRight: number): number {
     thetaDeg = 180 - thetaDeg;
   }
 
-  const rawSA = (Math.abs(45 - thetaDeg) / 90) * 100;
+  const rawSA = (Math.abs(45 - thetaDeg) / 45) * 100;
 
   // Clamp to valid range [0, 100]%
   const clampedSA = Math.max(0.0, Math.min(100.0, rawSA));

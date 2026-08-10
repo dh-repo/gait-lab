@@ -1,17 +1,16 @@
-## 2026-08-10T07:34:00Z
-You are explorer_m1_1.
-Your working directory is: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1
-Project scope path: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
-Original request path: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
+## 2026-08-10T14:02:06Z
+You are teamwork_preview_explorer (Explorer 1 for M1).
+Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/
 
-OBJECTIVE:
-Produce implementation blueprint for Milestone 1: Fix 2 Failing Tests & Harden Algorithm Accuracy.
-1. Read prior survey reports:
-   - /Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/survey_r1.md
-   - /Users/damian/GitHub/gait-lab/.agents/explorer_survey_2/survey_r2_r3.md
-2. Re-verify root causes:
-   - `e2e_engine_enhancements.test.ts`: `MIN_STEP_SEC = 0.3` dropping valid short steps, `filterSteadyStateStrides` threshold `0.25` trimming asymmetric step pairs.
-   - `split_half_stress_m8_2.test.ts`: single-leg `minGap = Math.max(3, Math.floor(0.35 * effectiveFps))` setting 350ms gap on single-leg extrema, dropping 1.6x speed single-leg stride events.
-3. Write exact line-by-line fix instructions for Worker in `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts`.
+Your task is to investigate the requirements and codebase for Milestone 1, specifically:
+- R1: Zifchock Symmetry Angle Equation Scaling Error in `src/lib/gait/symmetry.ts` line 37. Per Zifchock et al. (2008), SA = |45° - θ| / 45° * 100%. Current code divides by 90 instead of 45. Find all test files that assert symmetry values and determine what updates will be needed.
+- R5: DTE Unbounded Percentage Spikes in `src/lib/gait/dte.ts` lines 57-58. Clamp `stepTimeCvDTE` to [-100%, +100%].
 
-OUTPUT: Write implementation blueprint to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/blueprint_m1.md` and deliver handoff.md in your working directory. Send a message to parent with the report path.
+Original Request: /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
+Project Scope: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
+
+Instructions:
+1. Initialize your working directory with `BRIEFING.md` and `progress.md`.
+2. Inspect `src/lib/gait/symmetry.ts`, `src/lib/gait/dte.ts`, and relevant test files (run search or vitest if needed).
+3. Formulate a detailed, precise investigation report and fix strategy.
+4. Save your final report in `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/handoff.md` and send a message back to parent. Do NOT edit source code files directly.

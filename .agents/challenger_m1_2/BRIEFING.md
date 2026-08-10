@@ -1,51 +1,59 @@
-# BRIEFING — 2026-08-10T07:37:00Z
+# BRIEFING — 2026-08-10T14:07:31Z
 
 ## Mission
-Adversarially challenge the Milestone 1 algorithm fixes in src/lib/gait/analysis.ts and src/lib/gait/events.ts via empirical testing.
+Independently challenge Milestone 1 changes (R1-R5) through empirical verification, boundary testing, mathematical analysis, and stress harnesses.
 
 ## 🔒 My Identity
-- Archetype: EMPIRICAL CHALLENGER
+- Archetype: empirical challenger
 - Roles: critic, specialist
-- Working directory: /Users/damian/GitHub/gait-lab/.agents/challenger_m1_2
-- Original parent: e41552d4-18b9-4bd1-a014-7394a83c1796
-- Milestone: Milestone 1
-- Instance: 1 of 1
+- Working directory: /Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/
+- Original parent: c11afa06-5f20-4640-9263-a2abefb4a134
+- Milestone: M1 (Critical Bug Fixes R1-R5)
+- Instance: 2 of 2
 
 ## 🔒 Key Constraints
-- Must write and execute empirical tests to challenge claims
-- Must NOT modify implementation code unless creating test files or reproducing bugs via standalone test scripts
-- Output verdict in handoff.md
+- Adversarial review: Find bugs by writing and executing tests, stress harnesses, and oracles.
+- Empirical verification: Do NOT trust worker claims without running tests yourself.
+- Do NOT fix code bugs directly — report findings in handoff.md with verdict APPROVE or REQUEST_CHANGES.
 
 ## Current Parent
-- Conversation ID: e41552d4-18b9-4bd1-a014-7394a83c1796
-- Updated: 2026-08-10T07:37:00Z
+- Conversation ID: c11afa06-5f20-4640-9263-a2abefb4a134
+- Updated: 2026-08-10T14:07:31Z
 
 ## Review Scope
-- **Files to review**: `src/lib/gait/analysis.ts`, `src/lib/gait/events.ts`, test files
-- **Interface contracts**: `/Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md`
-- **Review criteria**: Robustness under extreme speed variations, high asymmetry, split-half stress tests, e2e test suite passing
+- **Files to review**:
+  - `src/lib/gait/symmetry.ts`
+  - `src/lib/gait/analysis.ts`
+  - `src/lib/gait/events.ts`
+  - `src/lib/gait/dte.ts`
+  - `src/lib/gait/__tests__/*`
+- **Interface contracts**: `PROJECT.md` / `ORIGINAL_REQUEST.md` / `worker_m1/handoff.md`
+- **Review criteria**: R1 (Zifchock SA), R2 (Stride vs Step length), R3 (Cadence 40-140 spm), R4 (Stride ceiling <= 4.0s & DS scaling), R5 (DTE clamping [-100%, +100%])
 
 ## Key Decisions Made
-- Executed `npx vitest run`: 891/891 tests passing across 68 test files.
-- Executed `npx tsc --noEmit`: 0 errors.
-- Executed `npx eslint .`: 0 errors (18 warnings).
-- Created empirical stress test suite `src/lib/gait/__tests__/m1_2_empirical_challenger_stress.test.ts` with 14 rigorous tests covering split-half monotonicity, speed variations (0.5x to 2.5x speed across 15–120 FPS), pathological step asymmetry (asymmetryFactor 1.8), deduplication limits (0.15s), and steady-state filtering (0.40 threshold).
-- Verified verdict: APPROVE.
-
-## Artifact Index
-- `.agents/challenger_m1_2/BRIEFING.md`
-- `.agents/challenger_m1_2/progress.md`
-- `.agents/challenger_m1_2/handoff.md`
-- `src/lib/gait/__tests__/m1_2_empirical_challenger_stress.test.ts`
+- Confirmed mathematical correctness of R1: denominator changed from 90 to 45, max capped at 100%, test expectations doubled.
+- Confirmed R2 separation: step length (contralateral) vs stride length (ipsilateral).
+- Confirmed R3 cadence processing: range [40, 140] spm, low cadence penalty removed.
+- Confirmed R4 duration ceiling <= 4.0s and dynamic double support search window scaling `Math.min(0.75 * meanStepTime, 1.0)`.
+- Confirmed R5 DTE clamping strictly bounded to `[-100%, +100%]`.
+- Empirical test suite `m1_challenger_2_empirical.test.ts` created and executed: 12/12 passing.
+- Verdict: APPROVE.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  1. `filterSteadyStateStrides` threshold 0.40 preserves valid asymmetric boundary strides (<40% deviation) while discarding extreme lead-in/out outliers (>40% deviation). -> CONFIRMED (PASSED).
-  2. `MIN_STEP_SEC` threshold 0.15s allows rapid cadence steps up to 330 SPM without dropping valid steps or allowing double-fire noise (<0.15s). -> CONFIRMED (PASSED).
-  3. `detectGaitEventsZeni` `minGap` and `yMinGap` multiplier 0.18*FPS prevents peak suppression under 1.5x–2.0x speed perturbations across 15–120 FPS and frontal-Y contact detection. -> CONFIRMED (PASSED).
-  4. Split-half 95% CIs scale monotonically across fine-grained speed perturbation levels (1.0x to 1.8x). -> CONFIRMED (PASSED).
-- **Vulnerabilities found**: None. Code is robust and handles extreme speed/asymmetry parameters without crashes, NaNs, or assertion failures.
-- **Untested angles**: All targeted M1 scope items (R1.1, R1.2, R1.3) have been empirically stress-tested and validated.
+  - R1: Extreme ratios (100:0, 1e6:0.0001) cap at 100%. 2:1 ratio yields 40.97%. Symmetric yields 0.0%. (CONFIRMED)
+  - R2: Same-side heel strikes calculate ipsilateral stride distance; opposite-side calculate contralateral step distance. (CONFIRMED)
+  - R3: `walkFit` accepts 40-69 spm without penalty. Out-of-bounds <40 or >140 rejected with -1e9. (CONFIRMED)
+  - R4: Slow stride duration 3.0s accepted; double support search limit scales dynamically above 0.5s for slow step times. (CONFIRMED)
+  - R5: Low baseline step time CV (0.02) with high dual task CV (0.20) yields clamped -100.0% DTE. (CONFIRMED)
+- **Vulnerabilities found**: None in Milestone 1 implementation.
+- **Untested angles**: All targeted requirements empirically verified.
 
 ## Loaded Skills
-None
+- None
+
+## Artifact Index
+- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/DISPATCH.md` — Initial dispatch message
+- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/BRIEFING.md` — Active briefing card
+- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/progress.md` — Progress tracker
+- `/Users/damian/GitHub/gait-lab/.agents/challenger_m1_2/handoff.md` — Handoff report

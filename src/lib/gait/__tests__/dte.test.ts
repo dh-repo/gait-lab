@@ -118,4 +118,18 @@ describe("Dual-Task Effect Module (dte.ts)", () => {
     // Base symmetry fallback 80.0 -> (88 - 80) / 80 * 100 = 10.0%
     expect(result.symmetryDTE).toBe(10.0);
   });
+
+  it("clamps stepTimeCvDTE to [-100.0%, +100.0%] range", () => {
+    const baseline = createMockMetrics({ stepTimeCV: 0.02 });
+    // Extreme CV increase: - (0.10 - 0.02) / 0.02 * 100 = -400% -> clamped to -100.0%
+    const extremeIncrease = createMockMetrics({ stepTimeCV: 0.10 });
+    const resIncrease = calculateDTE(baseline, extremeIncrease);
+    expect(resIncrease.stepTimeCvDTE).toBe(-100.0);
+
+    // Extreme CV decrease: - (0.001 - 0.05) / 0.05 * 100 = +98% (clamped to <= 100%)
+    const extremeDecrease = createMockMetrics({ stepTimeCV: 0.0001 });
+    const resDecrease = calculateDTE(baseline, extremeDecrease);
+    expect(resDecrease.stepTimeCvDTE).toBeLessThanOrEqual(100.0);
+    expect(resDecrease.stepTimeCvDTE).toBeGreaterThanOrEqual(-100.0);
+  });
 });

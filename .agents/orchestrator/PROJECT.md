@@ -1,55 +1,55 @@
-# Project: gait-lab Precision Engineering Pass (Phase 2)
+# Project: gait-lab Engine Phase 3 Deep Dive
 
 ## Architecture
-- `src/lib/gait/`: Core biomechanical engine
-  - `analysis.ts`: Multi-person tracking, Hungarian (Kuhn-Munkres) assignment, visibility-gated biometric signatures, track fragmentation merging.
-  - `signal.ts`: 2-State `[position, velocity]^T` Kalman filtering, adaptive Savitzky-Golay filtering, zero-phase Butterworth filtering with uniform resampling guard.
-  - `PoseTracker.ts`: Real-time WebRTC pose tracking, One Euro adaptive filter, multi-factor biometric target locking, occlusion coasting timeout & velocity clamping.
-  - `events.ts`: Heel-strike / toe-off event detection (`detectGaitEventsZeni`), sliding window dynamic walking direction, hysteresis, frontal-Y lateral ankle contact disambiguation.
-  - `landmarks.ts`: Keypoint kinematics, geometric calculations, torso height, bounding boxes.
-  - `calibration.ts`: Real-world floor-plane scale estimation (mm/px).
-  - `homography.ts`: 2D planar transform, floor projection.
-  - `liveCapture.ts`: Stream lifecycle, constraints, buffer management.
-  - `persistence.server.ts`: Persistence re-export wrapper.
-  - `normatives.ts`: Winter (2009) / Bovi (2011) normative datasets, Z-scores, percentile ranks, Gait Deviation Index (GDI).
-  - `ratings.ts`, `guesses.ts`: Clinical rating reports & educated hypothesis rules.
-- `scientific_justifications.md`, `peer_review_report.md`: Technical documentation & citations.
+- TypeScript gait analysis engine in `src/lib/gait/`
+- Key modules:
+  - `symmetry.ts`: Zifchock Symmetry Angle equations & symmetry index computation
+  - `analysis.ts`: Spatiotemporal metric extraction (stride length, step distance, cadence, double support)
+  - `events.ts`: Heel strike / toe off event detection, duration thresholds
+  - `dte.ts`: Dual-task effect calculation and clamping
+  - `angles.ts`: Joint angle kinematics, arm swing asymmetry (ASA), trunk sway & harmonic ratio
+  - `guesses.ts`: Diagnostic hypotheses & compensatory gait pattern classification
+  - `normatives.ts`: Normative database, Gait Profile Score (GPS), Movement Analysis Profile (MAP)
+  - `fallrisk.ts`: STEADI fall risk model, dynamic thresholds, frontal fallback, height adjustment
+  - `signal.ts`: OneEuroFilter, Savitzky-Golay adaptive filtering, signal processing
+  - `scientific_justifications.md`: Literature references & mathematical justifications
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | R1. Hungarian Matching | Replace greedy pair matching in `matchPeople()` (analysis.ts) with Hungarian algorithm | M1 | survey_pass2_1 |
-| 2 | R6. Visibility-Gated Biometrics & Sagittal Fix | Gate keypoint biometrics on `visibility >= 0.4`, down-weight `shoulderHipRatio` when `aspectRatio < 0.35` | M1 | survey_pass2_2 |
-| 3 | R2. 2-State Kalman Filter | Upgrade `kalmanFilter1D()` in `signal.ts` to `[position, velocity]^T` constant-velocity model | M2 | survey_pass2_1 |
-| 4 | R7. Adaptive SG Window & Uniform Resampling Guard | Scale SG window with FPS (`fps * 0.17`), add uniform resampling guard to `zeroPhaseButterworth()` | M2 | survey_pass2_2 |
-| 5 | R3. One Euro Adaptive Filter | Implement One Euro Filter in `PoseTracker.ts` for real-time hip center landmark smoothing | M3 | survey_pass2_1 |
-| 6 | R4. Biometric Target Lock & Occlusion Recovery | Multi-factor score in `PoseTracker.ts`, ±2σ velocity clamping, 0.9^N decay, 30-frame lock reset | M3 | survey_pass2_2 |
-| 7 | R5. Dynamic Walking Direction & Lateral Ankle Fix | Sliding window (~1.5s / 45 frames) foot orientation, sign-flip hysteresis > 0.01, lateral ankle position check | M4 | survey_pass2_2 |
-| 8 | R8. Unit Test Expansion for Untested Modules | Add dedicated test files for `landmarks.ts`, `calibration.ts`, `homography.ts`, `liveCapture.ts`, `persistence.server.ts` | M5 | survey_pass2_3 |
-| 9 | R9. Clinical Normative References & GDI | Create `normatives.ts` (Winter 2009, Bovi 2011, Z-scores, GDI) and integrate into `ratings.ts` & `guesses.ts` | M6 | survey_pass2_3 |
-| 10 | Documentation & Citation Alignment | Update `scientific_justifications.md` with line ranges & citations for Hungarian, One Euro, 2-state Kalman, GDI, Normatives | M7 | follow-up requirement |
+| 1 | R1 Zifchock Denominator Fix | Fix SA equation denominator 90->45 in symmetry.ts | M1 (DONE) | ORIGINAL_REQUEST §R1 |
+| 2 | R2 Ipsilateral Stride Length | Fix stride length computation to ipsilateral in analysis.ts | M1 (DONE) | ORIGINAL_REQUEST §R2 |
+| 3 | R3 Cadence Penalty Removal | Remove c<70 penalty in analysis.ts, support 40-140 spm | M1 (DONE) | ORIGINAL_REQUEST §R3 |
+| 4 | R4 Stride Duration & DS Search | Raise ceiling to 4.0s, scale DS search to min(0.75*meanStep, 1.0) | M1 (DONE) | ORIGINAL_REQUEST §R4 |
+| 5 | R5 DTE Clamping | Clamp stepTimeCvDTE to [-100%, +100%] in dte.ts | M1 (DONE) | ORIGINAL_REQUEST §R5 |
+| 6 | R6 Arm Swing Asymmetry | Add calculateArmSwingAsymmetry to angles.ts | M2 (DONE) | ORIGINAL_REQUEST §R6 |
+| 7 | R7 Trunk Sway Quantification | Add calculateTrunkSway to angles.ts, replace fallrisk proxy | M2 (DONE) | ORIGINAL_REQUEST §R7 |
+| 8 | R8 Compensatory Gait Patterns | Add 6 new hypothesis rules to guesses.ts | M2 (DONE) | ORIGINAL_REQUEST §R8 |
+| 9 | R9 GPS & MAP | Upgrade normatives.ts with GPS, MAP, and age tiers | M2 (DONE) | ORIGINAL_REQUEST §R9 |
+| 10| R10 Fall Risk Model Robustness | Height adjustment, dynamic STEADI, weight re-normalization | M3 | ORIGINAL_REQUEST §R10 |
+| 11| R11 Test Coverage Expansion | Write unit tests for new & edge-case functions (>= 1350 tests) | M4 | ORIGINAL_REQUEST §R11 |
+| 12| R12 Scientific Justifications | Update scientific_justifications.md literature & line mappings | M5 | ORIGINAL_REQUEST §R12 |
+| 13| M6 Final Verification & Push | 100% tests pass, 0 tsc errors, 0 eslint errors, git commit & push | M6 | ORIGINAL_REQUEST §FINAL |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Multi-Person Hungarian Matching & Visibility-Gated Biometrics | R1, R6 | none | PLANNED |
-| M2 | 2-State Kalman Filter & Adaptive SG Window | R2, R7 | none | DONE |
-| M3 | One Euro Filter & Biometric Target Lock with Occlusion Recovery | R3, R4 | M1, M2 | PLANNED |
-| M4 | Dynamic Walking Direction & Lateral Ankle Disambiguation | R5 | none | DONE |
-| M5 | Expand Unit Test Coverage for 5 Untested Modules | R8 | none | DONE |
-| M6 | Clinical Normative Reference Integration & GDI | R9 | none | DONE |
-| M7 | Documentation & Scientific Justification Alignment | Doc update | M1 - M6 | PLANNED |
-
-## Interface Contracts
-- `matchPeople`: `(prevPeople: PersonTrack[], currentDetections: Detection[], maxBiometricDist?: number) => PersonTrack[]`
-- `computeBiometricSignature`: `(landmarks: Landmark[]) => BiometricSignature | undefined`
-- `kalmanFilter1D`: `(signal: number[], dt: number, options?: KalmanOptions) => { position: number[], velocity: number[] }`
-- `OneEuroFilter`: `class OneEuroFilter { filter(x: number, timestamp: number): number }`
-- `detectGaitEventsZeni`: `(signal: number[], fps: number, landmarks?: Landmark[][]) => GaitEvents`
-- `calculateGDI`: `(metrics: GaitMetrics) => number`
-- `calculateZScore`: `(value: number, mean: number, sd: number) => number`
+| 1 | M1 Critical Bug Fixes | R1, R2, R3, R4, R5 | None | DONE |
+| 2 | M2 Clinical Metric Expansion | R6, R7, R8, R9 | M1 | DONE |
+| 3 | M3 Fall Risk Hardening | R10 | M1, M2 | DONE |
+| 4 | M4 Test Coverage Expansion | R11 | M1, M2, M3 | IN_PROGRESS |
+| 5 | M5 Scientific Justifications | R12 | M1, M2, M3, M4 | PLANNED |
+| 6 | M6 Verification & Git Push | Acceptance criteria & git push | M1-M5 | PLANNED |
 
 ## Code Layout
-- Core Engine: `src/lib/gait/`
-- Test Suites: `src/lib/gait/__tests__/` and `tests/gait/`
-- Documentation: `scientific_justifications.md`, `peer_review_report.md`
+- `src/lib/gait/symmetry.ts`
+- `src/lib/gait/analysis.ts`
+- `src/lib/gait/events.ts`
+- `src/lib/gait/dte.ts`
+- `src/lib/gait/angles.ts`
+- `src/lib/gait/guesses.ts`
+- `src/lib/gait/normatives.ts`
+- `src/lib/gait/fallrisk.ts`
+- `src/lib/gait/signal.ts`
+- `scientific_justifications.md`
+- `tests/` or `src/lib/gait/__tests__/` (test files)

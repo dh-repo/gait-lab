@@ -185,11 +185,11 @@ describe("Milestone 2 Empirical Challenger Stress Harness", () => {
       expect(symmetryAngle(-10, 20)).toBe(symmetryAngle(10, 20));
     });
 
-    test("handles zero values and caps maximum theoretical asymmetry at 50%", () => {
+    test("handles zero values and caps maximum theoretical asymmetry at 100%", () => {
       expect(symmetryAngle(0, 0)).toBe(0.0);
-      expect(symmetryAngle(10, 0)).toBe(50.0);
-      expect(symmetryAngle(0, 10)).toBe(50.0);
-      expect(symmetryAngle(100000, 0.0001)).toBeLessThanOrEqual(50.0);
+      expect(symmetryAngle(10, 0)).toBe(100.0);
+      expect(symmetryAngle(0, 10)).toBe(100.0);
+      expect(symmetryAngle(100000, 0.0001)).toBeLessThanOrEqual(100.0);
     });
   });
 

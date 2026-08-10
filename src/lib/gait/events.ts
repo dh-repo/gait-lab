@@ -581,7 +581,7 @@ export function detectGaitEventsZeni(
       // Record valid contact assignment and update running step duration estimate
       if (lastAssignedSide !== null && lastAssignedFrame !== null && side !== lastAssignedSide) {
         const stepDur = f - lastAssignedFrame;
-        if (stepDur >= 6 && stepDur <= 2.5 * effectiveFps) {
+        if (stepDur >= 6 && stepDur <= 4.0 * effectiveFps) {
           estimatedStepFrames = Math.round(0.7 * estimatedStepFrames + 0.3 * stepDur);
         }
       }
@@ -676,7 +676,7 @@ export function detectGaitEventsZeni(
       const ic2 = strikes[i + 1];
       const strideDur = ic2.timeSec - ic1.timeSec;
 
-      if (strideDur > 0.3 && strideDur < 2.5) {
+      if (strideDur > 0.3 && strideDur < 4.0) {
         const matchingTo = offs.find(
           (to) => to.timeSec > ic1.timeSec && to.timeSec < ic2.timeSec,
         );
@@ -715,12 +715,30 @@ export function detectGaitEventsZeni(
     (e) => e.side === "right" && e.type === "toe_off",
   );
 
+  const allStrikes = allEvents
+    .filter((e) => e.type === "heel_strike")
+    .sort((a, b) => a.timeSec - b.timeSec);
+
+  const stepIntervals: number[] = [];
+  for (let i = 1; i < allStrikes.length; i++) {
+    const dt = allStrikes[i].timeSec - allStrikes[i - 1].timeSec;
+    if (dt > 0.15 && dt < 4.0) {
+      stepIntervals.push(dt);
+    }
+  }
+  const meanStepTime =
+    stepIntervals.length > 0
+      ? stepIntervals.reduce((a, b) => a + b, 0) / stepIntervals.length
+      : 0.55;
+
+  const dsSearchLimit = Math.min(0.75 * meanStepTime, 1.0);
+
   const dsIntervals: number[] = [];
 
   // Left IC to Right TO
   for (const lic of leftStrikes) {
     const rto = rightOffs.find(
-      (to) => to.timeSec > lic.timeSec && to.timeSec - lic.timeSec < 0.5,
+      (to) => to.timeSec > lic.timeSec && to.timeSec - lic.timeSec < dsSearchLimit,
     );
     if (rto) {
       dsIntervals.push(rto.timeSec - lic.timeSec);
@@ -730,7 +748,7 @@ export function detectGaitEventsZeni(
   // Right IC to Left TO
   for (const ric of rightStrikes) {
     const lto = leftOffs.find(
-      (to) => to.timeSec > ric.timeSec && to.timeSec - ric.timeSec < 0.5,
+      (to) => to.timeSec > ric.timeSec && to.timeSec - ric.timeSec < dsSearchLimit,
     );
     if (lto) {
       dsIntervals.push(lto.timeSec - ric.timeSec);
@@ -746,7 +764,7 @@ export function detectGaitEventsZeni(
 
     for (let i = 0; i < leftStrikes.length - 1; i++) {
       const dur = leftStrikes[i + 1].timeSec - leftStrikes[i].timeSec;
-      if (dur > 0.4 && dur < 2.5) {
+      if (dur > 0.4 && dur < 4.0) {
         totalStrideDur += dur;
         strideCount++;
       }

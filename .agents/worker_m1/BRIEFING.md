@@ -1,62 +1,60 @@
-# BRIEFING — 2026-08-09T17:22:37Z
+# BRIEFING — 2026-08-10T14:04:45Z
 
 ## Mission
-Implement Milestone 1: Google Workspace & Cloud Console Design System & Workstation Shell (`gait-lab`).
+Implement all Milestone 1 Critical Bug Fixes (R1–R5) across gait analysis library and tests, verify using vitest, tsc, and eslint.
 
 ## 🔒 My Identity
-- Archetype: implementer
+- Archetype: teamwork_preview_worker
 - Roles: implementer, qa, specialist
-- Working directory: /Users/damian/GitHub/gait-lab/.agents/worker_m1
-- Original parent: 8e9e6af1-3d51-4143-bad5-f38a5c021929
+- Working directory: /Users/damian/GitHub/gait-lab/.agents/worker_m1/
+- Original parent: c11afa06-5f20-4640-9263-a2abefb4a134
 - Milestone: M1
 
 ## 🔒 Key Constraints
-- Follow minimal change principle and technical blueprints from `explorer_m1_1` and `explorer_m1_2`.
-- Zero cheating mandate: maintain real implementations and test coverage.
-- Preserve 100% test compatibility across all 515 tests, `typecheck`, `lint`, and `build`.
+- Follow minimal change principle.
+- DO NOT CHEAT: Genuine logic only, no hardcoding, no dummy implementations.
+- Verify with vitest, tsc, eslint before finishing.
 
 ## Current Parent
-- Conversation ID: 8e9e6af1-3d51-4143-bad5-f38a5c021929
-- Updated: 2026-08-09T17:22:37Z
+- Conversation ID: c11afa06-5f20-4640-9263-a2abefb4a134
+- Updated: 2026-08-10T14:04:45Z
 
 ## Task Summary
-- **What to build**: Part 1 (fonts, CSS tokens, UI primitives: button, badge, card, progress) & Part 2 (`GoogleTopAppBar.tsx`, `SideNavRail.tsx`, `WorkflowHeader.tsx`, `GaitApp.tsx`).
-- **Success criteria**: All files updated/created, `typecheck`, `lint`, `test`, `build` all pass cleanly.
-- **Interface contracts**: PROJECT.md & explorer handoffs.
-- **Code layout**: `src/routes/__root.tsx`, `src/styles.css`, `src/components/ui/*`, `src/components/gait/*`.
+- **What to build**: Fix R1 (Zifchock SA denominator 45), R2 (Ipsilateral stride length & contralateral step distance), R3 (Cadence penalty removal & clinical range 40-140), R4 (Stride duration ceiling 4.0s, DS search limit scaling, avgStepTimeSec guard <= 2.5s), R5 (DTE stepTimeCvDTE clamping [-100%, +100%]). Update dependent tests.
+- **Success criteria**: All 1225 vitest tests pass, tsc --noEmit passes (0 errors), eslint passes (0 errors).
+- **Interface contracts**: PROJECT.md / codebase contracts in src/lib/gait/
 
 ## Key Decisions Made
-- Integrated Google Sans / Roboto fonts, Google Cloud Console color tokens (`#1A73E8`, `#F8F9FA`, `#DADCE0`, `#202124`, `#5F6368`), high-density clinical table rules, and Material status chips.
-- Created `GoogleTopAppBar.tsx` with central patient search, stage step pills (`Capture` -> `Process` -> `Analyze` -> `Report`), quick action tools (Webcam, Upload, Save, Compare, History, New session), and clinician avatar.
-- Created `SideNavRail.tsx` with collapsible rail layout (`w-16` / `w-60`) and 4 section groups ("WORKSTATION", "ANALYTICS & KINEMATICS", "REPORTS & EXPORT", "SYSTEM & MODEL").
-- Re-architected `WorkflowHeader.tsx` as a 100% backward-compatible wrapper around `GoogleTopAppBar.tsx`.
-- Wired `GoogleTopAppBar` and `SideNavRail` into main workstation layout grid in `GaitApp.tsx`.
+- Updated Zifchock SA denominator to 45 per Zifchock et al. (2008). Doubled dependent test expected values.
+- Updated ipsilateral stride calculation in analysis.ts (L-L, R-R) and retained contralateral step length calculation (L-R, R-L).
+- Removed low-cadence -40 penalty in walkFit and set clinical range to [40, 140] spm.
+- Raised stride duration ceiling from 2.5s to 4.0s in events.ts and updated avgStepTimeSec guard to <= 2.5 in analysis.ts. Scaled double support search to min(0.75 * meanStepTime, 1.0).
+- Clamped stepTimeCvDTE in dte.ts to [-100%, +100%] and added unit test in dte.test.ts.
+
+## Artifact Index
+- DISPATCH.md — Initial task dispatch
+- BRIEFING.md — Context and briefing
+- progress.md — Liveness heartbeat and progress log
+- handoff.md — Final handoff report
 
 ## Change Tracker
 - **Files modified**:
-  - `src/routes/__root.tsx`: Google Fonts & theme-color `#F8F9FA`
-  - `src/styles.css`: Google Cloud Console tokens, high-density clinical tables, Material status chips
-  - `src/components/ui/button.tsx`: Hover/active physics and dense `sm` size
-  - `src/components/ui/badge.tsx`: Standardized Material status chip tones
-  - `src/components/ui/card.tsx`: Card surface, border, header divider, and CardFooter export
-  - `src/components/ui/progress.tsx`: Material linear progress track and tone colors
-  - `src/components/gait/GoogleTopAppBar.tsx`: Google Workspace Top App Bar (NEW)
-  - `src/components/gait/SideNavRail.tsx`: Google Cloud Console Side Navigation Rail (NEW)
-  - `src/components/gait/WorkflowHeader.tsx`: Wrapper for GoogleTopAppBar
-  - `src/components/gait/GaitApp.tsx`: Workstation layout grid integration
-- **Build status**: Pass (Exit code 0)
+  - `src/lib/gait/symmetry.ts`
+  - `src/lib/gait/dte.ts`
+  - `src/lib/gait/analysis.ts`
+  - `src/lib/gait/events.ts`
+  - `src/lib/gait/__tests__/symmetry.test.ts`
+  - `src/lib/gait/__tests__/dte.test.ts`
+  - `src/lib/gait/__tests__/m2_challenger_verification.test.ts`
+  - `src/lib/gait/__tests__/m4_challenger_verification.test.ts`
+  - `src/lib/gait/__tests__/nan_property.test.ts`
+  - `src/lib/gait/__tests__/stress_adversarial.test.ts`
+  - `src/lib/gait/__tests__/e2e_engine_enhancements.test.ts`
+  - `src/lib/gait/__tests__/e2e_gait_engine_tiers.test.ts`
+- **Build status**: 90/90 test files passed (1225/1225 tests), 0 tsc errors, 0 eslint errors.
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: Pass (54/54 test files passed, 515/515 tests passed)
-- **Lint status**: Pass (0 errors, 0 warnings)
-- **Tests added/modified**: All existing tests pass 100%
-
-## Loaded Skills
-- None
-
-## Artifact Index
-- `.agents/worker_m1/DISPATCH.md` — Dispatch prompt
-- `.agents/worker_m1/BRIEFING.md` — Briefing file
-- `.agents/worker_m1/progress.md` — Progress tracker & heartbeat
-- `.agents/worker_m1/handoff.md` — Handoff report
+- **Build/test result**: PASS (1225/1225 tests passed)
+- **Lint status**: PASS (0 errors, 27 warnings)
+- **Tests added/modified**: 1 new test in dte.test.ts, updated thresholds/values in 7 test files.

@@ -1,38 +1,44 @@
-# BRIEFING — 2026-08-10T07:38:05Z
+# BRIEFING — 2026-08-10T10:09:30Z
 
 ## Mission
-Formulate the detailed implementation blueprint for Milestone 2: Deepen Signal Processing & Event Detection Tuning across all 7 core modules (`events.ts`, `analysis.ts`, `signal.ts`, `PoseTracker.ts`, `ratings.ts`, `guesses.ts`, `fallrisk.ts`) and test/tuning fixtures.
+Investigate Milestone 2 Requirements R6 (Arm Swing Asymmetry Index) and R7 (Trunk Sway Quantification) in `src/lib/gait/angles.ts` and `src/lib/gait/fallrisk.ts`.
 
 ## 🔒 My Identity
 - Archetype: Teamwork explorer
-- Roles: Read-only investigator & blueprint architect
+- Roles: Read-only investigation, codebase analysis, synthesis, handoff authoring
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m2_1
-- Original parent: e41552d4-18b9-4bd1-a014-7394a83c1796
-- Milestone: Milestone 2 — Deepen Signal Processing & Event Detection Tuning
+- Original parent: c11afa06-5f20-4640-9263-a2abefb4a134
+- Milestone: M2
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement production code changes directly, but write detailed blueprint files in working directory
-- Produce `blueprint_m2.md` and `handoff.md` in `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/`
-- Communicate result to parent via `send_message`
+- Read-only investigation — do NOT implement source code modifications.
+- Deliver detailed findings in `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/handoff.md`.
+- Communicate completion to parent via `send_message`.
 
 ## Current Parent
-- Conversation ID: e41552d4-18b9-4bd1-a014-7394a83c1796
-- Updated: 2026-08-10T07:38:05Z
+- Conversation ID: c11afa06-5f20-4640-9263-a2abefb4a134
+- Updated: 2026-08-10T10:09:30Z
 
 ## Investigation State
-- **Explored paths**: `survey_r2_r3.md`, `src/lib/gait/events.ts`, `analysis.ts`, `signal.ts`, `PoseTracker.ts`, `ratings.ts`, `guesses.ts`, `fallrisk.ts`, `scripts/tune-gait-samples.mjs`, `src/lib/gait/__tests__/*`
+- **Explored paths**:
+  - `src/lib/gait/angles.ts` (joint kinematics, functions, interface definitions)
+  - `src/lib/gait/fallrisk.ts` (Model A, Model B composite index, lateral sway usage)
+  - `src/lib/gait/types.ts` (GaitMetrics, GaitAngleAnalysis, PoseFrame)
+  - `src/lib/gait/landmarks.ts` (MediaPipe landmark constants LM.L_SHOULDER 11, LM.R_SHOULDER 12, LM.L_WRIST 15, LM.R_WRIST 16, LM.L_HIP 23, LM.R_HIP 24, etc.)
+  - `src/lib/gait/signal.ts` (zeroPhaseButterworth, olsDetrend)
+  - `src/lib/gait/analysis.ts` (arm swing & sway calculation references)
+  - `src/lib/gait/__tests__/angles.test.ts` & `src/lib/gait/__tests__/fallrisk.test.ts`
 - **Key findings**:
-  - Identified line-by-line parameter tuning instructions for all 7 core engine modules.
-  - Specified exact fixes for the 2 failing tests (`e2e_engine_enhancements.test.ts` and `split_half_stress_m8_2.test.ts`).
-  - Documented real-world video tuning targets for `tuning-3992.mp4` and `tuning-3993.mp4`.
-- **Unexplored areas**: None for M2 blueprint scope.
+  - R6 requires `calculateArmSwingAsymmetry(landmarks, events)` tracking shoulder-wrist vectors (11->15, 12->16), peak-to-peak swing amplitude per arm, ASA equation `|Amp_L - Amp_R| / max(Amp_L, Amp_R) * 100`, Pearson correlation between arm swing and contralateral leg, integrated into `GaitAngleAnalysis`.
+  - R7 requires `calculateTrunkSway(landmarks)` tracking mid-shoulder to mid-hip tilt vector, peak-to-peak lateral & sagittal angular excursions in degrees, FFT-based Harmonic Ratio (power of even/odd harmonics for ML sway), and replacing `lateralSway` proxy in `fallrisk.ts`.
+- **Unexplored areas**: None — full investigation complete across R6 & R7 scope.
 
 ## Key Decisions Made
-- Formulated comprehensive line-by-line implementation blueprint in `blueprint_m2.md`.
-- Delivered handoff report in `handoff.md`.
+- Formulate precise, zero-dependency mathematical implementations for R6 & R7 using existing `LM` landmark indices and signal helpers (`zeroPhaseButterworth`, `olsDetrend`).
+- Provide step-by-step diff/patch specifications in `handoff.md` for seamless implementation by downstream builder.
 
 ## Artifact Index
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/DISPATCH.md` — Incoming dispatch log
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/DISPATCH.md` — Initial dispatch message log
 - `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/BRIEFING.md` — Persistent briefing
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/blueprint_m2.md` — Implementation blueprint for Milestone 2
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/handoff.md` — Handoff report
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/progress.md` — Progress log
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/handoff.md` — Detailed 5-component investigation report

@@ -10,6 +10,7 @@ import {
   evaluatePredictiveAgreement,
   computePatientBaseline,
   detectAcuteWeaknessAnomalies,
+  estimateGaitSpeed,
   type PatientBaseline,
 } from "@/lib/gait/fallrisk";
 import type { AnalysisResult } from "@/lib/gait/types";
@@ -397,7 +398,7 @@ export function FallRiskPanel({
           <BaselineSparkline
             metricName="gaitSpeed"
             label="Gait Speed"
-            currentValue={(result.metrics as { gaitSpeed?: number; speed?: number }).gaitSpeed ?? (result.metrics.cadenceSpm ? result.metrics.cadenceSpm * 0.012 : 1.1)}
+            currentValue={estimateGaitSpeed(result.metrics) ?? 1.1}
             baselineStats={activeBaseline.metrics.gaitSpeed}
             unit="m/s"
           />
@@ -413,7 +414,7 @@ export function FallRiskPanel({
           <BaselineSparkline
             metricName="lateralSway"
             label="Lateral Trunk Sway"
-            currentValue={result.metrics.lateralSway ?? (result.metrics.verticalBounce ? result.metrics.verticalBounce * 0.5 : 0.04)}
+            currentValue={result.metrics.lateralSway ?? 0.04}
             baselineStats={activeBaseline.metrics.lateralSway}
             unit="norm"
           />

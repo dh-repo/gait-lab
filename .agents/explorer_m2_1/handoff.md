@@ -1,71 +1,364 @@
-# Handoff Report: Milestone 2 — Deepen Signal Processing & Event Detection Tuning Blueprint
+# Handoff Report: Milestone 2 Requirements R6 & R7 Investigation
 
-**Agent:** explorer_m2_1  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1`  
+**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/`  
+**Target Files:** `src/lib/gait/angles.ts`, `src/lib/gait/fallrisk.ts`, `src/lib/gait/types.ts`  
+**Author:** teamwork_preview_explorer (Explorer 1 for M2)  
 **Date:** 2026-08-10  
 
 ---
 
 ## 1. Observation
 
-Direct inspection was conducted across the prior survey report, all 7 core engine modules in `src/lib/gait/`, reference video tuning scripts, and the test suite:
+### 1.1 Existing Code Structure & Signatures
 
-- **Prior Survey Report:** `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_2/survey_r2_r3.md` inspected. Identified root causes for the 2 failing tests (`e2e_engine_enhancements.test.ts` and `split_half_stress_m8_2.test.ts`).
-- **Core Engine Modules Inspected:**
-  1. `src/lib/gait/events.ts` (Lines 1–610): `detectGaitEventsZeni` (line 190), `findExtrema` (line 99), `refinePeakTimestamp` (line 155), `detectFusedGaitEvents` (line 536). Observed `minGap = Math.floor(0.35 * fps)` in `detectGaitEventsZeni` (line 297), Frontal-Y trigger `apRange < 0.022 || apEventCount < 4` (line 321), and prominence threshold `0.15 * sigRange` (line 118).
-  2. `src/lib/gait/analysis.ts` (Lines 1–1233): `filterSteadyStateStrides` (line 1186), `detectViewAngle` (line 79), `computeGaitMetrics` (line 583), `matchPeople` (line 815), `mergeFragmentedTracks` (line 936), `tracksToPeople` (line 1077). Observed relative difference threshold `0.40` in `filterSteadyStateStrides` (lines 1212, 1220) and human likeness score threshold `0.45` (line 810).
-  3. `src/lib/gait/signal.ts` (Lines 1–426): `zeroPhaseButterworth` (line 135), `savitzkyGolay5` (line 190), `kalmanFilter1D` (line 244), `olsDetrend` (line 76), `smoothPoseFrames` (line 298). Observed Butterworth low-pass cutoff $f_c = 6.0\text{ Hz}$ (line 138), Savitzky-Golay 5-point kernel $\frac{1}{35}[-3, 12, 17, 12, -3]$ (line 218), and Kalman filter parameters $Q = 10^{-4}, R = 10^{-2}$ (line 253).
-  4. `src/lib/gait/PoseTracker.ts` (Lines 1–385): `startWebcam` (line 116), `loop` (line 312). Observed target lock candidate scoring `score = d <= 0.35 ? area * 2 - d * 4 + 1.0 : area * 2 - d * 2` (lines 345–346) and webcam frame rate request `{ ideal: requestedTargetFps, max: 60 }` (line 153).
-  5. `src/lib/gait/ratings.ts` & `guesses.ts` (Lines 1–602 & 1–692): `buildStructuredReport` (line 199), `buildEducatedGuesses` (line 32). Observed Zifchock Symmetry Angle (SA) cutoff `>5.0%` (line 166), Zeni stance breakdown rule (line 192), Plummer & Eskes CMI taxonomy (lines 217–256).
-  6. `src/lib/gait/fallrisk.ts` (Lines 1–908): `computeFallRiskModelA` (line 183), `computeFallRiskModelB` (line 336), `evaluatePredictiveAgreement` (line 490), `detectAcuteWeaknessAnomalies` (line 682). Observed CDC STEADI cutoffs (speed $<0.8$ m/s, step CV $>6\%$, double support $>35\%$, SA $>10\%$) and Model B re-normalization weights (40/33.3/0/26.7).
-- **Tuning Clips & Scripts:** `public/samples/tuning-3992.mp4` (10.55s single-subject frontal walk) and `public/samples/tuning-3993.mp4` (12.42s multi-person hallway walk), `scripts/tune-gait-samples.mjs`.
+1. **`src/lib/gait/angles.ts`**:
+   - `GaitAngleAnalysis` interface (lines 63–71):
+     ```typescript
+     export interface GaitAngleAnalysis {
+       isSuppressed: boolean;
+       suppressionReason?: string;
+       normalizedPoints: JointAnglePoint[];
+       leftStrides: NormalizedGaitCycle[];
+       rightStrides: NormalizedGaitCycle[];
+       metrics: JointAngleMetrics;
+       normativeData: NormativeRangePoint[];
+     }
+     ```
+   - Imports (lines 1–4):
+     ```typescript
+     import type { Landmark, PoseFrame, ViewAngle } from "./types";
+     import type { GaitEvent } from "./events";
+     import { LM, angleDeg, mean } from "./landmarks";
+     import { zeroPhaseButterworth } from "./signal";
+     ```
+   - Master analysis function `computeGaitAngleAnalysis` (lines 299–591) processes continuous pose frames, segments strides, and calculates sagittal joint angle metrics (knee, hip, ankle).
+   - Currently, `angles.ts` does NOT contain functions for Arm Swing Asymmetry (R6) or Trunk Sway Quantification (R7).
+
+2. **`src/lib/gait/fallrisk.ts`**:
+   - `computeFallRiskModelB` (lines 336–483) computes Sub-Score 2 (Trunk Sway) using a crude proxy based on `metrics.lateralSway` (hip X trajectory residual standard deviation):
+     ```typescript
+     // Sub-Score 2: Trunk Sway (0–100)
+     const sway = metrics.lateralSway ?? (metrics.verticalBounce ? metrics.verticalBounce * 0.5 : 0.04);
+     const trunkSwayScore = clamp(((sway - 0.05) / (0.15 - 0.05)) * 100, 0, 100);
+     ```
+   - `computeFallRiskModelB` accepts parameter `angleAnalysis?: GaitAngleAnalysis` (line 339), but currently only reads `angleAnalysis.isSuppressed` and `angleAnalysis.metrics` for Sub-Score 1 (kinematics). It does not read real trunk sway excursion.
+
+3. **`src/lib/gait/landmarks.ts`**:
+   - Landmark constants (`LM` object, lines 28–46):
+     - `L_SHOULDER: 11`, `R_SHOULDER: 12`
+     - `L_WRIST: 15`, `R_WRIST: 16`
+     - `L_HIP: 23`, `R_HIP: 24`
+     - `L_KNEE: 25`, `R_KNEE: 26`
+   - Utility functions: `mid(a, b)` (lines 57–72), `mean(xs)` (lines 151–163), `std(xs)` (lines 165–186).
+
+4. **`src/lib/gait/signal.ts`**:
+   - `zeroPhaseButterworth(data, fps, cutoffHz)` (lines 192–283): zero-phase 4th order low-pass Butterworth filter.
+   - `olsDetrend(data)` (lines 77–100): Ordinary Least Squares linear detrending.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Step 1: Test Failure Root Causes & Resolution:**
-   - In `split_half_stress_m8_2.test.ts`, Level 2 speed perturbation drops step interval below `minGap = Math.floor(0.35 * fps)` (10 frames @ 30 FPS / 16 frames @ 48 FPS), causing `findExtrema` in `events.ts` to suppress alternate heel strikes. Reducing `minGap` factor to `Math.max(3, Math.floor(0.18 * effectiveFps))` (~200ms minimum inter-event gap) allows cadences up to 330 SPM without peak suppression.
-   - In `e2e_engine_enhancements.test.ts`, `filterSteadyStateStrides` in `analysis.ts` trimmed strides when relative deviation from median exceeded `0.25`. Asymmetric gaits naturally exhibit ~24-28% deviation. Adjusting threshold to `0.40` preserves valid pathological step time asymmetry while excluding genuine acceleration/deceleration strides.
+### 2.1 Design for Requirement 6: Arm Swing Asymmetry Index (ASA)
 
-2. **Step 2: Core Pipeline Parameter Optimization across 7 Modules:**
-   - `events.ts`: Enforce hysteresis on Frontal-Y fallback (`apRange < 0.028 && apEventCount < 5`), lower `minProminence` to `Math.max(0.0005, 0.12 * sigRange)` for low-amplitude frontal steps, and retain parabolic subframe peak refinement.
-   - `analysis.ts`: Retain minimum stride retention guard ($\max(3, \lfloor 0.75 \times N \rfloor)$), calibrate view angle confidence scoring, and tune `matchPeople` / `mergeFragmentedTracks` spatial distance gating for U-turns and scale changes.
-   - `signal.ts`: Maintain zero-phase 4th-order Butterworth low-pass filter at $f_c = 6.0\text{ Hz}$ (with adaptive $8.0\text{ Hz}$ option for high-cadence shuffling), 5-point Savitzky-Golay smoothing with boundary reflection, and Kalman filter with occlusion coasting.
-   - `PoseTracker.ts`: Request ideal 60 FPS WebRTC video constraints and enhance target lock candidate scoring with velocity-assisted prediction ($x_{\text{pred}} = x_{t-1} + v \cdot \Delta t$).
-   - `ratings.ts` / `guesses.ts` / `fallrisk.ts`: Enforce consistent sign convention in CMI DTE calculations (`resolveDteValues`), maintain STEADI Model A cutoffs and Model B composite weights (with single-task re-normalization and frontal fallback), and calibrate longitudinal acute weakness anomaly rules.
+1. **Function Signature**:
+   ```typescript
+   export function calculateArmSwingAsymmetry(
+     landmarks: Landmark[][],
+     events: { heelStrikes: GaitEvent[] } | GaitEvent[]
+   ): {
+     leftAmplitude: number;
+     rightAmplitude: number;
+     asymmetryIndex: number;
+     phaseCorrelation: number;
+   }
+   ```
+2. **Arm Vector & Sagittal Angle Computation**:
+   - Per frame $t$, extract Left Shoulder (`LM.L_SHOULDER` = 11) to Left Wrist (`LM.L_WRIST` = 15), and Right Shoulder (`LM.R_SHOULDER` = 12) to Right Wrist (`LM.R_WRIST` = 16).
+   - Angle relative to vertical:
+     $$\theta_{\text{arm}, L}(t) = \text{atan2}(x_{w,L} - x_{s,L}, y_{w,L} - y_{s,L}) \times \frac{180}{\pi}$$
+     $$\theta_{\text{arm}, R}(t) = \text{atan2}(x_{w,R} - x_{s,R}, y_{w,R} - y_{s,R}) \times \frac{180}{\pi}$$
+   - Apply `zeroPhaseButterworth(angleSeries, 30, 6.0)` when frame count $\ge 10$.
+3. **Peak-to-Peak Swing Amplitude**:
+   - Compute range over gait cycles / clip: $\text{Amp}_L = \max(\theta_{\text{arm}, L}) - \min(\theta_{\text{arm}, L})$, $\text{Amp}_R = \max(\theta_{\text{arm}, R}) - \min(\theta_{\text{arm}, R})$.
+4. **Arm Swing Asymmetry Index (ASA)**:
+   $$\text{ASA} = \frac{|\text{Amp}_L - \text{Amp}_R|}{\max(\text{Amp}_L, \text{Amp}_R)} \times 100$$
+   Guard: if $\max(\text{Amp}_L, \text{Amp}_R) == 0$, $\text{ASA} = 0$.
+5. **Phase Correlation with Contralateral Leg**:
+   - Left arm pairs with right leg vector angle (Hip 24 $\rightarrow$ Knee 26). Right arm pairs with left leg vector angle (Hip 23 $\rightarrow$ Knee 25).
+   - Compute Pearson correlation $r(\theta_{\text{arm}, L}, \theta_{\text{leg}, R})$ and $r(\theta_{\text{arm}, R}, \theta_{\text{leg}, L})$.
+   - $\text{phaseCorrelation} = \frac{r_{L,R} + r_{R,L}}{2}$.
 
-3. **Step 3: Real-World Video Tuning Verification:**
-   - `tuning-3992.mp4` (frontal walk) relies on Frontal-Y step contact detection and low prominence threshold.
-   - `tuning-3993.mp4` (multi-person walk) relies on target lock candidate scoring in `PoseTracker.ts` and `matchPeople` in `analysis.ts` to prevent false duplicate person tracks.
+---
+
+### 2.2 Design for Requirement 7: Trunk Sway Quantification
+
+1. **Function Signature**:
+   ```typescript
+   export function calculateTrunkSway(
+     landmarks: Landmark[][]
+   ): {
+     lateralExcursionDeg: number;
+     sagittalExcursionDeg: number;
+     harmonicRatio: number;
+   }
+   ```
+2. **C7 / Mid-Shoulder to Mid-Hip Tilt Vector**:
+   - Mid-shoulder point: $\mathbf{P}_{\text{sh}}(t) = \text{mid}(\text{LM}_{11}, \text{LM}_{12})$.
+   - Mid-hip point: $\mathbf{P}_{\text{hip}}(t) = \text{mid}(\text{LM}_{23}, \text{LM}_{24})$.
+   - Trunk vector: $\vec{V}_{\text{trunk}}(t) = (dx, dy, dz) = \mathbf{P}_{\text{sh}}(t) - \mathbf{P}_{\text{hip}}(t)$. Note $dy < 0$ in image coords.
+   - Frontal (lateral ML) tilt angle: $\theta_{\text{lat}}(t) = \text{atan2}(dx, -dy) \times \frac{180}{\pi}$.
+   - Sagittal (pitch AP) tilt angle: $\theta_{\text{sag}}(t) = \text{atan2}(dz \neq 0 ? dz : dx, -dy) \times \frac{180}{\pi}$.
+   - Low-pass filter with `zeroPhaseButterworth(..., 30, 6.0)` for length $\ge 10$.
+3. **Peak-to-Peak Angular Excursions**:
+   - $\text{lateralExcursionDeg} = \max(\theta_{\text{lat}}) - \min(\theta_{\text{lat}})$.
+   - $\text{sagittalExcursionDeg} = \max(\theta_{\text{sag}}) - \min(\theta_{\text{sag}})$.
+4. **FFT-based Harmonic Ratio (HR)**:
+   - Detrend lateral tilt signal using `olsDetrend(filteredLat)`.
+   - Compute Discrete Fourier Transform (DFT) for harmonics $k = 1 \dots 10$:
+     $$X(k) = \sum_{n=0}^{M-1} x[n] e^{-i 2\pi k n / M}, \quad \text{Amp}(k) = |X(k)|$$
+   - Even harmonics sum ($k = 2, 4, 6, 8, 10$): $P_{\text{even}} = \sum_{m=1}^5 \text{Amp}(2m)$.
+   - Odd harmonics sum ($k = 1, 3, 5, 7, 9$): $P_{\text{odd}} = \sum_{m=1}^5 \text{Amp}(2m-1)$.
+   - $\text{HarmonicRatio}_{\text{lateral}} = \frac{P_{\text{even}}}{P_{\text{odd}} + 1e-6}$.
+5. **Replacing `lateralSway` Proxy in `fallrisk.ts`**:
+   - In `computeFallRiskModelB`:
+     ```typescript
+     let trunkSwayScore = 0;
+     if (angleAnalysis?.trunkSway) {
+       const latDeg = angleAnalysis.trunkSway.lateralExcursionDeg;
+       trunkSwayScore = clamp(((latDeg - 3.0) / (12.0 - 3.0)) * 100, 0, 100);
+     } else {
+       const sway = metrics.lateralSway ?? (metrics.verticalBounce ? metrics.verticalBounce * 0.5 : 0.04);
+       trunkSwayScore = clamp(((sway - 0.05) / (0.15 - 0.05)) * 100, 0, 100);
+     }
+     ```
+
+---
+
+## 3. Caveats
+
+1. **Short & Stationary Clips ($N < 10$ or zero movement)**:
+   - For signals under 10 frames, Butterworth filtering must be bypassed to avoid edge boundary artifacts.
+   - Amplitudes should default to `0.0`, asymmetry to `0.0`, and harmonic ratio to `1.0` (healthy baseline).
+2. **Missing Keypoint Visibility ($< 0.3$)**:
+   - Individual frame angles should fall back to `0` when shoulder, wrist, or hip visibility is $< 0.3$.
+3. **Flat Signal / Zero Denominator Guards**:
+   - ASA calculation must guard against $\max(\text{Amp}_L, \text{Amp}_R) == 0$.
+   - Harmonic Ratio must guard against $P_{\text{odd}} < 1e-6$.
+   - Pearson correlation must guard against zero variance ($\text{std} < 1e-8$).
 
 ---
 
 ## 4. Conclusion
 
-The implementation blueprint for Milestone 2 has been fully formulated and written to `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/blueprint_m2.md`. It provides exact line-by-line parameter tuning instructions, code locations, engineering rationale, and validation criteria for the implementation worker across all 7 core modules.
+The design for Milestone 2 Requirements R6 and R7 is fully specified, mathematically robust, and zero-dependency.
+
+### 4.1 Proposed Code Additions for `src/lib/gait/angles.ts`
+
+```typescript
+export interface ArmSwingAsymmetryResult {
+  leftAmplitude: number;
+  rightAmplitude: number;
+  asymmetryIndex: number;
+  phaseCorrelation: number;
+}
+
+export interface TrunkSwayResult {
+  lateralExcursionDeg: number;
+  sagittalExcursionDeg: number;
+  harmonicRatio: number;
+}
+
+// Updated GaitAngleAnalysis
+export interface GaitAngleAnalysis {
+  isSuppressed: boolean;
+  suppressionReason?: string;
+  normalizedPoints: JointAnglePoint[];
+  leftStrides: NormalizedGaitCycle[];
+  rightStrides: NormalizedGaitCycle[];
+  metrics: JointAngleMetrics;
+  normativeData: NormativeRangePoint[];
+  armSwingAsymmetry?: ArmSwingAsymmetryResult;
+  trunkSway?: TrunkSwayResult;
+}
+
+export function calculateArmSwingAsymmetry(
+  landmarks: Landmark[][],
+  events: { heelStrikes: GaitEvent[] } | GaitEvent[],
+): ArmSwingAsymmetryResult {
+  if (!landmarks || landmarks.length === 0) {
+    return { leftAmplitude: 0, rightAmplitude: 0, asymmetryIndex: 0, phaseCorrelation: 0 };
+  }
+
+  const n = landmarks.length;
+  const leftArmAngles: number[] = new Array(n);
+  const rightArmAngles: number[] = new Array(n);
+  const leftLegAngles: number[] = new Array(n);
+  const rightLegAngles: number[] = new Array(n);
+
+  for (let i = 0; i < n; i++) {
+    const frame = landmarks[i];
+    if (!frame || frame.length < 27) {
+      leftArmAngles[i] = 0;
+      rightArmAngles[i] = 0;
+      leftLegAngles[i] = 0;
+      rightLegAngles[i] = 0;
+      continue;
+    }
+
+    const lShoulder = frame[LM.L_SHOULDER];
+    const rShoulder = frame[LM.R_SHOULDER];
+    const lWrist = frame[LM.L_WRIST];
+    const rWrist = frame[LM.R_WRIST];
+    const lHip = frame[LM.L_HIP];
+    const rHip = frame[LM.R_HIP];
+    const lKnee = frame[LM.L_KNEE];
+    const rKnee = frame[LM.R_KNEE];
+
+    leftArmAngles[i] =
+      lShoulder && lWrist && (lShoulder.visibility ?? 1) >= 0.3 && (lWrist.visibility ?? 1) >= 0.3
+        ? (Math.atan2(lWrist.x - lShoulder.x, lWrist.y - lShoulder.y) * 180) / Math.PI
+        : 0;
+
+    rightArmAngles[i] =
+      rShoulder && rWrist && (rShoulder.visibility ?? 1) >= 0.3 && (rWrist.visibility ?? 1) >= 0.3
+        ? (Math.atan2(rWrist.x - rShoulder.x, rWrist.y - rShoulder.y) * 180) / Math.PI
+        : 0;
+
+    leftLegAngles[i] =
+      lHip && lKnee && (lHip.visibility ?? 1) >= 0.3 && (lKnee.visibility ?? 1) >= 0.3
+        ? (Math.atan2(lKnee.x - lHip.x, lKnee.y - lHip.y) * 180) / Math.PI
+        : 0;
+
+    rightLegAngles[i] =
+      rHip && rKnee && (rHip.visibility ?? 1) >= 0.3 && (rKnee.visibility ?? 1) >= 0.3
+        ? (Math.atan2(rKnee.x - rHip.x, rKnee.y - rHip.y) * 180) / Math.PI
+        : 0;
+  }
+
+  const fps = 30;
+  const filteredArmL = n >= 10 ? zeroPhaseButterworth(leftArmAngles, fps, 6.0) : leftArmAngles;
+  const filteredArmR = n >= 10 ? zeroPhaseButterworth(rightArmAngles, fps, 6.0) : rightArmAngles;
+  const filteredLegL = n >= 10 ? zeroPhaseButterworth(leftLegAngles, fps, 6.0) : leftLegAngles;
+  const filteredLegR = n >= 10 ? zeroPhaseButterworth(rightLegAngles, fps, 6.0) : rightLegAngles;
+
+  const leftAmplitude = Number(Math.max(0, Math.max(...filteredArmL) - Math.min(...filteredArmL)).toFixed(2));
+  const rightAmplitude = Number(Math.max(0, Math.max(...filteredArmR) - Math.min(...filteredArmR)).toFixed(2));
+
+  const maxAmp = Math.max(leftAmplitude, rightAmplitude);
+  const asymmetryIndex = maxAmp > 0
+    ? Number(((Math.abs(leftAmplitude - rightAmplitude) / maxAmp) * 100).toFixed(2))
+    : 0;
+
+  const corrL = pearsonCorrelation(filteredArmL, filteredLegR);
+  const corrR = pearsonCorrelation(filteredArmR, filteredLegL);
+  const phaseCorrelation = Number(((corrL + corrR) / 2).toFixed(3));
+
+  return { leftAmplitude, rightAmplitude, asymmetryIndex, phaseCorrelation };
+}
+
+function pearsonCorrelation(xs: number[], ys: number[]): number {
+  if (!xs || !ys || xs.length !== ys.length || xs.length === 0) return 0;
+  const n = xs.length;
+  const meanX = mean(xs);
+  const meanY = mean(ys);
+  let num = 0, denX = 0, denY = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - meanX;
+    const dy = ys[i] - meanY;
+    num += dx * dy;
+    denX += dx * dx;
+    denY += dy * dy;
+  }
+  const den = Math.sqrt(denX * denY);
+  return den < 1e-8 ? 0 : Math.max(-1, Math.min(1, num / den));
+}
+
+export function calculateTrunkSway(landmarks: Landmark[][]): TrunkSwayResult {
+  if (!landmarks || landmarks.length === 0) {
+    return { lateralExcursionDeg: 0, sagittalExcursionDeg: 0, harmonicRatio: 1.0 };
+  }
+
+  const n = landmarks.length;
+  const lateralTilt: number[] = new Array(n);
+  const sagittalTilt: number[] = new Array(n);
+
+  for (let i = 0; i < n; i++) {
+    const frame = landmarks[i];
+    if (!frame || frame.length < 25) {
+      lateralTilt[i] = 0;
+      sagittalTilt[i] = 0;
+      continue;
+    }
+
+    const midShoulder = mid(frame[LM.L_SHOULDER], frame[LM.R_SHOULDER]);
+    const midHip = mid(frame[LM.L_HIP], frame[LM.R_HIP]);
+
+    const dx = midShoulder.x - midHip.x;
+    const dy = midShoulder.y - midHip.y;
+    const dz = (midShoulder.z ?? 0) - (midHip.z ?? 0);
+
+    lateralTilt[i] = (Math.atan2(dx, -dy) * 180) / Math.PI;
+    const sagittalDisp = Math.abs(dz) > 1e-4 ? dz : dx;
+    sagittalTilt[i] = (Math.atan2(sagittalDisp, -dy) * 180) / Math.PI;
+  }
+
+  const fps = 30;
+  const filteredLat = n >= 10 ? zeroPhaseButterworth(lateralTilt, fps, 6.0) : lateralTilt;
+  const filteredSag = n >= 10 ? zeroPhaseButterworth(sagittalTilt, fps, 6.0) : sagittalTilt;
+
+  const lateralExcursionDeg = Number(Math.max(0, Math.max(...filteredLat) - Math.min(...filteredLat)).toFixed(2));
+  const sagittalExcursionDeg = Number(Math.max(0, Math.max(...filteredSag) - Math.min(...filteredSag)).toFixed(2));
+  const harmonicRatio = computeHarmonicRatio(filteredLat);
+
+  return { lateralExcursionDeg, sagittalExcursionDeg, harmonicRatio };
+}
+
+function computeHarmonicRatio(signal: number[]): number {
+  if (!signal || signal.length < 8) return 1.0;
+  const detrended = olsDetrend(signal);
+  const M = detrended.length;
+  let evenSum = 0, oddSum = 0;
+
+  for (let k = 1; k <= 10; k++) {
+    let re = 0, im = 0;
+    for (let n = 0; n < M; n++) {
+      const angle = (2 * Math.PI * k * n) / M;
+      re += detrended[n] * Math.cos(angle);
+      im -= detrended[n] * Math.sin(angle);
+    }
+    const amp = Math.sqrt(re * re + im * im);
+    if (k % 2 === 0) evenSum += amp;
+    else oddSum += amp;
+  }
+
+  if (oddSum < 1e-6) return 1.0;
+  return Number((evenSum / oddSum).toFixed(2));
+}
+```
 
 ---
 
 ## 5. Verification Method
 
-To independently verify the implementation based on this blueprint:
+To independently verify R6 and R7 after implementation:
 
-1. **Check Blueprint File Existence & Completeness:**
-   ```bash
-   cat /Users/damian/GitHub/gait-lab/.agents/explorer_m2_1/blueprint_m2.md
-   ```
-2. **Execute Static Analysis & TypeScript Compilation:**
+1. **Type Checking & Compilation**:
    ```bash
    npx tsc --noEmit
-   npx eslint .
    ```
-3. **Run Vitest Test Suite:**
+   *Expected outcome:* 0 TypeScript errors.
+
+2. **Existing Test Suite Regression**:
    ```bash
-   npx vitest run
+   npx vitest run src/lib/gait/__tests__/angles.test.ts
+   npx vitest run src/lib/gait/__tests__/fallrisk.test.ts
    ```
-4. **Execute Real-World Sample Tuning Harness:**
-   ```bash
-   npm run dev &
-   node scripts/tune-gait-samples.mjs http://127.0.0.1:8080/
-   ```
+   *Expected outcome:* 100% pass rate.
+
+3. **New Function Unit Verification**:
+   - Test symmetric arm swing ($\text{ASA} \approx 0$).
+   - Test frozen one-arm swing ($\text{ASA} \approx 100$).
+   - Test phase correlation ($r \approx 1.0$ for opposing arm/leg motion).
+   - Test stationary trunk ($\text{excursion} \approx 0$).
+   - Test periodic lateral sway ($\text{HR} > 1.5$).

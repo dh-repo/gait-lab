@@ -1,14 +1,22 @@
-## 2026-08-09T17:27:59Z
-You are Explorer 2 for Milestone 2: High-Density Tabbed Clinical Panels & Tables.
-Working directory for your metadata: /Users/damian/GitHub/gait-lab/.agents/explorer_m2_2
-Please read `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md` and `/Users/damian/GitHub/gait-lab/PROJECT.md`.
+## 2026-08-10T14:08:35Z
+You are teamwork_preview_explorer (Explorer 2 for M2).
+Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m2_2/
 
-Task:
-Formulate an exact technical blueprint for `MetricsPanel.tsx`, `CognitiveClusters.tsx`, `GuessesPanel.tsx`, and `GuidePanel.tsx`:
-1. `src/components/gait/MetricsPanel.tsx`: Restyle spatio-temporal parameters into high-density `.clinical-table` tables (32px row height, `#F8F9FA` header, `#DADCE0` gridlines, tabular-nums) with Google Material status chips.
-2. `src/components/gait/CognitiveClusters.tsx`: Restyle finding cluster cards into Google Workspace card containers with Material status badges (`#E6F4EA`, `#FEF7E0`, `#FCE8E6`, `#E8F0FE`).
-3. `src/components/gait/GuessesPanel.tsx`: Restyle hypothesis cards into Google Workspace recommendation cards.
-4. `src/components/gait/GuidePanel.tsx`: Restyle clinician guide into Google Workspace documentation card.
-5. Ensure all existing test selectors (`data-testid="..."`) and props remain 100% compliant.
+Your task is to investigate Milestone 2 Requirement R8:
+- R8: Compensatory Gait Patterns in `src/lib/gait/guesses.ts`.
+  Add 6 new hypothesis rules:
+  1. Steppage gait: knee flexion > 2 SD during swing + ankle dorsiflexion deficit.
+  2. Festinating gait: cadence increasing + step length decreasing within same walk.
+  3. Scissoring gait: narrow/crossing step width + high hip adduction.
+  4. Waddling gait: pelvic obliquity > 8° + trunk lateral sway > 2 SD.
+  5. Trendelenburg sign: contralateral pelvic drop > 5° during single-leg stance phase.
+  6. Circumduction: lateral foot trajectory arc > threshold during swing.
+  Each must reference normative Z-scores where available. Integrate arm swing asymmetry (R6) and trunk sway (R7) into existing and new hypothesis rules.
 
-Write your blueprint report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_2/handoff.md` and send a message to parent.
+Original Request: /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
+Project Scope: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
+
+Instructions:
+1. Initialize working directory with `BRIEFING.md` and `progress.md`.
+2. Inspect `src/lib/gait/guesses.ts`, `src/lib/gait/normatives.ts`, and test files.
+3. Produce a detailed investigation report at `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_2/handoff.md`. Send message back to parent. Do NOT edit source code files.

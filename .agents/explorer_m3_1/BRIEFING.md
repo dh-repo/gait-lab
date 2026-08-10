@@ -1,45 +1,40 @@
-# BRIEFING — 2026-08-10T07:43:00Z
+# BRIEFING — 2026-08-10T10:19:26-04:00
 
 ## Mission
-Formulate implementation blueprint for Milestone 3: Expand Adversarial Test Coverage across 6 synthetic test gap categories.
+Investigate Milestone 3 Requirement R10 (Fall Risk Model Robustness) in `src/lib/gait/fallrisk.ts`.
 
 ## 🔒 My Identity
-- Archetype: Teamwork explorer
-- Roles: Read-only investigator, blueprint author
-- Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m3_1
-- Original parent: e41552d4-18b9-4bd1-a014-7394a83c1796
-- Milestone: M3 (Expand Adversarial Test Coverage)
+- Archetype: Explorer / Read-only investigation
+- Roles: teamwork_preview_explorer
+- Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/
+- Original parent: c11afa06-5f20-4640-9263-a2abefb4a134
+- Milestone: M3
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in src/
-- Follow 5-component handoff report standard
-- Write implementation blueprint to blueprint_m3.md
+- Read-only investigation — do NOT implement / edit source code
+- Analyze `src/lib/gait/fallrisk.ts` and related test files
+- Produce structured investigation report in handoff.md and send message back to parent
 
 ## Current Parent
-- Conversation ID: e41552d4-18b9-4bd1-a014-7394a83c1796
-- Updated: 2026-08-10T07:43:00Z
+- Conversation ID: c11afa06-5f20-4640-9263-a2abefb4a134
+- Updated: 2026-08-10T10:19:26-04:00
 
 ## Investigation State
-- **Explored paths**:
-  - `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_2/survey_r2_r3.md`
-  - `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
-  - `/Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md`
-  - `src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts` to `cat6_camera_shake_motion.test.ts`
-  - `src/lib/gait/__tests__/testHelpers.ts`
+- **Explored paths**: `src/lib/gait/fallrisk.ts`, `src/lib/gait/__tests__/fallrisk.test.ts`, `src/lib/gait/types.ts`, `ORIGINAL_REQUEST.md`, `PROJECT.md`
 - **Key findings**:
-  - 6 gap categories identified in survey_r2_r3.md:
-    1. Landmark noise: Asymmetric single-limb Gaussian noise ($\sigma=0.10$ on right foot keypoints 28, 30, 32)
-    2. Variable frame rate: 2.5s blackout drop (75 frames at 30 FPS) & recovery
-    3. Landmark occlusion: 180° U-turn self-occlusion (depth overlap & side inversion)
-    4. Extreme asymmetry: Antalgic limping gait (Left 0.70s / Right 0.30s step times)
-    5. Micro-steps: Ultra-high cadence Parkinsonian shuffling (300 SPM / 100ms step interval)
-    6. Camera shake: Combined 3D camera translation, 15° rotation roll tilt, & scale zoom
-- **Unexplored areas**: None.
+  1. Gait speed proxy replacement (`estimateGaitSpeed` with height-adjusted and step-length-based formulas).
+  2. Model A frontal view dynamic STEADI thresholds (`breachedCount >= Math.ceil(0.6 * evaluatedCount)` for High Risk).
+  3. Model B missing metric exclusion and dynamic domain weight re-normalization.
+  4. Orthogonal plane separation (eliminating `verticalBounce * 0.5` substitution for lateral sway).
+- **Unexplored areas**: None (R10 investigation 100% complete).
 
 ## Key Decisions Made
-- Structure tests either by extending `src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts` through `cat6_camera_shake_motion.test.ts` or by creating `src/lib/gait/__tests__/adversarial_gaps.test.ts`, plus helper functions in `testHelpers.ts`.
-- Include strict non-crash/NaN/Infinity assertions across all numeric fields in `GaitMetrics`.
+- Prepared detailed 5-component handoff report (`handoff.md`).
+- Prepared complete drop-in proposed implementation (`proposed_fallrisk.ts`).
 
 ## Artifact Index
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/blueprint_m3.md` — Implementation blueprint for M3
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/handoff.md` — Handoff report
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/DISPATCH.md` — Dispatch log
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/BRIEFING.md` — Briefing document
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/progress.md` — Progress tracker / heartbeat
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/proposed_fallrisk.ts` — Proposed source file implementation
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/handoff.md` — Final investigation report

@@ -1,75 +1,78 @@
-# BRIEFING — 2026-08-10T11:33:48Z
+# BRIEFING — 2026-08-10T14:26:30Z
 
 ## Mission
-Execute SOTA Precision Engineering Pass (Phase 2) for gait-lab: Hungarian algorithm, 2-state Kalman filter, One Euro filter, Biometric target lock, Dynamic walking direction, Visibility-gated biometrics, Adaptive SG window, Unit test expansion (5 modules), Clinical normative reference integration & GDI.
+Orchestrate Phase 3 deep dive on gait-lab engine (bug fixes R1-R5, clinical metrics R6-R9, fall risk R10, tests R11, docs R12, verification & git push).
 
 ## 🔒 My Identity
-- Archetype: teamwork_orchestrator
+- Archetype: self
 - Roles: orchestrator, user_liaison, human_reporter, successor
 - Working directory: /Users/damian/GitHub/gait-lab/.agents/orchestrator
-- Original parent: top-level
-- Original parent conversation ID: ae28ae8f-da65-45ea-a312-8898654ea4b6
+- Original parent: parent
+- Original parent conversation ID: c77b11e3-af61-4081-99a0-59031c743d95
 
 ## 🔒 My Workflow
-- **Pattern**: Project
+- **Pattern**: Project Pattern
 - **Scope document**: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
-1. **Decompose**: Survey codebase via 3 Explorers, build Feature Inventory & Milestones in PROJECT.md.
-2. **Dispatch & Execute**: Iterate Explorer -> Worker -> Reviewer -> Challenger -> Auditor cycle per milestone.
-3. **On failure**: Retry -> Replace -> Skip -> Redistribute -> Redesign -> Escalate.
-4. **Succession**: Spawn successor at spawn count >= 20 when subagents complete.
+1. **Decompose**: Phase 3 decomposed into 6 milestones (M1: Critical Bug Fixes R1-R5; M2: Clinical Metric Expansion R6-R9; M3: Fall Risk Hardening R10; M4: Test Coverage Expansion R11; M5: Documentation & Scientific Justifications R12; M6: Final Verification & Git Commit/Push).
+2. **Dispatch & Execute**: Iteration loop per milestone: Explorer → Worker → Reviewer → Challenger → Auditor gate check.
+3. **On failure**: Retry → Replace → Skip → Redistribute → Redesign.
+4. **Succession**: Self-succeed when spawn count >= 20 and no pending subagents.
 - **Work items**:
-  1. Phase 2 Survey & Architecture Mapping [in-progress]
-  2. Milestone 1: Hungarian Matching & 2-State Kalman Filter (R1, R2) [planned]
-  3. Milestone 2: One Euro Filter & Biometric Target Lock (R3, R4) [planned]
-  4. Milestone 3: Dynamic Walking Direction & Visibility-Gated Biometrics (R5, R6) [planned]
-  5. Milestone 4: Adaptive SG Window & Resampling Guard (R7) [planned]
-  6. Milestone 5: Expand Unit Test Coverage for Untested Modules (R8) [planned]
-  7. Milestone 6: Clinical Normative Reference Integration & GDI (R9) [planned]
-  8. Milestone 7: Documentation & Scientific Justification Alignment [planned]
-- **Current phase**: 0 (Phase 2 Survey & Architecture Mapping)
-- **Current focus**: Parallel Survey Explorers (R1-R9) to map codebase & design milestones
+  1. Milestone 1 (R1-R5 Critical Bug Fixes) [done]
+  2. Milestone 2 (R6-R9 Clinical Metric Expansion) [done]
+  3. Milestone 3 (R10 Fall Risk Hardening) [in-progress - review panel pending]
+  4. Milestone 4 (R11 Test Coverage Expansion) [pending]
+  5. Milestone 5 (R12 Scientific Justifications Update) [pending]
+  6. Milestone 6 (Verification & Git Commit/Push) [pending]
+- **Current phase**: 2B (Iteration Loop - M3 Gate Check)
+- **Current focus**: M3 Review Panel Gate Check (Reviewers 1 & 2, Challengers 1 & 2, Forensic Auditor)
 
 ## 🔒 Key Constraints
 - NEVER write, modify, or create source code files directly.
-- NEVER run build/test commands directly.
-- NEVER investigate or explore code directly — dispatch Explorers / Spec Miners.
-- File edits allowed ONLY for metadata/state files (.md) in .agents/ folder.
-- teamwork_preview_auditor is mandatory and binary veto.
-- Include path to ORIGINAL_REQUEST.md in every subagent prompt.
+- NEVER run build/test commands directly — delegate to subagents.
+- DISPATCH-ONLY: delegate technical investigation to Explorers, implementation to Workers, review to Reviewers/Challengers, audit to teamwork_preview_auditor.
+- Forensic Auditor verdict is BINARY VETO (INTEGRITY VIOLATION = unconditional failure).
+- Acceptance criteria: 100% tests passing, >= 1350 total tests, 0 tsc errors, 0 eslint errors, all specific bug fix & feature requirements met.
 
 ## Current Parent
-- Conversation ID: ae28ae8f-da65-45ea-a312-8898654ea4b6
-- Updated: 2026-08-10T11:33:48Z
+- Conversation ID: c77b11e3-af61-4081-99a0-59031c743d95
+- Updated: 2026-08-10T14:26:30Z
 
 ## Key Decisions Made
-- Initiating Phase 2 precision engineering pass.
-- Conducting 3 parallel survey explorations across R1-R9 to map precise code files, dependencies, and baseline test counts.
+- Milestone 1 & 2 PASSED gates.
+- Worker 3 completed R10 implementation in `fallrisk.ts` (1310 tests passing).
+- Generation 2 active.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
-| survey_explorer_1 | teamwork_preview_explorer | Survey R1, R2, R3 (Hungarian, 2-state Kalman, One Euro) | completed | 8ac7098c-d680-4526-b170-632faf1a101a |
-| survey_explorer_2 | teamwork_preview_explorer | Survey R4, R5, R6, R7 (Target Lock, U-Turns, Biometrics, Filtering) | completed | 2060acff-7cb1-4d74-baef-3bf77d7b167c |
-| survey_explorer_3 | teamwork_preview_explorer | Survey R8, R9 (Test Expansion & Normatives Integration) | completed | 4900b7a7-2c2a-46ac-8423-1c67f713eb7e |
-| sub_orch_m1 | teamwork_sub_orch_m1_pass2 | M1: Hungarian Matching & Visibility-Gated Biometrics | in-progress | 7d8b979a-4aef-4487-a455-1796c51827b0 |
-| sub_orch_m2 | teamwork_sub_orch_m2_pass2 | M2: 2-State Kalman Filter & Adaptive SG Window | completed (DONE) | 36fd5b2e-3112-48a0-90c2-42d58ef69b22 |
-| sub_orch_m4 | teamwork_sub_orch_m4_pass2 | M4: Dynamic Walking Direction & Lateral Ankle Disambiguation | completed (DONE) | 791885b1-6dc8-419d-947e-5d5ee44d767d |
-| sub_orch_m5 | teamwork_sub_orch_m5_pass2 | M5: Expand Unit Test Coverage for 5 Untested Modules | completed (DONE) | 3280a55c-ef57-4bcc-86e5-a82d11da8bef |
-| sub_orch_m6 | teamwork_sub_orch_m6_pass2 | M6: Clinical Normative Reference Integration & GDI | completed (DONE) | 2961d4a1-cd72-437a-a1a6-80f6cbfc5c50 |
+| reviewer_m3_1 | teamwork_preview_reviewer | M3 Review (R10) | completed (REQUEST_CHANGES) | b92acdb4-56b7-4499-bf8f-1091d93e48eb |
+| reviewer_m3_2 | teamwork_preview_reviewer | M3 Review (R10) | completed (APPROVE) | 0e0ada23-73a5-43c6-8b17-1ef1a120f95a |
+| challenger_m3_1 | teamwork_preview_challenger | M3 Stress Test (R10) | completed (APPROVE) | 871ef361-0c26-4bc0-a5e6-171de6cc903b |
+| challenger_m3_2 | teamwork_preview_challenger | M3 Stress Test (R10) | completed (APPROVE) | df35dcdb-f9ec-44bf-b62d-3f6381dbe825 |
+| auditor_m3_1 | teamwork_preview_auditor | M3 Forensic Audit (R10) | completed (CLEAN) | bfbe7854-6b58-49cc-8e86-d824a610b9cd |
+| worker_m3_2 | teamwork_preview_worker | M3 TS Fix in stress test | completed (DONE) | 79e4f424-163e-4605-acc2-a00085f1a064 |
+| reviewer_m3_1_iter2 | teamwork_preview_reviewer | M3 Iter 2 Review (R10) | completed (APPROVE) | d7994ea2-d5ba-49e5-83c7-b393566b1f22 |
+| reviewer_m3_2_iter2 | teamwork_preview_reviewer | M3 Iter 2 Review (R10) | completed (APPROVE) | 8fa10ee1-5663-49ff-8bcb-05c06e0bb874 |
+| auditor_m3_1_iter2 | teamwork_preview_auditor | M3 Iter 2 Audit (R10) | completed (CLEAN) | 7dcc8fee-5ecd-40ae-93e8-9a43e0672020 |
+| worker_m4 | teamwork_preview_worker | M4 Test Expansion (>=1350 tests) | in-progress | 38d64e27-ab74-467b-aaf7-8684c8031035 |
 
 ## Succession Status
-- Current generation: gen2
 - Succession required: no
-- Spawn count: 0 / 20 (Reset for Phase 2)
-- Pending subagents: none
-- Predecessor: gen1 (20 spawns)
+- Spawn count: 10 / 20
+- Pending subagents: 38d64e27-ab74-467b-aaf7-8684c8031035
+- Predecessor: Generation 1
 - Successor: not yet spawned
 
 ## Active Timers
-- Heartbeat cron: task-17
+- Heartbeat cron: pending start
 - Safety timer: none
 
 ## Artifact Index
-- /Users/damian/GitHub/gait-lab/.agents/orchestrator/DISPATCH.md — Initial request dispatch record
-- /Users/damian/GitHub/gait-lab/.agents/orchestrator/BRIEFING.md — Persistent working memory index
-- /Users/damian/GitHub/gait-lab/.agents/orchestrator/progress.md — Execution heartbeat and state checkpoint
+- /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md — Original User Request
+- /Users/damian/GitHub/gait-lab/.agents/orchestrator/DISPATCH.md — Dispatch log
+- /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md — Project scope and milestone specifications
+- /Users/damian/GitHub/gait-lab/.agents/orchestrator/progress.md — Progress log
+- /Users/damian/GitHub/gait-lab/.agents/orchestrator/GATE_STATUS.md — Gate Status
+- /Users/damian/GitHub/gait-lab/.agents/orchestrator/handoff.md — Soft Handoff to Successor
+

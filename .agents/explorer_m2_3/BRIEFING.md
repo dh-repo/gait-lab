@@ -1,38 +1,40 @@
-# BRIEFING — 2026-08-09T12:48:02Z
+# BRIEFING — 2026-08-10T10:09:20Z
 
 ## Mission
-Investigate UI integration points in GaitApp.tsx, SessionHistoryDrawer.tsx, and state/navigation components for M2 Side-by-Side Dual Session Comparison View. Plan seamless UI integration: dual session comparison trigger/tab/drawer action, session selection state, and empty/insufficient session fallbacks.
+Investigate Milestone 2 Requirement R9: GPS & MAP calculation, expanded normative parameters, and age stratification tiers in `src/lib/gait/normatives.ts` and `src/lib/gait/angles.ts`.
 
 ## 🔒 My Identity
-- Archetype: Explorer
-- Roles: UI Integration & Navigation Routing Explorer (Explorer 3)
-- Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m2_3
-- Original parent: d1ec1083-2d60-429a-9f15-484f0050dc21
-- Milestone: M2 — Side-by-Side Dual Session Comparison View
+- Archetype: Explorer / Investigator
+- Roles: Read-only codebase investigation, mathematical & architectural specification for R9
+- Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/
+- Original parent: c11afa06-5f20-4640-9263-a2abefb4a134
+- Milestone: M2 - Requirement R9
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes to src/
-- Focus on seamless UI integration, navigation routing, session selection state, drawer actions, and fallback states for <2 sessions.
-- Produce handoff.md in /Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/
+- Read-only investigation — do NOT modify source code files.
+- Deliver detailed findings, patches/specs, and 5-component handoff report at `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/handoff.md`.
+- Communicate back to parent via `send_message`.
 
 ## Current Parent
-- Conversation ID: d1ec1083-2d60-429a-9f15-484f0050dc21
-- Updated: 2026-08-09T12:48:02Z
+- Conversation ID: c11afa06-5f20-4640-9263-a2abefb4a134
+- Updated: 2026-08-10T10:09:20Z
 
 ## Investigation State
-- **Explored paths**: `GaitApp.tsx`, `SessionHistoryDrawer.tsx`, `WorkflowHeader.tsx`, `persistence.ts`, `types.ts`, `styles.css`.
+- **Explored paths**: `src/lib/gait/normatives.ts`, `src/lib/gait/angles.ts`, `src/lib/gait/types.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/__tests__/normatives.test.ts`, `ORIGINAL_REQUEST.md`, `PROJECT.md`
 - **Key findings**:
-  - `GaitApp.tsx` controls `phase`, `computedStage`, and `result`. Needs `viewMode: "workflow" | "comparison"` state and `handleCompareSessions` handler.
-  - `WorkflowHeader.tsx` needs an `onOpenCompare` callback and a "Compare" button (`Columns2` icon) next to History.
-  - `SessionHistoryDrawer.tsx` needs multi-session checkbox selection (max 2) and a sticky footer button "Compare Selected (2 Sessions)".
-  - Fallback UI designed for 0 sessions (Empty CTA to analyze or load demo pair) and 1 session (Session A loaded, prompt for Session B).
-- **Unexplored areas**: None. Complete turn-key blueprint delivered.
+  - `normatives.ts` currently calculates GDI using 5 parameters from Winter (2009) and Bovi et al. (2011).
+  - Baker et al. (2009) GPS and MAP sub-scores are not yet implemented.
+  - GPS is defined as the overall Root Mean Square (RMS) angular deviation in degrees across 101 normalized gait cycle points between patient joint curves and Perry & Burnfield normative mean curves.
+  - MAP sub-scores are defined per-joint RMSE values in degrees for pelvic tilt, hip flex/ext, knee flex/ext, ankle dorsi/plantar, and pelvic obliquity.
+  - `BOVI_NORMATIVES` currently has 3 age categories (`young`, `middle`, `elderly`). Needs expansion to 6 categories: `pediatric` (<18), `young` (18-49), `middle` (50-64), `elderly` (65-74), `advanced_75_84` (75-84), `advanced_85_plus` (85+).
+  - Normative parameters must be expanded from 5 to 9 parameters: adding `gaitSpeed` (m/s), `stepLength` (m), `hipRom` (°), `ankleRom` (°).
+- **Unexplored areas**: None. Codebase investigation complete.
 
 ## Key Decisions Made
-- Formulated turn-key blueprint for M2.4 UI Integration & Navigation Routing in `handoff.md`.
+- Formulated exact mathematical definitions, interfaces, and function implementations for `calculateGPSAndMAP`, expanded `BOVI_NORMATIVES`, updated `getNormativeReference`, `evaluateGaitNormatives`, and `angles.ts` enhancements.
 
 ## Artifact Index
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/DISPATCH.md — Task assignment
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/BRIEFING.md — Working memory
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/progress.md — Liveness heartbeat
-- /Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/handoff.md — Final investigation report
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/DISPATCH.md` — Initial dispatch message
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/BRIEFING.md` — Working context index
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/progress.md` — Liveness heartbeat
+- `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/handoff.md` — Detailed investigation & handoff report

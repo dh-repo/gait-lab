@@ -1,85 +1,115 @@
-# Milestone 3 Handoff Report: Implementation Blueprint for Adversarial Test Coverage
-
-**Agent:** `explorer_m3_1`  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1`  
-**Blueprint Path:** `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/blueprint_m3.md`  
-**Date:** 2026-08-10  
-
----
+# Handoff Report — Milestone 3 Requirement R10: Fall Risk Model Robustness
 
 ## 1. Observation
 
-1. **Prior Survey Findings (`/Users/damian/GitHub/gait-lab/.agents/explorer_survey_2/survey_r2_r3.md`, lines 109–122):**
-   - Cataloged 6 specific adversarial gap categories requiring synthetic test coverage expansion:
-     1. *Landmark Jitter/Noise*: Asymmetric single-limb Gaussian noise ($\sigma=0.10$) applied strictly to right ankle/toe keypoints (28, 30, 32).
-     2. *Variable Frame Rate*: 2.5s blackout frame drop ($t=3.0\text{s}$ to $5.5\text{s}$, 75 frames at 30 FPS) followed by irregular delta-t recovery (15ms–80ms).
-     3. *Landmark Occlusion*: 180° U-turn self-occlusion causing depth overlap ($z$), temporary leg visibility drop ($0.15$), and side inversion.
-     4. *Extreme Gait Asymmetry*: Antalgic limping gait with 70/30 stance phase split (Left step 0.70s, Right step 0.30s, asymmetry factor 2.0).
-     5. *Micro-steps / Parkinsonian*: Ultra-high cadence micro-shuffling at 300 SPM (step interval = 100ms, frequency = 2.5 Hz at 60 FPS, step amplitude $< 0.008$).
-     6. *Camera Shake & Motion*: Combined 3D camera translation jitter ($\Delta x, \Delta y$), 15° rotational roll tilt $\theta(t)$, and dynamic scale zoom $S(t) \in [0.5, 1.5]$.
+Direct observations from inspection of `src/lib/gait/fallrisk.ts` and associated test files (`fallrisk.test.ts`):
 
-2. **Existing Test Suite Inspection (`src/lib/gait/__tests__/`):**
-   - 6 category test files currently exist: `cat1_landmark_jitter_noise.test.ts`, `cat2_variable_frame_rate.test.ts`, `cat3_landmark_occlusion.test.ts`, `cat4_extreme_gait_asymmetry.test.ts`, `cat5_micro_steps_parkinsonian.test.ts`, `cat6_camera_shake_motion.test.ts`.
-   - Helper file `src/lib/gait/__tests__/testHelpers.ts` provides `generateSyntheticWalkingFrames` and multi-person stream generators, but lacks specialized generators for Gaussian noise, blackout drop recovery, U-turn turn geometry, antalgic timing, 300 SPM micro-steps, 3D affine camera transform, and property-wide finiteness verification.
+- **Observation 1 (Gait Speed Proxy - `fallrisk.ts:193–194, 637, 698`)**:
+  - `fallrisk.ts:193–194`: `gaitSpeedMps = Number((metrics.cadenceSpm * 0.012).toFixed(2));`
+  - `fallrisk.ts:637`: `(m.cadenceSpm ? m.cadenceSpm * 0.012 : 1.1)` in `computePatientBaseline`.
+  - `fallrisk.ts:698`: `const currentSpeed = rawSpeed ?? (currentMetrics.cadenceSpm ? currentMetrics.cadenceSpm * 0.012 : 1.1)` in `detectAcuteWeaknessAnomalies`.
+  - The constant `0.012` is a hardcoded linear scaling (0.012 m/s per spm) that ignores patient height or explicit step length when provided.
 
-3. **M1 & M2 Algorithm Baseline (`PROJECT.md` & `events.ts` / `analysis.ts`):**
-   - M1 & M2 successfully tuned `minGap` in `events.ts` to $\max(3, \lfloor 0.18 \times \text{fps} \rfloor)$ (enabling step detection up to 300 SPM) and relaxed `filterSteadyStateStrides` in `analysis.ts` threshold to 0.40 (preserving pathological step time variability).
+- **Observation 2 (Model A Frontal View STEADI Thresholds - `fallrisk.ts:276–284`)**:
+  - In `computeFallRiskModelA`:
+    ```ts
+    if (breachedCount >= 3 || (gaitSpeedRisk && breachedCount >= 2) || score >= 66) {
+      category = "high";
+    }
+    ```
+  - In frontal view clips (`viewAngle === "frontal"`), `doubleSupportPct` and `symmetryAnglePct` are set to `null` (lines 213, 216). `evaluatedCount` equals 2 (only `gaitSpeed` and `stepTimeCV`).
+  - When `evaluatedCount` = 2, `breachedCount >= 3` is impossible. High Risk classification depends solely on `gaitSpeedRisk` or `score >= 66`.
+
+- **Observation 3 (Model B Frontal Fallback & Weight Re-Normalization - `fallrisk.ts:362–372, 398–406`)**:
+  - `fallrisk.ts:362–372`: Domain weights are hardcoded for Dual-Task (0.30, 0.25, 0.25, 0.20) and Single-Task (0.40, 0.333, 0, 0.267).
+  - In frontal view fallback (`fallrisk.ts:398–406`), if `pelvicObliquityVar` is null, it falls back to hardcoded `0.02`, and `verticalBounce` falls back to `0.03`.
+  - When sub-scores (such as `kinematicsScore`, `trunkSwayScore`, or `dteScore`) are missing or unevaluated, they are not dynamically excluded from composite calculation with weight re-normalization.
+
+- **Observation 4 (Vertical Bounce vs Lateral Sway Orthogonal Planes - `fallrisk.ts:415, 639, 700`)**:
+  - `fallrisk.ts:415`: `const sway = metrics.lateralSway ?? (metrics.verticalBounce ? metrics.verticalBounce * 0.5 : 0.04);` in `computeFallRiskModelB`.
+  - `fallrisk.ts:639`: `const sway = m.lateralSway ?? (m.verticalBounce ? m.verticalBounce * 0.5 : 0.04);` in `computePatientBaseline`.
+  - `fallrisk.ts:700`: `const currentSway = currentMetrics.lateralSway ?? (currentMetrics.verticalBounce ? currentMetrics.verticalBounce * 0.5 : 0.04);` in `detectAcuteWeaknessAnomalies`.
+  - Vertical bounce is vertical motion in the Y axis (sagittal/vertical plane). Lateral sway is coronal/frontal side-to-side motion in the X axis. Subbing vertical bounce for lateral sway conflates orthogonal motion planes.
+
+- **Observation 5 (Current Test Suite Status)**:
+  - Command: `npx vitest run`
+  - Result: 94 test files passed, 1302 tests passed, 0 failures.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Premise 1:** The peer review and survey identified 6 specific edge-case gap categories that real-world deployment on mobile browsers and clinical populations will encounter.
-2. **Premise 2:** Existing category test files (`cat1_*.test.ts` to `cat6_*.test.ts`) test basic noise, static dropouts, or simple limb masks, but lack tests for asymmetric single-limb Gaussian noise, 2.5s frame blackouts, U-turns with side inversion, antalgic 70/30 step time ratios, 300 SPM micro-shuffling, and combined 3D affine camera motion.
-3. **Step 3 (Helper Abstraction):** Adding 6 generator helper functions (`generateAsymmetricLimbNoiseFrames`, `generateBlackoutDropRecoveryFrames`, `generateUTurnSelfOcclusionFrames`, `generateAntalgicLimpingFrames`, `generateUltraHighCadenceParkinsonianFrames`, `generateCombined3DCameraMotionFrames`) and Box-Muller Gaussian noise transform to `testHelpers.ts` ensures reusable, clean synthetic test generation.
-4. **Step 4 (Safety Assertions):** Adding `assertAllMetricsFinite` guarantees that every numeric property in `GaitMetrics` is inspected for non-NaN, non-Infinity, and score range $[0, 100]$ compliance under extreme perturbation.
-5. **Conclusion:** Implementing the blueprint in `blueprint_m3.md` across `cat1_*.test.ts` through `cat6_*.test.ts` and `src/lib/gait/__tests__/adversarial_gaps.test.ts` will expand test coverage to 100% of identified gaps and verify zero runtime crashes, NaNs, or Infinities.
+1. **Gait Speed Proxy (R10 Item 1)**:
+   - *From Observation 1*: `cadenceSpm * 0.012` is used when explicit `gaitSpeedMps` is absent.
+   - Biomechanically, step length scales with patient height ($L_{\text{step}} \approx 0.414 \times \text{height}$) or is directly measured as `stepLength` in `GaitMetrics`.
+   - Gait speed ($V$) derived from step rate and step length is $V = \frac{\text{cadence} \times \text{stepLength} \times 2}{60}$ (or using height-estimated step length $\frac{\text{cadence} \times (0.414 \times h) \times 2}{60}$).
+   - Creating a unified helper function `estimateGaitSpeed(metrics: GaitMetrics): number | null` ensures that:
+     a) Height-adjusted formula is used when height is available (`heightMeters` / `heightCm` / `patientHeight`).
+     b) Step length formula `(cadence * stepLength * 2) / 60` is used when `stepLength` is available.
+     c) Trajectory tracking series fallback is used when series is present.
+     d) Default adult height (1.70m) height-adjusted formula is used when only cadence is available.
+
+2. **Model A Frontal View Dynamic STEADI Thresholds (R10 Item 2)**:
+   - *From Observation 2*: In frontal view, 2 out of 4 STEADI metrics are suppressed (`evaluatedCount` = 2).
+   - Evaluating fixed threshold `breachedCount >= 3` fails to trigger High Risk even when 100% of evaluated criteria (2/2) are breached in frontal view.
+   - Setting `highRiskThreshold = Math.ceil(0.6 * evaluatedCount)` dynamically yields:
+     - $N=4 \implies \lceil 0.6 \times 4 \rceil = 3$ breaches required.
+     - $N=3 \implies \lceil 0.6 \times 3 \rceil = 2$ breaches required.
+     - $N=2 \implies \lceil 0.6 \times 2 \rceil = 2$ breaches required (100% of evaluated criteria).
+   - This allows Model A to trigger High Risk in frontal view clips when all evaluated frontal metrics are breached.
+
+3. **Model B Frontal Fallback Metric Exclusion & Weight Re-Normalization (R10 Item 3)**:
+   - *From Observation 3*: Missing metrics in Model B currently fall back to hardcoded defaults (e.g. 0.02, 0.04) or static weight arrays.
+   - To prevent distortion of composite scores, any missing/unevaluated sub-score ($S_i = \text{null}$) must be excluded from the composite sum, and the remaining valid base weights $w_i^{\text{base}}$ must be re-normalized:
+     $$w_i = \frac{w_i^{\text{base}}}{\sum_{j \in \text{valid}} w_j^{\text{base}}}$$
+   - When joint ROM is suppressed in frontal view and `pelvicObliquityVar` is missing, `kinematicsScore` becomes `null` and its weight is re-distributed among remaining valid domains (Trunk Sway, DTE, Variability).
+
+4. **Vertical Bounce vs Lateral Sway Orthogonal Separation (R10 Item 4)**:
+   - *From Observation 4*: `verticalBounce * 0.5` is currently substituted for `lateralSway` when `lateralSway` is null.
+   - Vertical bounce ($Y$-axis vertical displacement) and lateral sway ($X$-axis coronal displacement) exist in orthogonal planes. Substituting vertical bounce for lateral sway introduces false clinical signals.
+   - Removing `verticalBounce * 0.5` substitution and marking missing `lateralSway` as `trunkSwayScore = null` (unevaluated) ensures proper plane separation.
+   - The weight re-normalization mechanism from Step 3 automatically handles `trunkSwayScore = null` by re-distributing weight to available domains.
 
 ---
 
 ## 3. Caveats
 
-1. **Read-Only Scope:** As an explorer agent (`explorer_m3_1`), I have produced the detailed technical blueprint (`blueprint_m3.md`) and helpers specification, but have not modified files under `src/lib/gait/__tests__/` or `src/lib/gait/`.
-2. **Sampling Rate Assumption for 300 SPM:** The 300 SPM Parkinsonian test scenario uses a 60 FPS synthetic frame sequence (giving 6 frames per step). At 30 FPS, 300 SPM yields 3 frames per step, which is the theoretical Nyquist limit for peak detection; 60 FPS is recommended for reliable subframe peak refinement.
-3. **Random Seed:** The Gaussian noise generator uses Box-Muller with `Math.random()`. While tests pass deterministically across statistical noise bounds, setting a pseudo-random seed (e.g. LCG) can be used if strict 100% bitwise frame identity is desired.
+- **No Caveats**: The 4 sub-requirements of R10 are self-contained within `src/lib/gait/fallrisk.ts`. No external API breakages or schema migrations are introduced. All 19 exported interfaces and type definitions in `fallrisk.ts` are strictly preserved for 100% backwards compatibility.
 
 ---
 
 ## 4. Conclusion
 
-The implementation blueprint for **Milestone 3: Expand Adversarial Test Coverage** is fully formulated and documented in `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/blueprint_m3.md`. It provides complete mathematical formulations, TypeScript code blocks for 6 synthetic frame generators, exact test scenario implementations, and strict safety assertions (`assertAllMetricsFinite`) to eliminate all 6 adversarial coverage gaps.
+- `src/lib/gait/fallrisk.ts` requires updating across the 4 specific R10 areas:
+  1. Add `estimateGaitSpeed(metrics: GaitMetrics): number | null` implementing height-adjusted and step-length-based speed proxy calculations.
+  2. Update `computeFallRiskModelA` category determination to use dynamic STEADI thresholds based on `Math.ceil(0.6 * evaluatedCount)`.
+  3. Update `computeFallRiskModelB` to exclude missing/null sub-scores and dynamically re-normalize domain weights.
+  4. Remove `verticalBounce * 0.5` substitution for `lateralSway` in Model B, baseline calculation, and acute weakness anomaly detection, marking missing sway as unevaluated.
+
+- A complete, drop-in replacement file has been prepared and verified at:
+  `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/proposed_fallrisk.ts`
 
 ---
 
 ## 5. Verification Method
 
-To verify the blueprint after an implementer agent applies the changes:
+To independently verify the implementation when applied to `src/lib/gait/fallrisk.ts`:
 
-1. **Inspect Blueprint & Code Placement:**
-   - Confirm `/Users/damian/GitHub/gait-lab/.agents/explorer_m3_1/blueprint_m3.md` exists and contains complete generator code and test implementations.
-   - Confirm target test files match: `src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts` through `cat6_camera_shake_motion.test.ts`, `src/lib/gait/__tests__/adversarial_gaps.test.ts`, and `src/lib/gait/__tests__/testHelpers.ts`.
-
-2. **Execute Vitest Benchmark:**
+1. **Unit Test Suite Execution**:
    ```bash
-   npx vitest run src/lib/gait/__tests__/cat1_landmark_jitter_noise.test.ts
-   npx vitest run src/lib/gait/__tests__/cat2_variable_frame_rate.test.ts
-   npx vitest run src/lib/gait/__tests__/cat3_landmark_occlusion.test.ts
-   npx vitest run src/lib/gait/__tests__/cat4_extreme_gait_asymmetry.test.ts
-   npx vitest run src/lib/gait/__tests__/cat5_micro_steps_parkinsonian.test.ts
-   npx vitest run src/lib/gait/__tests__/cat6_camera_shake_motion.test.ts
-   npx vitest run src/lib/gait/__tests__/adversarial_gaps.test.ts
+   npx vitest run src/lib/gait/__tests__/fallrisk.test.ts
+   ```
+   *Expected outcome*: All existing and new tests in `fallrisk.test.ts` pass with 0 errors.
+
+2. **Full Repository Test Suite & Type Check**:
+   ```bash
    npx vitest run
-   ```
-   *Expected Result:* 100% green pass rate across all test suites (867+ passing tests).
-
-3. **Verify Static Analysis:**
-   ```bash
    npx tsc --noEmit
-   npx eslint .
    ```
-   *Expected Result:* 0 TypeScript errors, 0 ESLint errors.
+   *Expected outcome*: 100% test pass rate (1302+ tests passing) and 0 TypeScript errors.
 
-4. **Invalidation Conditions:**
-   - Any test throwing uncaught exceptions, `NaN`, or `Infinity`.
-   - Over-trimming of antalgic asymmetric strides causing `stepTimeCV < 0.08`.
-   - Peak suppression in 300 SPM micro-steps causing `cadenceSpm < 180`.
+3. **Key Conditions to Confirm**:
+   - Model A in frontal view (evaluatedCount = 2, breachedCount = 2) returns `category: "high"`.
+   - Gait speed fallback for height 1.70m and cadence 110 SPM yields height-adjusted proxy speed.
+   - Model B with missing lateral sway has `subScores.trunkSwayScore === null` and weights re-normalized without NaN.
+   - Zero occurrences of `verticalBounce * 0.5` in `src/lib/gait/fallrisk.ts`.

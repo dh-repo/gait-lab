@@ -1,226 +1,157 @@
-# Handoff Report: 1D Landmark Coordinate Temporal Smoothing (M1.2)
-
-**Author:** Explorer M1-2 (Signal Processing & Temporal Smoothing Specialist)  
-**Date:** 2026-08-09  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_2`  
-**Target Module:** `src/lib/gait/signal.ts`  
-
----
+# Handoff Report: M1 R2 & R3 Codebase & Requirements Investigation
 
 ## 1. Observation
 
-1. **Missing 1D Coordinate Smoothing in `src/lib/gait/signal.ts`**:
-   `signal.ts` (lines 1–178) currently exports `olsDetrend`, `butterworthLowPass`, and `zeroPhaseButterworth`. It does **not** export `savitzkyGolay5` or `smoothPoseFrames`.
-2. **Keypoint Coordinate Jitter Impact in `src/lib/gait/analysis.ts`**:
-   In `analysis.ts` (lines 242–285), raw landmark coordinates are processed directly for view angle detection (`detectViewAngle`), Zeni event detection (`detectGaitEventsZeni`), and joint angle computations (`computeGaitAngleAnalysis`). Butterworth low-pass filtering (line 279) is only applied post-hoc to summary series like `midHipX`, `leftWristRel`, and `leftKneeAngle`. Raw keypoint spatial jitter corrupts transient peak detection and joint angle extremes prior to metric calculation.
-3. **Types in `src/lib/gait/types.ts`**:
-   `Landmark` (lines 14–19) defines `{ x: number; y: number; z: number; visibility?: number; presence?: number }`. `PoseFrame` (lines 21–25) defines `{ timeMs: number; landmarks: Landmark[]; worldLandmarks?: Landmark[] }`. `LandmarkFrame` is currently not defined as an explicit type alias.
+### R2: Contralateral Step Distance Mislabeled as "Stride Length"
+- **Target File:** `src/lib/gait/analysis.ts` lines 402-416.
+- **Verbatim Code Snippet:**
+```typescript
+401:   // Stride length proxy: hip travel between same-side steps (valid in sagittal/oblique)
+402:   const leftStride: number[] = [];
+403:   const rightStride: number[] = [];
+404:   for (let i = 1; i < heelStrikes.length; i++) {
+405:     if (heelStrikes[i].side !== heelStrikes[i - 1].side) {
+406:       const i0 = nearestIndex(series.map((s) => s.t), heelStrikes[i - 1].timeSec);
+407:       const i1 = nearestIndex(series.map((s) => s.t), heelStrikes[i].timeSec);
+408:       const travel = Math.hypot(
+409:         series[i1].midHipX - series[i0].midHipX,
+410:         series[i1].midHipY - series[i0].midHipY,
+411:       ) / mean(series.map((s) => s.torso));
+412:       if (heelStrikes[i].side === "left") leftStride.push(travel);
+413:       else rightStride.push(travel);
+414:     }
+415:   }
+416:   const strideAsymmetry = !isFrontal ? asymmetryRatio(mean(leftStride) || 0, mean(rightStride) || 0) : null;
+```
+- **Direct Observation & Defect Analysis:**
+  Line 405 evaluates `if (heelStrikes[i].side !== heelStrikes[i - 1].side)`. This condition measures travel between consecutive heel strikes of **opposite** feet (e.g. Right -> Left or Left -> Right). In gait analysis, travel between opposite foot contacts is **contralateral step distance** (Step Length).
+  The code erroneously stores this step distance into `leftStride` and `rightStride`, mislabeling step length as stride length. True **stride length** is **ipsilateral** distance—the distance traveled between consecutive contacts of the **same** foot (Left -> Left or Right -> Right).
+
+### R3: Hardcoded Cadence Penalty Kills Parkinsonian Gait
+- **Target File:** `src/lib/gait/analysis.ts` lines 328-333.
+- **Verbatim Code Snippet:**
+```typescript
+328:     const walkFit = (c: number) => {
+329:       if (c < 45 || c > 165) return -1e9;
+330:       // peak preference ~100–115 spm
+331:       return -Math.abs(c - 108) - (c < 70 ? 40 : 0);
+332:     };
+333:     if (oscHs.length >= 4 && walkFit(oCad) > walkFit(zCad)) {
+334:       stepEvents = osc;
+335:     }
+```
+- **Direct Observation & Defect Analysis:**
+  Line 331 applies a heavy `-40` penalty (`- (c < 70 ? 40 : 0)`) to any cadence lower than 70 steps per minute (spm).
+  In frontal camera views (`if (isFrontal)`), `walkFit` compares cadence `zCad` derived from Zeni heel strikes against `oCad` derived from hip-Y oscillation peaks (`estimateStepsFromOscillation`).
+  For Parkinsonian or slow-gait subjects with cadence under 70 spm (e.g. 50 spm), Zeni's accurate low-cadence detection receives the -40 penalty (`walkFit(50) = -58 - 40 = -98`). If `oscHs` generates noisy oscillation peaks around ~100 spm (`walkFit(100) = -8`), `walkFit(oCad) > walkFit(zCad)` evaluates to true.
+  This forces the algorithm to discard true Zeni heel strikes (`stepEvents = osc`), overwriting low-cadence Parkinsonian steps with invalid high-frequency oscillation noise.
+  Additionally, line 329 enforces `c < 45 || c > 165`, whereas the clinical standard for gait cadence selection range is 40–140 spm.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Noise Reduction Requirement**:
-   MediaPipe keypoints exhibit high-frequency coordinate noise. A 5-point Savitzky-Golay filter fits a local quadratic polynomial $p(t) = c_0 + c_1 t + c_2 t^2$ over moving windows of 5 points.
-2. **Convolution Kernel**:
-   Solving the least-squares normal equations for the center point $c_0$ yields kernel $\mathbf{W} = \frac{1}{35} [-3, 12, 17, 12, -3]$. Sum of weights equals $1.0$, preserving DC signals without baseline drift and reducing noise variance by $51.75\%$.
-3. **Boundary Reflection Padding**:
-   For sequence length $N \ge 5$:
-   - Left padding: $x_{-1} = 2 x_0 - x_1$, $x_{-2} = 2 x_0 - x_2$
-   - Right padding: $x_N = 2 x_{N-1} - x_{N-2}$, $x_{N+1} = 2 x_{N-1} - x_{N-3}$
-   Substituting linear trend $x[k] = a k + b$ into these boundary equations yields **$0.000$ error** across all boundary points $i \in \{0, 1, N-2, N-1\}$.
-4. **Short Sequence Handling**:
-   For $N < 5$, `savitzkyGolay5` and `smoothPoseFrames` return a shallow copy of the input signal/frames unaltered, preventing array out-of-bounds indexing and index distortions.
-5. **Metadata Preservation & Immutability**:
-   `smoothPoseFrames` extracts 1D spatial coordinate trajectories for each landmark index $j \in [0, 32]$ for $x, y, z$ (and `worldLandmarks` $x, y, z$ if present). Rebuilding the frame objects with `{ ...origLm, x, y, z }` and `{ ...origFrame, landmarks }` preserves `visibility`, `presence`, `timeMs`, and all auxiliary metadata without mutating input frames in place.
+### R2 Logic Chain
+1. `heelStrikes` contains sorted gait events with `side: "left" | "right"` and `timeSec`.
+2. Iterating through `i` from 1 to `heelStrikes.length - 1` with condition `side !== side` pairs `heelStrikes[i-1]` (Foot A) with `heelStrikes[i]` (Foot B). The distance traveled between Foot A contact and Foot B contact is contralateral step length.
+3. True ipsilateral stride length must be computed by measuring travel between consecutive contacts of the **same** side (`side === side`):
+   - For `side` in `["left", "right"]`:
+   - Filter `heelStrikes` for `side`.
+   - Iterate through consecutive same-side strikes `j - 1` and `j`.
+   - Measure `midHip` travel between `timeSec` of `sideStrikes[j - 1]` and `sideStrikes[j]`, normalized by mean torso height.
+   - Store in `leftStride` (for left) and `rightStride` (for right).
+4. Retain contralateral step distance calculation for step length (e.g. `leftStep` / `rightStep`).
+5. `strideAsymmetry` will continue to be computed as `asymmetryRatio(mean(leftStride) || 0, mean(rightStride) || 0)`, which now reflects true ipsilateral stride length asymmetry.
+
+### R3 Logic Chain
+1. In frontal views, `walkFit(c)` scores candidate cadence values to select between Zeni event detection (`zCad`) and hip-Y vertical oscillation peak detection (`oCad`).
+2. Removing `- (c < 70 ? 40 : 0)` ensures slow gait (40–70 spm) is evaluated purely by its distance from typical cadence (-Math.abs(c - 108)) without artificial penalization.
+3. Updating the valid cadence range check from `c < 45 || c > 165` to `c < 40 || c > 140` establishes the acceptable clinical range of 40–140 spm.
+4. With this change, a Parkinsonian gait clip with cadence ~50 spm will yield `walkFit(50) = -58`. Unless oscillation peaks provide a genuinely closer fit to normal walking without false high-frequency peaks, Zeni's low-cadence detection is preserved instead of being overridden by `osc`.
 
 ---
 
 ## 3. Caveats
-
-1. **Minimum Frame Threshold**: Sequences with $N < 5$ frames bypass filtering and return un-smoothed keypoints. This is intended behavior to avoid edge artifact distortion on micro-clips.
-2. **World Landmarks Handling**: `worldLandmarks` are smoothed when present on the first frame of a clip. If absent, only 2D/3D image `landmarks` are processed.
+- **Stride length magnitude shift**: Switching `leftStride` and `rightStride` from contralateral (step) to ipsilateral (stride) will double the numeric travel distance value for symmetric gait (since 1 stride = 2 steps). Tests or modules checking absolute stride length values (rather than relative ratios or asymmetry percentages) will see doubled values.
+- **Frontal View Scope of `walkFit`**: `walkFit` is exclusively invoked inside `if (isFrontal)` in `analysis.ts` (lines 320-336). Sagittal and oblique view processing are unaffected by `walkFit`.
+- **Cadence upper bound 140 spm**: For `walkFit` in frontal view, cadences > 140 spm will return `-1e9`. Note that ultra-high cadence festinating gait (e.g., > 140 spm up to 300 spm in `cat5_micro_steps_parkinsonian.test.ts`) is evaluated in non-frontal or general processing where `walkFit` is not used.
 
 ---
 
-## 4. Conclusion
+## 4. Conclusion & Proposed Implementation Strategy
 
-### Concrete Implementation Proposals
+### Proposed Code Changes for `src/lib/gait/analysis.ts`
 
-#### A. Add `savitzkyGolay5` & `smoothPoseFrames` to `src/lib/gait/signal.ts`:
-
+#### Fix R2: Ipsilateral Stride Length (lines 401-416)
 ```typescript
-import type { Landmark, PoseFrame } from "./types";
-
-export type LandmarkFrame = PoseFrame;
-
-/**
- * 5-Point Savitzky-Golay 1D Temporal Smoothing Filter.
- * Fits a local quadratic polynomial using kernel 1/35 * [-3, 12, 17, 12, -3].
- * Uses linear boundary reflection padding for N >= 5 frames.
- * Returns input unaltered for N < 5 frames.
- */
-export function savitzkyGolay5(signal: number[]): number[] {
-  if (!signal || signal.length < 5) {
-    return signal ? signal.map((v) => (Number.isFinite(v) ? v : 0)) : [];
-  }
-
-  const clean = signal.map((v) => (Number.isFinite(v) ? v : 0));
-  const n = clean.length;
-
-  const padded = new Array<number>(n + 4);
-  padded[0] = 2 * clean[0] - clean[2];
-  padded[1] = 2 * clean[0] - clean[1];
-  for (let i = 0; i < n; i++) {
-    padded[i + 2] = clean[i];
-  }
-  padded[n + 2] = 2 * clean[n - 1] - clean[n - 2];
-  padded[n + 3] = 2 * clean[n - 1] - clean[n - 3];
-
-  const out = new Array<number>(n);
-  const inv35 = 1 / 35;
-
-  for (let i = 0; i < n; i++) {
-    const idx = i + 2;
-    out[i] = inv35 * (
-      -3 * padded[idx - 2] +
-      12 * padded[idx - 1] +
-      17 * padded[idx] +
-      12 * padded[idx + 1] -
-       3 * padded[idx + 2]
-    );
-  }
-
-  return out;
-}
-
-/**
- * Applies 5-point Savitzky-Golay 1D temporal coordinate smoothing across all 33 keypoints'
- * (x, y, z) spatial coordinates across pose frames.
- * Preserves landmark visibility, presence, and timestamp metadata untouched.
- */
-export function smoothPoseFrames<T extends PoseFrame>(frames: T[]): T[] {
-  if (!frames || frames.length < 5) {
-    return frames ? frames.slice() : [];
-  }
-
-  const n = frames.length;
-  const numLandmarks = frames[0]?.landmarks?.length ?? 0;
-  if (numLandmarks === 0) {
-    return frames.slice();
-  }
-
-  const smoothedX: number[][] = [];
-  const smoothedY: number[][] = [];
-  const smoothedZ: number[][] = [];
-
-  for (let j = 0; j < numLandmarks; j++) {
-    const xSig = new Array<number>(n);
-    const ySig = new Array<number>(n);
-    const zSig = new Array<number>(n);
-
-    for (let i = 0; i < n; i++) {
-      const lm = frames[i].landmarks[j];
-      xSig[i] = lm?.x ?? 0;
-      ySig[i] = lm?.y ?? 0;
-      zSig[i] = lm?.z ?? 0;
-    }
-
-    smoothedX.push(savitzkyGolay5(xSig));
-    smoothedY.push(savitzkyGolay5(ySig));
-    smoothedZ.push(savitzkyGolay5(zSig));
-  }
-
-  const hasWorld = Boolean(frames[0]?.worldLandmarks && frames[0].worldLandmarks.length > 0);
-  const numWorldLandmarks = hasWorld ? frames[0].worldLandmarks!.length : 0;
-  const smoothedWorldX: number[][] = [];
-  const smoothedWorldY: number[][] = [];
-  const smoothedWorldZ: number[][] = [];
-
-  if (hasWorld) {
-    for (let j = 0; j < numWorldLandmarks; j++) {
-      const wxSig = new Array<number>(n);
-      const wySig = new Array<number>(n);
-      const wzSig = new Array<number>(n);
-
-      for (let i = 0; i < n; i++) {
-        const wlm = frames[i].worldLandmarks?.[j];
-        wxSig[i] = wlm?.x ?? 0;
-        wySig[i] = wlm?.y ?? 0;
-        wzSig[i] = wlm?.z ?? 0;
-      }
-
-      smoothedWorldX.push(savitzkyGolay5(wxSig));
-      smoothedWorldY.push(savitzkyGolay5(wySig));
-      smoothedWorldZ.push(savitzkyGolay5(wzSig));
+  // Contralateral step distance (step length)
+  const leftStep: number[] = [];
+  const rightStep: number[] = [];
+  for (let i = 1; i < heelStrikes.length; i++) {
+    if (heelStrikes[i].side !== heelStrikes[i - 1].side) {
+      const i0 = nearestIndex(series.map((s) => s.t), heelStrikes[i - 1].timeSec);
+      const i1 = nearestIndex(series.map((s) => s.t), heelStrikes[i].timeSec);
+      const travel = Math.hypot(
+        series[i1].midHipX - series[i0].midHipX,
+        series[i1].midHipY - series[i0].midHipY,
+      ) / mean(series.map((s) => s.torso));
+      if (heelStrikes[i].side === "left") leftStep.push(travel);
+      else rightStep.push(travel);
     }
   }
 
-  return frames.map((origFrame, i) => {
-    const newLandmarks: Landmark[] = origFrame.landmarks.map((origLm, j) => ({
-      ...origLm,
-      x: smoothedX[j][i],
-      y: smoothedY[j][i],
-      z: smoothedZ[j][i],
-    }));
-
-    let newWorldLandmarks: Landmark[] | undefined;
-    if (hasWorld && origFrame.worldLandmarks) {
-      newWorldLandmarks = origFrame.worldLandmarks.map((origWlm, j) => ({
-        ...origWlm,
-        x: smoothedWorldX[j][i],
-        y: smoothedWorldY[j][i],
-        z: smoothedWorldZ[j][i],
-      }));
+  // Ipsilateral stride length: hip travel between consecutive same-side steps (valid in sagittal/oblique)
+  const leftStride: number[] = [];
+  const rightStride: number[] = [];
+  for (const side of ["left", "right"] as const) {
+    const sideStrikes = heelStrikes.filter((e) => e.side === side);
+    for (let i = 1; i < sideStrikes.length; i++) {
+      const i0 = nearestIndex(series.map((s) => s.t), sideStrikes[i - 1].timeSec);
+      const i1 = nearestIndex(series.map((s) => s.t), sideStrikes[i].timeSec);
+      const travel = Math.hypot(
+        series[i1].midHipX - series[i0].midHipX,
+        series[i1].midHipY - series[i0].midHipY,
+      ) / mean(series.map((s) => s.torso));
+      if (side === "left") leftStride.push(travel);
+      else rightStride.push(travel);
     }
+  }
+  const strideAsymmetry = !isFrontal ? asymmetryRatio(mean(leftStride) || 0, mean(rightStride) || 0) : null;
+```
 
-    return {
-      ...origFrame,
-      landmarks: newLandmarks,
-      ...(newWorldLandmarks ? { worldLandmarks: newWorldLandmarks } : {}),
+#### Fix R3: Remove Low-Cadence Penalty & Set Clinical Range 40-140 SPM (lines 328-333)
+```typescript
+    const walkFit = (c: number) => {
+      if (c < 40 || c > 140) return -1e9;
+      // peak preference ~100–115 spm
+      return -Math.abs(c - 108);
     };
-  });
-}
-```
-
-#### B. Update `src/lib/gait/types.ts`:
-Add export:
-```typescript
-export type LandmarkFrame = PoseFrame;
-```
-
-#### C. Update `src/lib/gait/analysis.ts`:
-```typescript
-import { smoothPoseFrames } from "./signal";
-
-function computeGaitMetricsCore(rawFrames: PoseFrame[]): GaitMetrics {
-  if (rawFrames.length < 5) return emptyMetrics(rawFrames);
-
-  const frames = smoothPoseFrames(rawFrames);
-  // ...
-}
 ```
 
 ---
 
 ## 5. Verification Method
 
-To verify the implementation independently:
+### Test Commands
+1. **Unit Test Execution:**
+   ```bash
+   npx vitest run src/lib/gait/__tests__/analysis.test.ts src/lib/gait/__tests__/cat5_micro_steps_parkinsonian.test.ts
+   ```
+2. **Full Test Suite Run:**
+   ```bash
+   npx vitest run
+   ```
+3. **TypeScript Compliance Check:**
+   ```bash
+   npx tsc --noEmit
+   ```
 
-1. **Run Unit Tests**:
-   ```bash
-   npx vitest run src/lib/gait/__tests__/signal.test.ts
-   ```
-2. **Run Full Test Suite**:
-   ```bash
-   npm test
-   ```
-3. **Run Typecheck and Lint**:
-   ```bash
-   npm run typecheck
-   npm run lint
-   ```
-4. **Run Production Build**:
-   ```bash
-   npm run build
-   ```
+### Specific Verification Tests to Implement (under R11)
+1. **Ipsilateral Stride Length Test (`src/lib/gait/__tests__/analysis.test.ts`):**
+   Construct a synthetic pose sequence with known step geometry (e.g. step distance = 0.5 torso height, stride distance = 1.0 torso height). Verify that `leftStride` and `rightStride` yield ~1.0 torso height while `leftStep` / `rightStep` yield ~0.5 torso height.
+2. **Parkinsonian Low Cadence WalkFit Test (`src/lib/gait/__tests__/analysis.test.ts`):**
+   Pass a frontal view walking clip with cadence = 50 spm. Assert that Zeni heel strikes are preserved (`stepEvents` matches Zeni detection) and not replaced by oscillation peaks.
+
+### Invalidation Conditions
+- Any test failure across the vitest suite (0 failures required).
+- Any TypeScript compilation error from `tsc`.

@@ -6,6 +6,7 @@ import {
   getNormativeReference,
   calculateGDI,
   evaluateGaitNormatives,
+  calculateGPSAndMAP,
 } from "../normatives";
 import { buildStructuredReport } from "../ratings";
 import { buildEducatedGuesses } from "../guesses";
@@ -233,6 +234,121 @@ describe("normatives.ts", () => {
       const extremePercentileGuess = guesses.find((g) => g.id === "normative-percentile-extreme");
       expect(extremePercentileGuess).toBeDefined();
       expect(extremePercentileGuess?.severity).toBe("moderate");
+    });
+  });
+
+  describe("R9: Gait Profile Score (GPS) & Movement Analysis Profile (MAP)", () => {
+    it("returns GPS = 0.0 and MAP sub-scores = 0.0 when patient curves match normative means perfectly", () => {
+      const normCurves = Array.from({ length: 101 }, (_, i) => ({
+        gaitCyclePct: i,
+        kneeAngleLeft: 10,
+        kneeAngleRight: 10,
+        hipAngleLeft: 20,
+        hipAngleRight: 20,
+        ankleAngleLeft: 0,
+        ankleAngleRight: 0,
+      }));
+
+      const mockNormData = Array.from({ length: 101 }, (_, i) => ({
+        gaitCyclePct: i,
+        kneeMean: 10,
+        kneeMin: 0,
+        kneeMax: 20,
+        hipMean: 20,
+        hipMin: 10,
+        hipMax: 30,
+        ankleMean: 0,
+        ankleMin: -10,
+        ankleMax: 10,
+      }));
+
+      const angleAnalysis: any = {
+        isSuppressed: false,
+        normalizedPoints: normCurves,
+        normativeData: mockNormData,
+      };
+
+      const result = calculateGPSAndMAP(angleAnalysis);
+      expect(result.gpsScore).toBe(0.0);
+      expect(result.map.kneeFlexionExtension).toBe(0.0);
+      expect(result.map.hipFlexionExtension).toBe(0.0);
+      expect(result.map.ankleDorsiflexionPlantarflexion).toBe(0.0);
+      expect(result.interpretation).toContain("Normal normative kinematic profile");
+    });
+
+    it("detects pathological joint angle deviation with GPS > 5.0°", () => {
+      const devCurves = Array.from({ length: 101 }, (_, i) => ({
+        gaitCyclePct: i,
+        kneeAngleLeft: 25, // +15° deviation from norm (10°)
+        kneeAngleRight: 25,
+        hipAngleLeft: 20,
+        hipAngleRight: 20,
+        ankleAngleLeft: 0,
+        ankleAngleRight: 0,
+      }));
+
+      const mockNormData = Array.from({ length: 101 }, (_, i) => ({
+        gaitCyclePct: i,
+        kneeMean: 10,
+        kneeMin: 0,
+        kneeMax: 20,
+        hipMean: 20,
+        hipMin: 10,
+        hipMax: 30,
+        ankleMean: 0,
+        ankleMin: -10,
+        ankleMax: 10,
+      }));
+
+      const angleAnalysis: any = {
+        isSuppressed: false,
+        normalizedPoints: devCurves,
+        normativeData: mockNormData,
+      };
+
+      const result = calculateGPSAndMAP(angleAnalysis);
+      expect(result.gpsScore).toBeGreaterThan(5.0);
+      expect(result.map.kneeFlexionExtension).toBeCloseTo(15.0, 1);
+      expect(result.interpretation).toContain("gait deviation");
+    });
+
+    it("returns zero score and suppressed message when frontal camera view is suppressed", () => {
+      const angleAnalysis: any = {
+        isSuppressed: true,
+        suppressionReason: "Frontal view",
+        normalizedPoints: [],
+      };
+
+      const result = calculateGPSAndMAP(angleAnalysis);
+      expect(result.gpsScore).toBe(0.0);
+      expect(result.interpretation).toContain("suppressed in frontal camera view");
+    });
+
+    it("supports expanded age tiers (<18, 75-84, 85+)", () => {
+      const pedRef = getNormativeReference("cadenceSpm", 12, "combined");
+      expect(pedRef.citation).toBe("Bovi et al. (2011)");
+
+      const adv80Ref = getNormativeReference("cadenceSpm", 80, "combined");
+      expect(adv80Ref.citation).toBe("Bovi et al. (2011)");
+
+      const adv90Ref = getNormativeReference("cadenceSpm", 90, "combined");
+      expect(adv90Ref.citation).toBe("Bovi et al. (2011)");
+    });
+
+    it("supports expanded normative parameters (gaitSpeed, stepLength, hipRom, ankleRom)", () => {
+      const speedRef = getNormativeReference("gaitSpeed");
+      expect(speedRef.mean).toBe(1.35);
+      expect(speedRef.sd).toBe(0.15);
+
+      const stepLenRef = getNormativeReference("stepLength");
+      expect(stepLenRef.mean).toBe(0.68);
+      expect(stepLenRef.sd).toBe(0.06);
+
+      const hipRomRef = getNormativeReference("hipRom");
+      expect(hipRomRef.mean).toBe(42.0);
+
+      const ankleRomRef = getNormativeReference("ankleRom");
+      expect(ankleRomRef.mean).toBe(27.0);
     });
   });
 });

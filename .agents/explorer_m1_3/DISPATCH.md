@@ -1,36 +1,17 @@
-# Dispatch for Explorer M1-3
+## 2026-08-10T14:02:07Z
+You are teamwork_preview_explorer (Explorer 3 for M1).
+Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/
 
-**Role**: teamwork_preview_explorer (Metrics Integration & Regression Test Specialist)
-**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3
+Your task is to investigate the requirements and codebase for Milestone 1, specifically:
+- R4: Stride Duration Ceiling & Double Support Search Limits in `src/lib/gait/events.ts` (lines 679, 749) and `src/lib/gait/analysis.ts` (line 584).
+  - Raise stride duration ceiling from 2.5s to 4.0s.
+  - Scale double support search limit to `min(0.75 * meanStepTime, 1.0)` instead of fixed 0.5s.
 
-## Task Objective
-Investigate `src/lib/gait/analysis.ts`, `src/lib/gait/types.ts`, and test infrastructure across `src/lib/gait/__tests__/`:
-1. Analyze where `smoothPoseFrames` should be called inside `computeGaitMetricsCore()` in `analysis.ts` prior to kinematic metric computation.
-2. Verify any updates needed in `types.ts` or interface exports for `smoothPoseFrames` and `getPoseLandmarker`.
-3. Audit existing test files in `src/lib/gait/__tests__/` to identify which tests exercise `pose.ts` and `signal.ts` or integration metrics.
-4. Detail test execution requirements (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`) and synthetic noise regression tests (`cat1_landmark_jitter_noise.test.ts`).
+Original Request: /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
+Project Scope: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
 
-## Authoritative Reference Inputs
-- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
-- `/Users/damian/GitHub/gait-lab/PROJECT.md`
-- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md`
-
-## Output Requirements
-Write your detailed findings and implementation recommendations to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md` and deliver `handoff.md`.
-
-## 2026-08-09T21:07:02Z
-You are Explorer M1-3 for gait-lab.
-Your working directory is: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3
-Mandatory Reference: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-
-Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md, /Users/damian/GitHub/gait-lab/PROJECT.md, /Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md, /Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/DISPATCH.md, and /Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md.
-
-Investigate `src/lib/gait/analysis.ts`, `src/lib/gait/types.ts`, and test infrastructure across `src/lib/gait/__tests__/`:
-1. Analyze where `smoothPoseFrames` should be called inside `computeGaitMetricsCore()` in `analysis.ts` prior to kinematic metric computation.
-2. Verify any updates needed in `types.ts` or interface exports for `smoothPoseFrames` and `getPoseLandmarker`.
-3. Audit existing test files in `src/lib/gait/__tests__/` to identify which tests exercise `pose.ts` and `signal.ts` or integration metrics.
-4. Detail test execution requirements (npm test, npm run typecheck, npm run lint, npm run build) and synthetic noise regression tests (`cat1_landmark_jitter_noise.test.ts`).
-
-Write your detailed technical report to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/analysis.md` and deliver `handoff.md`. Communicate completion via send_message to parent.
-
+Instructions:
+1. Initialize your working directory with `BRIEFING.md` and `progress.md`.
+2. Inspect `src/lib/gait/events.ts`, `src/lib/gait/analysis.ts`, and related test files.
+3. Formulate a detailed, precise investigation report and fix strategy.
+4. Save your final report in `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_3/handoff.md` and send a message back to parent. Do NOT edit source code files directly.

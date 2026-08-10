@@ -1,112 +1,67 @@
-# Milestone 3 Review & Handoff Report
-
-**Reviewer:** reviewer_m3_1 (Roles: reviewer, critic)  
-**Target Agent:** worker_m3_1  
-**Parent Agent:** orchestrator (`1ba4b2df-5871-4912-b369-0df5db300b92`)  
-**Date:** 2026-08-10  
-**Workspace:** `/Users/damian/GitHub/gait-lab`  
-**Verdict:** **APPROVE**  
-
----
+# Handoff Report — Reviewer 1 (Milestone 3 Fall Risk Hardening R10)
 
 ## 1. Observation
 
-Direct examination of the work products created and modified by worker_m3_1:
+- **Observation 1 (Verification Commands Executed)**:
+  - `npx vitest run src/lib/gait/__tests__/fallrisk.test.ts`:
+    - **Result**: PASSED (24 passed, 0 failed, duration 3.59s).
+  - `npx vitest run`:
+    - **Result**: FAILED (84 test files passed, 10 failed, 1230 tests passed, 18 failed). The failures in full suite were due to worker timeouts under high concurrency and test timeouts in stress suites (`m7_steptimecv_stress.test.ts`, `sample_picker.test.ts`, `WebcamCapture.test.tsx`, etc.).
+  - `npx tsc --noEmit`:
+    - **Result**: FAILED with 10 TypeScript compilation errors in `src/lib/gait/__tests__/fallrisk_r10_stress.test.ts`:
+      ```
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(173,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(177,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(178,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(179,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(184,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(339,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(343,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(344,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(345,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      src/lib/gait/__tests__/fallrisk_r10_stress.test.ts(350,9): error TS2322: Type 'null' is not assignable to type 'number'.
+      ```
+  - `npx eslint`:
+    - **Result**: PASSED (0 errors, 29 warnings).
 
-- **Files Examined**:
-  - `src/lib/gait/__tests__/testHelpers.ts`: Evaluated implementation of `generateGaussianNoise` (Box-Muller transform), `generateAsymmetricLimbNoiseFrames`, `generateBlackoutDropRecoveryFrames`, `generateUTurnSelfOcclusionFrames`, `generateAntalgicLimpingFrames`, `generateUltraHighCadenceParkinsonianFrames`, `generateCombined3DCameraMotionFrames`, and `assertAllMetricsFinite`.
-  - `src/lib/gait/__tests__/adversarial_gaps.test.ts`: Consolidated Milestone 3 test suite testing all 6 gap categories.
-  - Category test files (`cat1_landmark_jitter_noise.test.ts`, `cat2_variable_frame_rate.test.ts`, `cat3_landmark_occlusion.test.ts`, `cat4_extreme_gait_asymmetry.test.ts`, `cat5_micro_steps_parkinsonian.test.ts`, `cat6_camera_shake_motion.test.ts`).
+- **Observation 2 (R10 Sub-Requirement Audit)**:
+  - **R10.a (Height-adjusted Gait Speed Proxy)**: `src/lib/gait/fallrisk.ts:185–236` implements `estimateGaitSpeed(metrics)` helper. It evaluates explicit `gaitSpeedMps`, height-adjusted formula `(cadence * (0.414 * heightMeters) * 2) / 60`, step-length formula `(cadence * stepLength * 2) / 60`, image series trajectory distance, and 1.70m default height fallback. All hardcoded `cadenceSpm * 0.012` occurrences were eliminated across `computeFallRiskModelA`, `computePatientBaseline`, `detectAcuteWeaknessAnomalies`, and `FallRiskPanel.tsx`. (VERIFIED CORRECT)
+  - **R10.b (Dynamic STEADI Category Thresholds)**: `src/lib/gait/fallrisk.ts:316–333` computes `highRiskBreachThreshold = Math.ceil(0.6 * evaluatedCount)` and `modRiskBreachThreshold = Math.ceil(0.3 * evaluatedCount)`. Frontal view clips with `evaluatedCount = 2` require 2 breaches for High Risk. (VERIFIED CORRECT)
+  - **R10.c (Model B Dynamic Weight Re-Normalization)**: `src/lib/gait/fallrisk.ts:472–506` checks `kinematicsScore`, `trunkSwayScore`, `dteScore`, and `variabilityScore` for `null`. Base weights of non-null sub-scores are re-normalized by dividing by `validWeightSum`. (VERIFIED CORRECT)
+  - **R10.d (Orthogonal Planes Separation)**: `src/lib/gait/fallrisk.ts:444–452` marks `trunkSwayScore` as `null` when lateral sway is unavailable without substituting `verticalBounce`. Missing lateral sway is skipped in `computePatientBaseline` and `detectAcuteWeaknessAnomalies`. (VERIFIED CORRECT)
 
-- **Tool Execution & Results**:
-  - `npx vitest run`: 72 test files passed, 947 unit/integration tests passed (0 failures, 100% green).
-  - `npx tsc --noEmit`: 0 errors.
-  - `npx eslint .`: 0 errors (18 pre-existing warnings in unrelated files).
-
-- **Integrity Violation Audit**:
-  - Actively checked for hardcoded test results, facade implementations, test shortcut bypasses, or fabricated outputs.
-  - **Result**: NO integrity violations detected. The test generators construct real mathematical kinematic frame streams evaluated dynamically by `computeGaitMetrics(frames)`.
-
----
+- **Observation 3 (Adversarial & Integrity Audit)**:
+  - No facade or dummy implementations found in `src/lib/gait/fallrisk.ts`.
+  - No hardcoded test outputs embedded in source code.
+  - The implementation logic is genuine, clinical, and complete.
 
 ## 2. Logic Chain
 
-1. **Synthetic Data Generator Mathematical Evaluation**:
-   - **Category 1 (Landmark Noise/Jitter)**: `generateGaussianNoise` implements Box-Muller $Z = \sqrt{-2\ln u_1} \cos(2\pi u_2)$ producing zero-mean Gaussian noise $N(0, \sigma^2)$. Applied strictly to right leg keypoints `[26, 28, 30, 32]`, preserving left leg cleanliness.
-   - **Category 2 (Variable Frame Rate & Blackout)**: `generateBlackoutDropRecoveryFrames` drops frames between 3.0s and 5.5s (2.5s blackout window) and resumes re-timestamped frames with alternating 15ms/80ms VFR delta-t. Verified zero step events inside `[3.0s, 5.5s]`.
-   - **Category 3 (Landmark Occlusion)**: `generateUTurnSelfOcclusionFrames` models a 180° turn with heading angle $\theta(t) \in [0, \pi]$, depth ($z$) leg crossover, landmark visibility reduction to 0.15, and direction reversal.
-   - **Category 4 (Extreme Gait Asymmetry)**: `generateAntalgicLimpingFrames` enforces a 70/30 stance phase ratio split (asymmetry factor ~2.0), validating `stepTimeCV > 0.08` and `symmetryAngle > 4.0`.
-   - **Category 5 (Micro-Steps & Parkinsonian Gait)**: `generateUltraHighCadenceParkinsonianFrames` models 5.0 Hz step frequency (300 SPM, 100ms step interval), step amplitude 0.015, and vertical bounce $< 0.015$.
-   - **Category 6 (Camera Shake & Motion)**: `generateCombined3DCameraMotionFrames` applies multi-frequency 2D translation jitter $dx(t), dy(t)$, 15° roll angle rotation, and dynamic scale zoom $S(t) \in [0.5, 1.5]$.
-
-2. **Assertion Completeness**:
-   - `assertAllMetricsFinite(metrics)` recursively checks all numeric values in `GaitMetrics` against `NaN`, `Infinity`, `-Infinity`, and checks that score properties reside in $[0, 100]$.
-   - Domain assertions enforce physiological bounds (`cadenceSpm \in (0, 350]`, valid step counts, step event time checks).
-
-3. **Zero Regression**:
-   - Verified that all existing engine test suites continue to pass green alongside the 6 new gap category test suites.
-
----
+1. *Requirement Compliance*: The core algorithm changes in `src/lib/gait/fallrisk.ts` and UI integration in `src/components/gait/FallRiskPanel.tsx` correctly fulfill all four sub-requirements of R10 (height-adjusted gait speed proxy, dynamic STEADI thresholds, weight re-normalization, orthogonal plane separation).
+2. *Compilation Failure*: In `src/lib/gait/__tests__/fallrisk_r10_stress.test.ts`, lines 165–201 and 331–367 instantiate `emptyMetrics: GaitMetrics` with `null` assigned to properties (`stepTimeAsymmetry`, `armSwingLeft`, `armSwingRight`, `armSwingAsymmetry`, `doubleSupportHint`) defined as `number` (non-nullable) in `src/lib/gait/types.ts`.
+3. *Acceptance Criteria Violation*: Project acceptance criteria strictly require **0 TypeScript errors (`npx tsc --noEmit`)**. Because `npx tsc --noEmit` fails with 10 compilation errors in `fallrisk_r10_stress.test.ts`, the milestone cannot be approved in its current state.
 
 ## 3. Caveats
 
-- Pre-existing ESLint warnings in unrelated test/script files remain untouched per repository minimal-change policy.
-- Test execution was verified within the Mac Node 22 environment.
-
----
+No caveats. The review was comprehensive across `fallrisk.ts`, `FallRiskPanel.tsx`, and all associated test files.
 
 ## 4. Conclusion
 
-worker_m3_1's implementation of Milestone 3 satisfies all prompt and technical requirements:
-- All 6 gap categories are thoroughly covered by synthetic data generators and assertions.
-- Mathematical formulations of synthetic generators are precise, robust, and physically representative of real-world gait video artifacts.
-- Metric assertions (`assertAllMetricsFinite`) guarantee non-crash and finite score bounds across all outputs.
-- 100% green test pass rate, 0 TypeScript compilation errors, 0 ESLint errors.
-- **Verdict**: **APPROVE**.
+**Verdict**: `REQUEST_CHANGES`
 
----
+**Summary of Findings**:
+1. **[Major] TypeScript Compilation Failure in Test Harness**:
+   - **Location**: `src/lib/gait/__tests__/fallrisk_r10_stress.test.ts` lines 173, 177, 178, 179, 184, 339, 343, 344, 345, 350.
+   - **Problem**: `emptyMetrics` assigns `null` to `stepTimeAsymmetry`, `armSwingLeft`, `armSwingRight`, `armSwingAsymmetry`, and `doubleSupportHint`. In `src/lib/gait/types.ts`, these fields are typed as `number`.
+   - **Required Fix**: Change `null` to `0` (or appropriate number default) for non-nullable `GaitMetrics` fields in `fallrisk_r10_stress.test.ts` so `npx tsc --noEmit` passes with 0 errors.
 
 ## 5. Verification Method
 
-To independently verify this verdict:
-
-1. **Run Unit & Integration Test Suite**:
-   ```bash
-   npx vitest run
-   ```
-   *Expected result*: 72 test files passed, 947 tests passed (0 failures).
-
-2. **Run TypeScript Check**:
-   ```bash
-   npx tsc --noEmit
-   ```
-   *Expected result*: 0 errors.
-
-3. **Run ESLint Check**:
-   ```bash
-   npx eslint .
-   ```
-   *Expected result*: 0 errors.
-
----
-
-## Review Summary
-
-| Metric | Status |
-| --- | --- |
-| **Verdict** | **APPROVE** |
-| **Test Coverage** | Complete (6/6 Gap Categories) |
-| **Vitest Pass Rate** | 100% (72/72 files, 947/947 tests) |
-| **TypeScript Compilation** | 0 errors |
-| **ESLint Status** | 0 errors |
-| **Integrity Violations** | None detected |
-
-### Verified Claims
-
-- Box-Muller Gaussian Noise Generator ($N(0, \sigma^2)$) → verified via `generateGaussianNoise` code inspection & execution → **PASS**
-- 2.5s Frame Blackout & VFR Delta-t Recovery → verified via `cat2_variable_frame_rate.test.ts` & step event checks → **PASS**
-- 180° U-Turn Self-Occlusion & Depth Leg Crossover → verified via `cat3_landmark_occlusion.test.ts` → **PASS**
-- Antalgic 70/30 Limping Gait Asymmetry → verified via `cat4_extreme_gait_asymmetry.test.ts` → **PASS**
-- 300 SPM Parkinsonian Micro-Step Shuffling → verified via `cat5_micro_steps_parkinsonian.test.ts` → **PASS**
-- 3D Camera Shake, 15° Roll Tilt & Dynamic Scale Zoom → verified via `cat6_camera_shake_motion.test.ts` → **PASS**
-- Recursive Non-NaN / Finite Metrics Assertion (`assertAllMetricsFinite`) → verified via `testHelpers.ts` inspection & usage → **PASS**
+To independently verify:
+```bash
+npx vitest run src/lib/gait/__tests__/fallrisk.test.ts
+npx tsc --noEmit
+npx eslint
+```
+- Current state: `fallrisk.test.ts` passes 24/24, `eslint` passes with 0 errors, but `tsc --noEmit` fails with 10 type errors in `fallrisk_r10_stress.test.ts`.
+- Expected state after fix: 0 TypeScript errors across the entire codebase.

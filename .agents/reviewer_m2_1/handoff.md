@@ -1,117 +1,112 @@
-# Milestone 2 Code Review & Handoff Report
+# Code Review & Verification Handoff Report — Milestone 2 (R6–R9)
 
-**Reviewer:** reviewer_m2_1  
-**Working Directory:** `/Users/damian/GitHub/gait-lab/.agents/reviewer_m2_1`  
-**Date:** 2026-08-10  
-**Verdict:** **APPROVE**
-
----
-
-## Executive Review Summary
-
-Milestone 2 implementation changes delivered by `worker_m2_1` across `events.ts`, `analysis.ts`, `signal.ts`, `PoseTracker.ts`, `ratings.ts`, `guesses.ts`, and `fallrisk.ts` have been reviewed and verified.
-
-All static checks, type safety, linting, and automated unit/integration test suites pass with 100% success rate (891/891 tests passing across 68 test files, 0 type errors, 0 lint errors). An adversarial integrity audit confirmed zero facade implementations, zero hardcoded test results, and zero assertion weakenings.
+**Reviewer**: `teamwork_preview_reviewer` (Reviewer 1 for M2)  
+**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/reviewer_m2_1`  
+**Verdict**: **APPROVE**  
+**Date**: 2026-08-10  
 
 ---
 
 ## 1. Observation
 
-### Code & Signal Processing Modifications
-1. **`src/lib/gait/events.ts`:**
-   - Line 119: Prominence calculation baseline in `findExtrema`:
-     `minProminence = Math.max(0.0005, 0.12 * sigRange);` (lowered from `0.001` / `0.15 * sigRange`).
-   - Line 297: `minGap = Math.max(3, Math.floor(0.18 * effectiveFps));` (lowered from `0.35 * effectiveFps`).
-   - Line 321: Frontal-Y mode-switch hysteresis condition:
-     `if (apRange < 0.028 && apEventCount < 5)` (changed from `apRange < 0.022 || apEventCount < 4`).
-   - Line 341–342: Frontal-Y extrema detection minGap tuned to `Math.max(3, Math.floor(0.18 * effectiveFps))` (~180ms).
+- **Implementation Files Inspected**:
+  - `src/lib/gait/angles.ts` (lines 598–794):
+    - `calculateArmSwingAsymmetry(landmarks, events)` (R6): Tracks shoulder-wrist vectors (keypoints 11->15, 12->16), applies 6 Hz zero-phase Butterworth filtering, computes peak-to-peak swing amplitude ($Amp_L$, $Amp_R$), standardized ASA index $|Amp_L - Amp_R| / \max(Amp_L, Amp_R) \times 100$, and Pearson phase correlation with contralateral legs ($Leg_R$, $Leg_L$).
+    - `calculateTrunkSway(landmarks)` (R7): Computes C7/mid-shoulder (keypoints 11,12) to mid-hip (keypoints 23,24) vector tilt, lateral & sagittal peak-to-peak excursion, and OLS-detrended 10-harmonic DFT Harmonic Ratio ($evenSum / oddSum$).
+    - Integrated `armSwing`, `armSwingAsymmetry`, and `trunkSway` into `GaitAngleAnalysis` return object.
+  - `src/lib/gait/fallrisk.ts` (lines 411–417):
+    - Model B Sub-Score 2 incorporates real `angleAnalysis.trunkSway.lateralExcursionDeg` (linear mapping 3°–12° $\rightarrow$ score 0–100) when available, falling back to `lateralSway` proxy when absent.
+  - `src/lib/gait/guesses.ts` (lines 536–680):
+    - Implemented 6 new compensatory gait rules: `steppage-gait`, `festinating-gait`, `scissoring-gait`, `waddling-gait`, `trendelenburg-sign`, and `circumduction-gait`.
+    - Integrated `armSwingData` and `trunkSwayData` into evidence chains.
+    - Evaluated normative Z-scores via `getNormativeReference` and `calculateZScore` across all rules.
+  - `src/lib/gait/normatives.ts` (lines 72–300, 465–586):
+    - `calculateGPSAndMAP(angleAnalysis)` (R9): Calculates RMSE between 101 normalized patient joint angle points and Perry & Burnfield normative mean curves for $MAP_j$, and computes overall $GPS = \sqrt{\frac{1}{N} \sum MAP_j^2}$ in degrees following Baker et al. (2009).
+    - Expanded `AgeGroupCategory` with `"pediatric"` (<18), `"advanced_75_84"` (75–84), and `"advanced_85_plus"` (85+).
+    - Expanded `WINTER_NORMATIVES` and `BOVI_NORMATIVES` with `gaitSpeed`, `stepLength`, `hipRom`, `ankleRom`, `ankleDorsiflexion`, `stepWidth`, `pelvicObliquity`, `trunkLateralSway`, and `swingLateralArc`.
 
-2. **`src/lib/gait/analysis.ts`:**
-   - Line 339: `MIN_STEP_SEC = 0.15;` (lowered from `0.30`).
-   - Line 1208–1225: `filterSteadyStateStrides` relative deviation threshold tuned to `0.40` (40%) with retention guard `minKeep = Math.max(3, Math.floor(0.50 * strideIntervals.length))`.
+- **Unit Test Files Inspected**:
+  - `src/lib/gait/__tests__/angles.test.ts`: Verified R6 and R7 test suites.
+  - `src/lib/gait/__tests__/normatives.test.ts`: Verified R9 test suites and age-tier assertions.
+  - `src/lib/gait/__tests__/guesses.test.ts`: Verified R8 test suites.
+  - `src/lib/gait/__tests__/m2_challenger_1_r6_r9.test.ts`: Verified empirical challenge suite for R6–R9.
 
-3. **`src/lib/gait/PoseTracker.ts`:**
-   - Lines 106–107, 279–280, 340–387: Added target velocity tracking (`targetVelocity = { vx, vy }`) and position projection ($x_{\text{pred}} = x_{t-1} + v \cdot \Delta t$). Candidate scoring evaluates $\min(\text{dist}_{\text{last}}, \text{dist}_{\text{pred}})$. Target velocity updates via EMA ($\alpha = 0.4$). `clearBuffer()` resets velocity state.
-
-4. **`signal.ts`, `ratings.ts`, `guesses.ts`, `fallrisk.ts`:**
-   - Zero-phase 4th-order Butterworth low-pass filter ($f_c = 6.0$ Hz), 5-point Savitzky-Golay filter, OLS detrending, Zifchock SA, CDC STEADI Model A, and Composite Model B fall risk calculations verified intact.
-
-### Automated Command Results
-- **TypeScript:** `npx tsc --noEmit` -> **0 errors** (Command exited with code 0).
-- **ESLint:** `npx eslint .` -> **0 errors** (Command exited with code 0; 18 pre-existing unused variable warnings in test files).
-- **Vitest:** `npx vitest run --maxConcurrency=4` -> **68 test files passed, 891 tests passed (0 failures)**.
+- **Verification Commands Executed**:
+  1. `npx vitest run`:
+     - **Result**: `Test Files: 92 passed (92), Tests: 1266 passed (1266), Duration: 116.19s`. Exit code 0.
+  2. `npx tsc --noEmit`:
+     - **Result**: Exit code 0, 0 compiler errors.
+  3. `npm run lint`:
+     - **Result**: Exit code 0, 0 errors (27 pre-existing unused variable warnings in unrelated test/script files).
 
 ---
 
 ## 2. Logic Chain
 
-1. **Extrema Detection Prominence ($P_{\text{min}}$):** Lowering $P_{\text{min}}$ baseline from $0.15 \times \text{range}$ to $0.12 \times \text{range}$ allows detection of subtle heel strikes in frontal/oblique videos (`tuning-3992.mp4`) where AP limb displacement is foreshortened in normalized image space. Coupled with 6.0 Hz Butterworth filtering, it retains high signal-to-noise ratio without generating false extrema from high-frequency jitter.
-2. **MinGap & Cadence Bounds:** Updating `minGap` from $0.35 \times \text{fps}$ (350 ms) to $0.18 \times \text{fps}$ (180 ms) and `MIN_STEP_SEC` to 0.15s permits detection of step rates up to ~330–400 spm. This prevents dropping legitimate consecutive contact events during quick steps or short strides.
-3. **Frontal-Y Hysteresis:** Using logical AND (`apRange < 0.028 && apEventCount < 5`) instead of OR prevents mode flickering between AP displacement and vertical ankle motion on indoor walk clips where AP range is borderline but AP events are distinct.
-4. **Velocity Projection Target Locking:** Tracking smoothed target velocity $(v_x, v_y)$ and projecting expected target position $x_{\text{pred}} = x_{t-1} + v \cdot \Delta t$ handles secondary person crossings in multi-person videos (`tuning-3993.mp4`), preventing target swap when another person passes behind the subject.
-5. **Steady-State Stride Filtering:** Calibrating stride duration outlier filtering to 40% deviation with a floor of $\max(3, \lfloor 0.50 \times N \rfloor)$ discards acceleration/deceleration lead-in/lead-out steps without starving asymmetric gait datasets or discarding valid pathological asymmetry.
+1. **Arm Swing Asymmetry Index (R6)**:
+   - Shoulder-wrist 2D vectors directly project upper-limb swing excursion during gait. Butterworth 6 Hz low-pass filtering eliminates high-frequency pose tracking jitter without corrupting the ~1–2 Hz fundamental arm swing oscillation. Peak-to-peak amplitude difference relative to maximum amplitude follows standard biomechanical ASA formulation. Pearson correlation between arm swing and contralateral leg motion accurately captures counter-phase coordination.
+2. **Trunk Sway & Fall Risk Integration (R7)**:
+   - Mid-shoulder to mid-hip vector tilt provides an anatomical measurement of trunk lean in both frontal (lateral) and sagittal planes. OLS detrending removes linear drift prior to 10-harmonic DFT analysis. For lateral sway, even harmonics correspond to step-to-step symmetry, yielding higher Harmonic Ratio values (>1.0) in healthy symmetrical gait and lower values in asymmetrical gait. Integration into `fallrisk.ts` Model B Sub-Score 2 replaces the previous vertical bounce proxy when true trunk sway is present.
+3. **Compensatory Gait Pattern Rules (R8)**:
+   - The 6 new hypothesis rules in `guesses.ts` combine kinematic thresholds, normative Z-score deviations, and camera view context:
+     - `steppage-gait`: High swing knee flexion ($Z > 2.0$) + ankle dorsiflexion deficit.
+     - `festinating-gait`: Accelerating/fast cadence (>118 spm) + short step length or high ASA ($>30\%$).
+     - `scissoring-gait`: Narrow step width ($Z < -2.0$) + hip adduction ($>5^\circ$).
+     - `waddling-gait`: Pelvic obliquity ($>8^\circ$) + lateral trunk sway ($Z > 2.0$).
+     - `trendelenburg-sign`: Contralateral pelvic drop ($>5^\circ$) during single-leg stance.
+     - `circumduction-gait`: Outward lateral foot arc ($Z > 2.0$) + knee flexion restriction ($<32^\circ$).
+   - Integrating ASA and Trunk Sway into hypothesis evidence chains provides clinically grounded multi-modal reasoning.
+4. **Gait Profile Score & Expanded Normatives (R9)**:
+   - $MAP_j$ computes point-by-point RMSE over 101 normalized gait cycle points against Perry & Burnfield normative mean curves for joint $j$. $GPS$ synthesizes joint $MAP$ sub-scores into an overall kinematic deviation metric in degrees ($\sqrt{\frac{1}{N} \sum MAP_j^2}$).
+   - Expanding `BOVI_NORMATIVES` to 7 age tiers (<18, 18–49, 50–64, 65–74, 75–84, 85+) and adding 9 spatial-temporal and kinematic parameters allows precise age/sex-matched normative Z-score evaluations.
+5. **Adversarial & Integrity Verification**:
+   - Inspected source code for anti-patterns:
+     - No hardcoded test results or static return values embedded in implementation code.
+     - No dummy/facade implementations — filtering, DFT, OLS detrending, Pearson correlation, and RMSE algorithms perform genuine mathematical transformations.
+     - Edge cases (empty arrays, missing keypoints, frontal view suppression, zero standard deviations) are properly handled without NaN propagation or runtime crashes.
 
 ---
 
 ## 3. Caveats
 
-- **Test Concurrency:** Running all 68 Vitest test files simultaneously under high CPU contention can cause DOM/timer stress tests to hit default timeouts (5000 ms). Running with controlled concurrency (`--maxConcurrency=4`) achieves 100% green execution (891/891 tests passing in ~19.8s).
-- **Video Samples:** Verification was performed using synthesized and recorded test frames matching the kinematic parameters of `tuning-3992.mp4` and `tuning-3993.mp4`.
+- **Frontal View Kinematic Suppression**: In frontal camera views, sagittal joint angles (knee/hip/ankle flexion) are suppressed as designed, causing `calculateGPSAndMAP` to return `gpsScore: 0` with a clear message (`"Unevaluated: Sagittal joint angle kinematics suppressed in frontal camera view."`). Frontal-plane metrics (trunk sway, pelvic obliquity, step width) remain fully operational.
+- **Low Visibility Keypoints**: When keypoint visibility is $<0.3$, individual frame joint/arm angles fall back to 0 prior to Butterworth filtering. Continuous low-visibility tracking leads to suppressed metrics, which is expected behavior for low-confidence video clips.
 
 ---
 
 ## 4. Conclusion
 
-The code changes in Milestone 2 are mathematically sound, robust, and correctly implemented. All mandatory integrity requirements are met. The work product is ready for integration.
+Milestone 2 Clinical Metric Expansion (R6–R9) strictly satisfies all requirements specified in `ORIGINAL_REQUEST.md`. Implementation code contains no integrity violations, no dummy facades, and no hardcoded test shortcuts. All 1266 unit and integration tests pass cleanly with 0 TypeScript compiler errors and 0 ESLint errors.
 
-**Verdict: APPROVE**
+**Verdict**: **APPROVE**
 
 ---
 
 ## 5. Verification Method
 
-To independently verify this report:
+To independently verify this review:
 
-1. **Type Check:**
+1. **Execute full test suite**:
+   ```bash
+   npx vitest run
+   ```
+   *Expected output*: `92 passed (92)`, `1266 passed (1266)`, exit code 0.
+
+2. **Execute TypeScript typecheck**:
    ```bash
    npx tsc --noEmit
    ```
-   *Expected output:* Exit code 0, 0 errors.
+   *Expected output*: Exit code 0, 0 type errors.
 
-2. **Lint Check:**
+3. **Execute ESLint**:
    ```bash
-   npx eslint .
+   npm run lint
    ```
-   *Expected output:* Exit code 0, 0 errors.
+   *Expected output*: Exit code 0, 0 lint errors.
 
-3. **Test Suite:**
-   ```bash
-   npx vitest run --maxConcurrency=4
-   ```
-   *Expected output:* 68 test files passed, 891 tests passed (100% pass rate).
-
-4. **Integrity Audit:**
-   ```bash
-   git diff src/lib/gait/__tests__/
-   ```
-   *Expected output:* Empty diff (zero test files modified or assertion weakenings).
-
----
-
-## Review Report Detail
-
-### Findings
-- **None.** All modifications are clean, verified, and correct.
-
-### Verified Claims
-- **Claim:** 891/891 Vitest tests pass -> **VERIFIED** via `npx vitest run --maxConcurrency=4`.
-- **Claim:** `npx tsc --noEmit` passes with 0 errors -> **VERIFIED**.
-- **Claim:** `npx eslint .` passes with 0 errors -> **VERIFIED**.
-- **Claim:** Target velocity projection in `PoseTracker.ts` handles target occlusion/crossing -> **VERIFIED** via mathematical inspection and `PoseTracker.test.ts` / `e2e_engine_enhancements.test.ts`.
-- **Claim:** Zero assertion weakenings or facade code -> **VERIFIED** via `git diff`.
-
-### Coverage Gaps
-- None.
-
-### Unverified Items
-- None.
+4. **Inspect source code & test implementations**:
+   - `src/lib/gait/angles.ts` (lines 598–794)
+   - `src/lib/gait/fallrisk.ts` (lines 411–417)
+   - `src/lib/gait/guesses.ts` (lines 536–680)
+   - `src/lib/gait/normatives.ts` (lines 72–300, 465–586)
+   - `src/lib/gait/__tests__/m2_challenger_1_r6_r9.test.ts`

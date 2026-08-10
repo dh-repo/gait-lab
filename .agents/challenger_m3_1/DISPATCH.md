@@ -1,7 +1,22 @@
-## 2026-08-10T07:46:48Z
-Empirically challenge worker_m3_1's adversarial test suite for Milestone 3 (Expand Adversarial Test Coverage).
-Project root: /Users/damian/GitHub/gait-lab
-Working directory: /Users/damian/GitHub/gait-lab/.agents/challenger_m3_1
-Read /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md, /Users/damian/GitHub/gait-lab/.agents/worker_m3_1/report_m3.md, src/lib/gait/__tests__/adversarial_gaps.test.ts, src/lib/gait/__tests__/testHelpers.ts.
-Execute test runner (npx vitest run), stress test the synthetic generators, verify boundary conditions, check for hidden NaN/Infinity propagation or unhandled exceptions under extreme noise/shake parameters.
-Deliver handoff.md in /Users/damian/GitHub/gait-lab/.agents/challenger_m3_1 with your verdict (APPROVE or REJECT).
+## 2026-08-10T14:26:41Z
+You are Challenger 1 for Milestone 3 (Fall Risk Hardening R10) on gait-lab engine.
+
+Working directory: /Users/damian/GitHub/gait-lab/.agents/challenger_m3_1/
+
+Read the following reference files:
+- Original Request: /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
+- Project Scope: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
+- Worker 3 Handoff: /Users/damian/GitHub/gait-lab/.agents/worker_m3/handoff.md
+
+Your task:
+1. Empirically verify and stress-test Worker 3's R10 implementation in `src/lib/gait/fallrisk.ts`.
+2. Construct edge-case inputs for:
+   - Dynamic STEADI thresholds with evaluatedCount = 1, 2, 3, 4.
+   - Weight re-normalization when 1, 2, 3, or all 4 sub-scores are null.
+   - Height-adjusted gait speed with missing metrics, boundary heights (0.5m, 2.5m, invalid/negative height).
+   - Orthogonal plane independence (verifying lateral sway is null when unmeasured, without vertical bounce corruption).
+3. Execute verification commands:
+   `npx vitest run src/lib/gait/__tests__/fallrisk.test.ts`
+   `npx vitest run`
+4. Write `handoff.md` in your working directory with an explicit verdict: `APPROVE` or `REQUEST_CHANGES`.
+5. Send a completion message back to the orchestrator with your verdict and stress-test findings.

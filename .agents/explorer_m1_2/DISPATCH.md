@@ -1,26 +1,16 @@
-# Dispatch for Explorer M1-2
+## 2026-08-10T14:02:06Z
+You are teamwork_preview_explorer (Explorer 2 for M1).
+Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/
 
-## 2026-08-09T21:07:02Z
+Your task is to investigate the requirements and codebase for Milestone 1, specifically:
+- R2: Contralateral Step Distance Mislabeled as "Stride Length" in `src/lib/gait/analysis.ts` lines 402-414. Stride length must be ipsilateral (L->L or R->R). Contralateral distance must remain step length.
+- R3: Hardcoded Cadence Penalty Kills Parkinsonian Gait in `src/lib/gait/analysis.ts` lines 328-332. Remove penalty for `c < 70` spm and accept clinical range 40-140 spm.
 
-**Role**: teamwork_preview_explorer (Signal Processing & Temporal Smoothing Specialist)
-**Working Directory**: /Users/damian/GitHub/gait-lab/.agents/explorer_m1_2
+Original Request: /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
+Project Scope: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
 
-## Task Objective
-Investigate `src/lib/gait/signal.ts` and analyze the implementation for 1D landmark coordinate temporal smoothing:
-1. Implement 5-point Savitzky-Golay 1D temporal coordinate smoothing filter on all 33 keypoints' (x, y, z) coordinates using the convolution kernel 1/35 * [-3, 12, 17, 12, -3].
-2. Handle boundary reflection padding for N >= 5 frames:
-   x_{-1} = 2*x_0 - x_1, x_{-2} = 2*x_0 - x_2
-   x_N = 2*x_{N-1} - x_{N-2}, x_{N+1} = 2*x_{N-1} - x_{N-3}
-3. Handle short sequences N < 5 gracefully (return input frames unaltered).
-4. Preserve landmark visibility, presence, and timestamp metadata untouched.
-5. Export `smoothPoseFrames(frames: LandmarkFrame[]): LandmarkFrame[]` in `src/lib/gait/signal.ts`.
-6. Specify unit test cases for `signal.test.ts`.
-
-## Authoritative Reference Inputs
-- `/Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md`
-- `/Users/damian/GitHub/gait-lab/PROJECT.md`
-- `/Users/damian/GitHub/gait-lab/.agents/sub_orch_m1/SCOPE.md`
-- `/Users/damian/GitHub/gait-lab/.agents/explorer_survey_1/analysis.md`
-
-## Output Requirements
-Write your detailed findings and implementation recommendations to `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/analysis.md` and deliver `handoff.md`.
+Instructions:
+1. Initialize your working directory with `BRIEFING.md` and `progress.md`.
+2. Inspect `src/lib/gait/analysis.ts` and related test files.
+3. Formulate a detailed, precise investigation report and fix strategy.
+4. Save your final report in `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_2/handoff.md` and send a message back to parent. Do NOT edit source code files directly.

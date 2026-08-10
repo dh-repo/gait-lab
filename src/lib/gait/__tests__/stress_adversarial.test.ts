@@ -43,21 +43,21 @@ describe("Milestone 1 Stress & Adversarial Boundary Tests", () => {
   });
 
   describe("symmetry.ts Mathematical & Boundary Stress Tests", () => {
-    test("symmetryAngle mathematically caps at 50% asymmetry despite [0, 100]% claim", () => {
+    test("symmetryAngle caps at 100% asymmetry for complete unipedal gait", () => {
       // Perfect symmetry
       expect(symmetryAngle(10, 10)).toBe(0);
 
       // Extreme one-sided asymmetry (valLeft = 100, valRight = 0)
       const saZeroRight = symmetryAngle(100, 0);
-      expect(saZeroRight).toBe(50); // Demonstrates SA is capped at 50% due to denominator 90
+      expect(saZeroRight).toBe(100); // Denominator 45 produces 100% for complete asymmetry
 
       // Extreme one-sided asymmetry (valLeft = 0, valRight = 100)
       const saZeroLeft = symmetryAngle(0, 100);
-      expect(saZeroLeft).toBe(50);
+      expect(saZeroLeft).toBe(100);
 
-      // Even for 1000:1 ratio, result is ~49.94%, never reaching 100%
+      // Even for 1000:1 ratio, result is ~99.87%, capped at 100%
       const saExtreme = symmetryAngle(1000, 1);
-      expect(saExtreme).toBeLessThanOrEqual(50);
+      expect(saExtreme).toBeLessThanOrEqual(100);
     });
 
     test("gaitSymmetryIndex boundary behavior", () => {

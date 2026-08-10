@@ -1,7 +1,7 @@
 import type { Landmark, PoseFrame, ViewAngle } from "./types";
 import type { GaitEvent } from "./events";
-import { LM, angleDeg, mean } from "./landmarks";
-import { zeroPhaseButterworth } from "./signal";
+import { LM, angleDeg, mean, mid } from "./landmarks";
+import { zeroPhaseButterworth, olsDetrend } from "./signal";
 
 export interface JointAnglePoint {
   /** Gait cycle percentage (0.0 to 100.0%) */
@@ -60,6 +60,19 @@ export interface NormalizedGaitCycle {
   points: JointAnglePoint[];
 }
 
+export interface ArmSwingAsymmetryResult {
+  leftAmplitude: number;
+  rightAmplitude: number;
+  asymmetryIndex: number;
+  phaseCorrelation: number;
+}
+
+export interface TrunkSwayResult {
+  lateralExcursionDeg: number;
+  sagittalExcursionDeg: number;
+  harmonicRatio: number;
+}
+
 export interface GaitAngleAnalysis {
   isSuppressed: boolean;
   suppressionReason?: string;
@@ -68,6 +81,9 @@ export interface GaitAngleAnalysis {
   rightStrides: NormalizedGaitCycle[];
   metrics: JointAngleMetrics;
   normativeData: NormativeRangePoint[];
+  armSwing?: ArmSwingAsymmetryResult;
+  armSwingAsymmetry?: ArmSwingAsymmetryResult;
+  trunkSway?: TrunkSwayResult;
 }
 
 /**
@@ -579,6 +595,10 @@ export function computeGaitAngleAnalysis(
     ankleAsymmetryPct: Number(ankleAsymmetryPct.toFixed(2)),
   };
 
+  const landmarks = frames.map((f) => f.landmarks);
+  const armSwing = calculateArmSwingAsymmetry(landmarks, events);
+  const trunkSway = calculateTrunkSway(landmarks);
+
   return {
     isSuppressed,
     suppressionReason,
@@ -587,5 +607,188 @@ export function computeGaitAngleAnalysis(
     rightStrides,
     metrics,
     normativeData,
+    armSwing,
+    armSwingAsymmetry: armSwing,
+    trunkSway,
   };
+}
+
+function pearsonCorrelation(xs: number[], ys: number[]): number {
+  if (!xs || !ys || xs.length !== ys.length || xs.length === 0) return 0;
+  const n = xs.length;
+  const meanX = mean(xs);
+  const meanY = mean(ys);
+  let num = 0;
+  let denX = 0;
+  let denY = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - meanX;
+    const dy = ys[i] - meanY;
+    num += dx * dy;
+    denX += dx * dx;
+    denY += dy * dy;
+  }
+  const den = Math.sqrt(denX * denY);
+  return den < 1e-8 ? 0 : Math.max(-1, Math.min(1, num / den));
+}
+
+/**
+ * R6: Arm Swing Asymmetry Index (ASA)
+ * Computes peak-to-peak swing amplitude per arm across gait cycles,
+ * asymmetry index ASA = |Amp_L - Amp_R| / max(Amp_L, Amp_R) * 100,
+ * and phase correlation between arm swing and contralateral leg.
+ */
+export function calculateArmSwingAsymmetry(
+  landmarks: Landmark[][],
+  _events?: { heelStrikes?: GaitEvent[] } | GaitEvent[],
+): ArmSwingAsymmetryResult {
+  if (!landmarks || landmarks.length === 0) {
+    return { leftAmplitude: 0, rightAmplitude: 0, asymmetryIndex: 0, phaseCorrelation: 0 };
+  }
+
+  const n = landmarks.length;
+  const leftArmAngles = new Array<number>(n);
+  const rightArmAngles = new Array<number>(n);
+  const leftLegAngles = new Array<number>(n);
+  const rightLegAngles = new Array<number>(n);
+
+  for (let i = 0; i < n; i++) {
+    const frame = landmarks[i];
+    if (!frame || frame.length < 27) {
+      leftArmAngles[i] = 0;
+      rightArmAngles[i] = 0;
+      leftLegAngles[i] = 0;
+      rightLegAngles[i] = 0;
+      continue;
+    }
+
+    const lShoulder = frame[LM.L_SHOULDER];
+    const rShoulder = frame[LM.R_SHOULDER];
+    const lWrist = frame[LM.L_WRIST];
+    const rWrist = frame[LM.R_WRIST];
+    const lHip = frame[LM.L_HIP];
+    const rHip = frame[LM.R_HIP];
+    const lKnee = frame[LM.L_KNEE];
+    const rKnee = frame[LM.R_KNEE];
+
+    leftArmAngles[i] =
+      lShoulder && lWrist && (lShoulder.visibility ?? 1) >= 0.3 && (lWrist.visibility ?? 1) >= 0.3
+        ? (Math.atan2(lWrist.x - lShoulder.x, lWrist.y - lShoulder.y) * 180) / Math.PI
+        : 0;
+
+    rightArmAngles[i] =
+      rShoulder && rWrist && (rShoulder.visibility ?? 1) >= 0.3 && (rWrist.visibility ?? 1) >= 0.3
+        ? (Math.atan2(rWrist.x - rShoulder.x, rWrist.y - rShoulder.y) * 180) / Math.PI
+        : 0;
+
+    leftLegAngles[i] =
+      lHip && lKnee && (lHip.visibility ?? 1) >= 0.3 && (lKnee.visibility ?? 1) >= 0.3
+        ? (Math.atan2(lKnee.x - lHip.x, lKnee.y - lHip.y) * 180) / Math.PI
+        : 0;
+
+    rightLegAngles[i] =
+      rHip && rKnee && (rHip.visibility ?? 1) >= 0.3 && (rKnee.visibility ?? 1) >= 0.3
+        ? (Math.atan2(rKnee.x - rHip.x, rKnee.y - rHip.y) * 180) / Math.PI
+        : 0;
+  }
+
+  const fps = 30;
+  const filteredArmL = n >= 10 ? zeroPhaseButterworth(leftArmAngles, fps, 6.0) : leftArmAngles;
+  const filteredArmR = n >= 10 ? zeroPhaseButterworth(rightArmAngles, fps, 6.0) : rightArmAngles;
+  const filteredLegL = n >= 10 ? zeroPhaseButterworth(leftLegAngles, fps, 6.0) : leftLegAngles;
+  const filteredLegR = n >= 10 ? zeroPhaseButterworth(rightLegAngles, fps, 6.0) : rightLegAngles;
+
+  const leftAmplitude = Number(Math.max(0, Math.max(...filteredArmL) - Math.min(...filteredArmL)).toFixed(2));
+  const rightAmplitude = Number(Math.max(0, Math.max(...filteredArmR) - Math.min(...filteredArmR)).toFixed(2));
+
+  const maxAmp = Math.max(leftAmplitude, rightAmplitude);
+  const asymmetryIndex = maxAmp > 0
+    ? Number(((Math.abs(leftAmplitude - rightAmplitude) / maxAmp) * 100).toFixed(2))
+    : 0;
+
+  const corrL = pearsonCorrelation(filteredArmL, filteredLegR);
+  const corrR = pearsonCorrelation(filteredArmR, filteredLegL);
+  const phaseCorrelation = Number(((corrL + corrR) / 2).toFixed(3));
+
+  return { leftAmplitude, rightAmplitude, asymmetryIndex, phaseCorrelation };
+}
+
+/**
+ * R7: Trunk Sway Quantification
+ * Computes C7/mid-shoulder to mid-hip vector tilt angle per frame,
+ * peak-to-peak lateral & sagittal angular excursion, and FFT-based Harmonic Ratio.
+ */
+export function calculateTrunkSway(landmarks: Landmark[][]): TrunkSwayResult {
+  if (!landmarks || landmarks.length === 0) {
+    return { lateralExcursionDeg: 0, sagittalExcursionDeg: 0, harmonicRatio: 1.0 };
+  }
+
+  const n = landmarks.length;
+  const lateralTilt = new Array<number>(n);
+  const sagittalTilt = new Array<number>(n);
+
+  for (let i = 0; i < n; i++) {
+    const frame = landmarks[i];
+    if (!frame || frame.length < 25) {
+      lateralTilt[i] = 0;
+      sagittalTilt[i] = 0;
+      continue;
+    }
+
+    const lShoulder = frame[LM.L_SHOULDER];
+    const rShoulder = frame[LM.R_SHOULDER];
+    const lHip = frame[LM.L_HIP];
+    const rHip = frame[LM.R_HIP];
+
+    if (!lShoulder || !rShoulder || !lHip || !rHip) {
+      lateralTilt[i] = 0;
+      sagittalTilt[i] = 0;
+      continue;
+    }
+
+    const midShoulder = mid(lShoulder, rShoulder);
+    const midHip = mid(lHip, rHip);
+
+    const dx = midShoulder.x - midHip.x;
+    const dy = midShoulder.y - midHip.y;
+    const dz = (midShoulder.z ?? 0) - (midHip.z ?? 0);
+
+    lateralTilt[i] = (Math.atan2(dx, -dy) * 180) / Math.PI;
+    const sagittalDisp = Math.abs(dz) > 1e-4 ? dz : dx;
+    sagittalTilt[i] = (Math.atan2(sagittalDisp, -dy) * 180) / Math.PI;
+  }
+
+  const fps = 30;
+  const filteredLat = n >= 10 ? zeroPhaseButterworth(lateralTilt, fps, 6.0) : lateralTilt;
+  const filteredSag = n >= 10 ? zeroPhaseButterworth(sagittalTilt, fps, 6.0) : sagittalTilt;
+
+  const lateralExcursionDeg = Number(Math.max(0, Math.max(...filteredLat) - Math.min(...filteredLat)).toFixed(2));
+  const sagittalExcursionDeg = Number(Math.max(0, Math.max(...filteredSag) - Math.min(...filteredSag)).toFixed(2));
+  const harmonicRatio = computeHarmonicRatio(filteredLat);
+
+  return { lateralExcursionDeg, sagittalExcursionDeg, harmonicRatio };
+}
+
+function computeHarmonicRatio(signal: number[]): number {
+  if (!signal || signal.length < 8) return 1.0;
+  const detrended = olsDetrend(signal);
+  const M = detrended.length;
+  let evenSum = 0;
+  let oddSum = 0;
+
+  for (let k = 1; k <= 10; k++) {
+    let re = 0;
+    let im = 0;
+    for (let n = 0; n < M; n++) {
+      const angle = (2 * Math.PI * k * n) / M;
+      re += detrended[n] * Math.cos(angle);
+      im -= detrended[n] * Math.sin(angle);
+    }
+    const amp = Math.sqrt(re * re + im * im);
+    if (k % 2 === 0) evenSum += amp;
+    else oddSum += amp;
+  }
+
+  if (oddSum < 1e-6) return 1.0;
+  return Number((evenSum / oddSum).toFixed(2));
 }

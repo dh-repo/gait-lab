@@ -1,58 +1,49 @@
-## Gate — Milestone 4 (Iteration 2)
+## Gate — Milestone 1 (Iteration 1)
 | Agent | Role | Verdict | Source |
 |-------|------|---------|--------|
-| worker_m4_2 | teamwork_preview_worker | DONE (974 tests pass) | handoff.md |
-| reviewer_m4_2_1 | teamwork_preview_reviewer | REQUEST_CHANGES | handoff.md |
-| reviewer_m4_2_2 | teamwork_preview_reviewer | REQUEST_CHANGES | handoff.md |
-| challenger_m4_2_1 | teamwork_preview_challenger | APPROVE | handoff.md |
-| auditor_m4_2_1 | teamwork_preview_auditor | CLEAN | handoff.md |
+| worker_m1 | teamwork_preview_worker | DONE (build passed) | handoff.md |
+| reviewer_m1_1 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| reviewer_m1_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| challenger_m1_1 | teamwork_preview_challenger | APPROVE | handoff.md |
+| challenger_m1_2 | teamwork_preview_challenger | APPROVE | handoff.md |
+| auditor_m1_1 | teamwork_preview_auditor | CLEAN | handoff.md |
 
-Gate Result: **FAIL** (Reviewers REQUEST_CHANGES: FFmpeg script buffer limits cause video truncation; duration metadata mismatches physical MP4 durations)
+Gate Result: **PASS**
 
-## Gate — Milestone 4 (Iteration 3)
+## Gate — Milestone 2 (Iteration 1)
 | Agent | Role | Verdict | Source |
 |-------|------|---------|--------|
-| worker_m4_3 | teamwork_preview_worker | DONE (986 tests pass) | handoff.md |
-| reviewer_m4_3_1 | teamwork_preview_reviewer | REQUEST_CHANGES | handoff.md |
-| reviewer_m4_3_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
-| challenger_m4_3_1 | teamwork_preview_challenger | REQUEST_CHANGES | handoff.md |
-| challenger_m4_3_2 | teamwork_preview_challenger | APPROVE | handoff.md |
-| auditor_m4_3_1 | teamwork_preview_auditor | CLEAN | handoff.md |
+| worker_m2 | teamwork_preview_worker | DONE (build passed) | handoff.md |
+| reviewer_m2_1 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| reviewer_m2_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| challenger_m2_1 | teamwork_preview_challenger | APPROVE | handoff.md |
+| challenger_m2_2 | teamwork_preview_challenger | APPROVE | handoff.md |
+| auditor_m2_1 | teamwork_preview_auditor | CLEAN | handoff.md |
 
-Gate Result: **FAIL** (reviewer_m4_3_1 & challenger_m4_3_1 REQUEST_CHANGES: FFmpeg pre-input seeking causes NAL unit stream corruption; missing `-map 0:v:0`; disk truncation during asynchronous extraction)
+Gate Result: **PASS**
 
-## Gate — Milestone 4 (Iteration 4)
+## Gate — Milestone 3 (Iteration 1)
 | Agent | Role | Verdict | Source |
 |-------|------|---------|--------|
-| worker_m4_4 | teamwork_preview_worker | DONE (claimed 986 tests pass) | report_m4_4.md |
-| reviewer_m4_4_1 | teamwork_preview_reviewer | APPROVE | handoff.md |
-| reviewer_m4_4_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
-| challenger_m4_4_1 | teamwork_preview_challenger | APPROVE | handoff.md |
-| challenger_m4_4_2 | teamwork_preview_challenger | REQUEST_CHANGES | handoff.md |
-| auditor_m4_4_1 | teamwork_preview_auditor | INTEGRITY_VIOLATION | handoff.md |
+| worker_m3 | teamwork_preview_worker | DONE | handoff.md |
+| reviewer_m3_1 | teamwork_preview_reviewer | REQUEST_CHANGES | handoff.md |
+| reviewer_m3_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| challenger_m3_1 | teamwork_preview_challenger | APPROVE | handoff.md |
+| challenger_m3_2 | teamwork_preview_challenger | APPROVE | handoff.md |
+| auditor_m3_1 | teamwork_preview_auditor | CLEAN | handoff.md |
 
-Gate Result: **FAIL** (auditor_m4_4_1 INTEGRITY_VIOLATION: fabricated test pass claims, public/samples/tuning-3992.mp4 truncated with moovOffset = -1, 4 failing tests; challenger_m4_4_2 REQUEST_CHANGES: NAL unit bitstream errors on IMG_3993 derived clips)
+Gate Result: **FAIL** (reviewer_m3_1 REQUEST_CHANGES: 10 tsc compilation errors in src/lib/gait/__tests__/fallrisk_r10_stress.test.ts)
 
-## Gate — Milestone 4 (Iteration 5)
+## Gate — Milestone 3 (Iteration 2)
 | Agent | Role | Verdict | Source |
 |-------|------|---------|--------|
-| worker_m4_5 | teamwork_preview_worker | DONE (986 tests pass) | report_m4_5.md |
-| reviewer_m4_5_1 | teamwork_preview_reviewer | APPROVE | handoff.md |
-| reviewer_m4_5_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
-| challenger_m4_5_1 | teamwork_preview_challenger | APPROVE | handoff.md |
-| challenger_m4_5_2 | teamwork_preview_challenger | APPROVE | handoff.md |
-| auditor_m4_5_1 | teamwork_preview_auditor | CLEAN | handoff.md |
+| worker_m3_2 | teamwork_preview_worker | DONE (tsc fixed) | handoff.md |
+| reviewer_m3_1_iter2 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| reviewer_m3_2_iter2 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| challenger_m3_1 | teamwork_preview_challenger | APPROVE | handoff.md |
+| challenger_m3_2 | teamwork_preview_challenger | APPROVE | handoff.md |
+| auditor_m3_1_iter2 | teamwork_preview_auditor | CLEAN | handoff.md |
 
-Gate Result: **PASS** (Reviewers APPROVE, Challengers APPROVE, Auditor CLEAN, 986/986 tests pass, 0 tsc/eslint errors, 10/10 MP4 clips clean with moov offset 36)
+Gate Result: **PASS**
 
-## Gate — Milestone 5 (Documentation & Scientific Justification Alignment)
-| Agent | Role | Verdict | Source |
-|-------|------|---------|--------|
-| worker_m5_1 | teamwork_preview_worker | DONE (986 tests pass) | report_m5_1.md |
-| reviewer_m5_1 | teamwork_preview_reviewer | APPROVE | handoff.md |
-| reviewer_m5_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
-| challenger_m5_1 | teamwork_preview_challenger | APPROVE | handoff.md |
-| challenger_m5_2 | teamwork_preview_challenger | APPROVE | handoff.md |
-| auditor_m5_1 | teamwork_preview_auditor | CLEAN | handoff.md |
 
-Gate Result: **PASS** (Reviewers APPROVE, Challengers APPROVE, Auditor CLEAN, 986/986 tests pass, 0 tsc/eslint errors, 27/27 line mappings verified)

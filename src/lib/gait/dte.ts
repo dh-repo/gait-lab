@@ -56,6 +56,7 @@ export function calculateDTE(
   let stepTimeCvDTE = 0.0;
   const baseCv = baseline.stepTimeCV > 1e-6 ? baseline.stepTimeCV : 0.05;
   stepTimeCvDTE = -((dualTask.stepTimeCV - baseCv) / baseCv) * 100;
+  stepTimeCvDTE = Math.max(-100.0, Math.min(100.0, stepTimeCvDTE));
 
   // 3. Symmetry Score DTE (higher is better)
   let symmetryDTE = 0.0;

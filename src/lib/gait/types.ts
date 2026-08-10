@@ -95,6 +95,10 @@ export type GaitMetrics = {
   meanStepWidth: number | null;
   /** Relative path smoothness 0–1 (1 = smooth linear progress). */
   pathSmoothness: number;
+  /** Patient height metrics for height-adjusted gait speed estimation */
+  heightMeters?: number | null;
+  heightCm?: number | null;
+  patientHeight?: number | null;
   /** 95% Confidence intervals from split-half reliability testing */
   confidenceIntervals?: Record<string, ReliabilityBounds>;
   /** Secondary exploratory composite scores (demoted, non-diagnostic) */
@@ -120,6 +124,11 @@ export type GaitMetrics = {
   }[];
   /** Explicit gait speed in m/s (optional calibrated metric). */
   gaitSpeedMps?: number | null;
+  stepLength?: number | null;
+  stepLengthLeft?: number | null;
+  stepLengthRight?: number | null;
+  strideLengthLeft?: number | null;
+  strideLengthRight?: number | null;
   /** Classified gait events (Heel Strike & Toe Off) with side and timestamp */
   stepEvents: GaitEvent[];
 };

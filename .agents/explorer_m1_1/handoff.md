@@ -1,78 +1,177 @@
-# Handoff Report: Milestone 1 Blueprint & Failure Re-Verification
+# Milestone 1 Investigation Handoff Report: R1 & R5
 
-**Author**: explorer_m1_1  
-**Date**: 2026-08-10  
-**Milestone**: Milestone 1 (Fix 2 Failing Tests & Harden Algorithm Accuracy)  
-**Blueprint File Path**: `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/blueprint_m1.md`
+**Agent**: teamwork_preview_explorer (Explorer 1 for M1)  
+**Working Directory**: `/Users/damian/GitHub/gait-lab/.agents/explorer_m1_1/`  
+**Date**: 2026-08-10T14:02:58Z  
 
 ---
 
 ## 1. Observation
 
-Direct test execution command:
-```bash
-npx vitest run src/lib/gait/__tests__/e2e_engine_enhancements.test.ts src/lib/gait/__tests__/split_half_stress_m8_2.test.ts
-```
+### R1: Zifchock Symmetry Angle (SA) Equation Scaling Error
+- **File**: `src/lib/gait/symmetry.ts`
+- **Line 13 (Docstring)**:
+  ```typescript
+  * SA = (|45deg - arctan(valLeft / valRight)| / 90deg) * 100%
+  ```
+- **Line 37 (Implementation)**:
+  ```typescript
+  const rawSA = (Math.abs(45 - thetaDeg) / 90) * 100;
+  ```
+- **File**: `src/lib/gait/analysis.ts`
+- **Line 393 (Comment)**:
+  ```typescript
+  // Overall composite Zifchock Symmetry Angle (SA) [0, 50]%
+  ```
 
-Output highlights:
-1. `src/lib/gait/__tests__/e2e_engine_enhancements.test.ts`:
-   - Line 410: `expect(metrics.stepTimeCV).toBeGreaterThan(0.03);`
-   - Verbatim error: `AssertionError: expected 0.024060970851139524 to be greater than 0.03`
-2. `src/lib/gait/__tests__/split_half_stress_m8_2.test.ts`:
-   - Line 117: `expect(ciWidths[1]).toBeLessThanOrEqual(ciWidths[2]);`
-   - Verbatim error: `AssertionError: expected 199.526 to be less than or equal to 106.39900000000002`
+- **Impacted Unit Test Assertions (Found via `grep_search`)**:
+  1. `src/lib/gait/__tests__/symmetry.test.ts`:
+     - Line 34: `expect(sa2_1).toBeCloseTo(20.48, 1);` (for ratio 100:50)
+     - Line 38: `expect(sa3_1).toBeCloseTo(29.52, 1);` (for ratio 30:10)
+     - Line 42: `expect(sa10_1).toBeCloseTo(43.65, 1);` (for ratio 100:10)
+     - Line 45: `it("enforces absolute maximum cap of 50.0%", () => {`
+     - Line 47: `expect(symmetryAngle(10, 0)).toBe(50.0);`
+     - Line 48: `expect(symmetryAngle(0, 100)).toBe(50.0);`
+  2. `src/lib/gait/__tests__/m2_challenger_verification.test.ts`:
+     - Line 190: `expect(symmetryAngle(10, 0)).toBe(50.0);`
+     - Line 191: `expect(symmetryAngle(0, 10)).toBe(50.0);`
+     - Line 192: `expect(symmetryAngle(100000, 0.0001)).toBeLessThanOrEqual(50.0);`
+  3. `src/lib/gait/__tests__/m4_challenger_verification.test.ts`:
+     - Line 151: `expect(symmetryAngle(100, 0)).toBe(50.0);`
+     - Line 152: `expect(symmetryAngle(0, 100)).toBe(50.0);`
+  4. `src/lib/gait/__tests__/nan_property.test.ts`:
+     - Line 44: `expect(symmetryAngle(-100, 0)).toBe(50);`
+  5. `src/lib/gait/__tests__/stress_adversarial.test.ts`:
+     - Line 46: `test("symmetryAngle mathematically caps at 50% asymmetry despite [0, 100]% claim", () => {`
+     - Line 52: `expect(saZeroRight).toBe(50);`
+     - Line 56: `expect(saZeroLeft).toBe(50);`
+     - Line 60: `expect(saExtreme).toBeLessThanOrEqual(50);`
 
-Inspected Source Locations:
-- `src/lib/gait/analysis.ts`:
-  - Line 340: `const MIN_STEP_SEC = 0.3;`
-  - Lines 1212 & 1220: `Math.abs(durations[...] - median) / median > 0.25`
-- `src/lib/gait/events.ts`:
-  - Line 297: `const minGap = Math.max(3, Math.floor(0.35 * effectiveFps));`
-  - Line 341: `const yMinGap = Math.max(4, Math.floor(0.33 * effectiveFps));`
+---
+
+### R5: Dual-Task Effect (DTE) Unbounded Percentage Spikes
+- **File**: `src/lib/gait/dte.ts`
+- **Lines 56–59 (Implementation)**:
+  ```typescript
+  // 2. Step Time CV DTE (lower is better -> inverted sign)
+  let stepTimeCvDTE = 0.0;
+  const baseCv = baseline.stepTimeCV > 1e-6 ? baseline.stepTimeCV : 0.05;
+  stepTimeCvDTE = -((dualTask.stepTimeCV - baseCv) / baseCv) * 100;
+  ```
+- **Observed Behavior**:
+  When `baseline.stepTimeCV` is small (e.g. `0.02`) and `dualTask.stepTimeCV` increases (e.g. `0.08`), the unclamped formula evaluates to `-((0.08 - 0.02) / 0.02) * 100 = -300%`.
+- **Existing Test Coverage**:
+  In `src/lib/gait/__tests__/dte.test.ts`, tests evaluate DTE values within `[-100%, +100%]`. None assert unclamped spike behavior exceeding 100% magnitude.
+
+---
+
+### Baseline Test Suite Execution
+- **Command executed**: `npx vitest run`
+- **Output**: 90 test files passed, 1224 tests passed (0 failures).
 
 ---
 
 ## 2. Logic Chain
 
-1. **Observation 1**: `e2e_engine_enhancements.test.ts:410` failed with `stepTimeCV = 0.024` vs required `> 0.03`.
-2. **Step 1a**: Scenario 2 builds asymmetric walking frames (`asymmetryFactor = 1.35`). Short step durations are ~230ms–280ms.
-3. **Step 1b**: `MIN_STEP_SEC = 0.3` in `analysis.ts:340` discards heel strikes within 300ms of the previous strike, discarding valid short steps and artificially homogenizing the step sequence.
-4. **Step 1c**: `filterSteadyStateStrides` in `analysis.ts:1212,1220` filters step durations deviating from median by >25%. Short step deviation `|0.32 - 0.45| / 0.45 = 28.9% > 25%`, causing asymmetric steps to be trimmed as non-steady outliers, collapsing `std(cvIntervals)` and `stepTimeCV`.
-5. **Conclusion 1**: Lowering `MIN_STEP_SEC` to `0.15` and raising `filterSteadyStateStrides` threshold to `0.40` (40%) preserves asymmetric step variability while continuing to exclude initial acceleration / terminal deceleration transients (90%–108% deviation).
+### Logic Chain for R1: Zifchock SA Scaling Fix
+1. **Observation**: `symmetry.ts` line 37 computes `rawSA = (Math.abs(45 - thetaDeg) / 90) * 100`.
+2. **Mathematical Formulation (Zifchock et al. 2008)**:
+   For positive metric values $X_L, X_R$, the angle $\theta = \arctan(X_L / X_R) \in [0^\circ, 90^\circ]$.
+   Symmetry corresponds to $X_L = X_R \implies \theta = 45^\circ$, where $|45^\circ - \theta| = 0^\circ$.
+   Maximum asymmetry occurs when one side is 0, so $\theta = 0^\circ$ or $90^\circ$, giving $|45^\circ - \theta| = 45^\circ$.
+   To express SA as a percentage in $[0, 100\%]$, the maximum angle difference ($45^\circ$) must be the denominator:
+   $$\text{SA} = \frac{|45^\circ - \theta|}{45^\circ} \times 100\%$$
+3. **Conclusion for Code Edit**:
+   - In `symmetry.ts` line 37: replace `/ 90` with `/ 45`.
+   - In `symmetry.ts` line 13: replace `/ 90deg` with `/ 45deg`.
+   - In `analysis.ts` line 393: update comment from `[0, 50]%` to `[0, 100]%`.
+4. **Conclusion for Test Updates**:
+   - Doubling the denominator scaling doubles all non-zero SA outputs.
+   - For complete asymmetry ($X_L = 10, X_R = 0$), SA moves from 50.0% to 100.0%.
+   - For ratio 2:1 ($100, 50$), $\theta = 63.4349^\circ \implies |45 - 63.4349| / 45 \times 100 = 40.966\% \approx 40.97\%$.
+   - For ratio 3:1 ($30, 10$), $\theta = 71.5651^\circ \implies |45 - 71.5651| / 45 \times 100 = 59.033\% \approx 59.03\%$.
+   - For ratio 10:1 ($100, 10$), $\theta = 84.2894^\circ \implies |45 - 84.2894| / 45 \times 100 = 87.310\% \approx 87.31\%$.
 
-6. **Observation 2**: `split_half_stress_m8_2.test.ts:117` failed with `ciWidths[1] = 199.526` > `ciWidths[2] = 106.399`.
-7. **Step 2a**: Test 3 applies `speedFactors = [1.0, 1.25, 1.6]` to Half 2. At `factor = 1.6`, effective frame rate rises to ~36.8 FPS, making `minGap = Math.floor(0.35 * 36.8) = 12` frames (~325ms).
-8. **Step 2b**: At 1.6x speed perturbation, single-leg stride period is 11.72 frames. Because 11.72 < 12 (`minGap`), `findExtrema` in `events.ts:297` suppresses alternate single-leg heel strikes.
-9. **Step 2c**: Half 2 detected step count drops by 50%, collapsing calculated `m2.cadenceSpm` from ~153.6 SPM to ~76.8 SPM. This reduces $|M1 - M2|$ at factor 1.6 below factor 1.25, shrinking 95% CI width and violating monotonicity.
-10. **Conclusion 2**: Lowering `minGap` multiplier from `0.35` to `0.18` in `events.ts:297` and `yMinGap` in `events.ts:341` lowers `minGap` to 6 frames at 36.8 FPS, ensuring 100% of stride events are detected without dropping peaks, restoring monotonic CI expansion.
+### Logic Chain for R5: DTE Clamping Fix
+1. **Observation**: In `dte.ts` lines 57-58, `stepTimeCvDTE` is calculated as `-((dualTask.stepTimeCV - baseCv) / baseCv) * 100`.
+2. **Risk**: A baseline CV of `0.02` combined with a dual-task CV of `0.08` generates `-300%` DTE, causing unbounded percentage spikes.
+3. **Conclusion for Code Edit**:
+   - Clamp `stepTimeCvDTE` to `[-100.0, +100.0]`.
+   - Proposed replacement for `dte.ts` lines 58-59:
+     ```typescript
+     stepTimeCvDTE = -((dualTask.stepTimeCV - baseCv) / baseCv) * 100;
+     stepTimeCvDTE = Math.max(-100.0, Math.min(100.0, stepTimeCvDTE));
+     ```
+4. **Conclusion for Test Updates**:
+   - Add a unit test in `src/lib/gait/__tests__/dte.test.ts` verifying that `stepTimeCvDTE` clamps to `-100.0%` for extreme CV increases and `+100.0%` for extreme CV decreases.
 
 ---
 
 ## 3. Caveats
 
-- **Scope Limit**: Milestone 1 focuses exclusively on fixing the 2 failing tests and verifying baseline stability. Signal processing tuning across other modules (R2) and new adversarial test expansion (R3) will build on top of these tuned baseline parameters in Milestones 2 and 3.
+1. **Other Gait Symmetry Functions**:
+   `gaitSymmetryIndex` (GSI) in `symmetry.ts` computes simple ratio `(min/max) * 100%`. It is unaffected by R1 and requires no changes.
+2. **Downstream UI / Composite Scores**:
+   `symmetryScore` in `analysis.ts` line 500 (`100 - symmetryAngleVal * 1.8 - ...`) uses `symmetryAngleVal`. When SA doubles, `symmetryAngleVal` will double, which is intended per R1 requirement ("SA scores double relative to Phase 2").
+3. **Scope Limit**:
+   This report covers R1 and R5 only. R2, R3, and R4 will be investigated and implemented by dedicated agents for Milestone 1.
 
 ---
 
-## 4. Conclusion
+## 4. Conclusion & Precise Proposed Changes
 
-Milestone 1 root causes are fully diagnosed and mathematically verified. The implementation blueprint `blueprint_m1.md` contains exact line-by-line fix instructions for the Worker agent across `src/lib/gait/analysis.ts` and `src/lib/gait/events.ts`.
+### Proposed Code Changes (Patch Preview)
+
+#### 1. Target: `src/lib/gait/symmetry.ts`
+```diff
+--- a/src/lib/gait/symmetry.ts
++++ b/src/lib/gait/symmetry.ts
+@@ -13,1 +13,1 @@
+- * SA = (|45deg - arctan(valLeft / valRight)| / 90deg) * 100%
++ * SA = (|45deg - arctan(valLeft / valRight)| / 45deg) * 100%
+@@ -37,1 +37,1 @@
+-  const rawSA = (Math.abs(45 - thetaDeg) / 90) * 100;
++  const rawSA = (Math.abs(45 - thetaDeg) / 45) * 100;
+```
+
+#### 2. Target: `src/lib/gait/dte.ts`
+```diff
+--- a/src/lib/gait/dte.ts
++++ b/src/lib/gait/dte.ts
+@@ -58,2 +58,3 @@
+   const baseCv = baseline.stepTimeCV > 1e-6 ? baseline.stepTimeCV : 0.05;
+   stepTimeCvDTE = -((dualTask.stepTimeCV - baseCv) / baseCv) * 100;
++  stepTimeCvDTE = Math.max(-100.0, Math.min(100.0, stepTimeCvDTE));
+```
+
+#### 3. Target: `src/lib/gait/analysis.ts`
+```diff
+--- a/src/lib/gait/analysis.ts
++++ b/src/lib/gait/analysis.ts
+@@ -393,1 +393,1 @@
+-  // Overall composite Zifchock Symmetry Angle (SA) [0, 50]%
++  // Overall composite Zifchock Symmetry Angle (SA) [0, 100]%
+```
+
+#### 4. Target Test Files
+- `src/lib/gait/__tests__/symmetry.test.ts`:
+  Update lines 34 (`40.97`), 38 (`59.03`), 42 (`87.31`), 45 (`100.0%` title), 47 (`100.0`), 48 (`100.0`).
+- `src/lib/gait/__tests__/m2_challenger_verification.test.ts`:
+  Update lines 190 (`100.0`), 191 (`100.0`), 192 (`100.0`).
+- `src/lib/gait/__tests__/m4_challenger_verification.test.ts`:
+  Update lines 151 (`100.0`), 152 (`100.0`).
+- `src/lib/gait/__tests__/nan_property.test.ts`:
+  Update line 44 (`100`).
+- `src/lib/gait/__tests__/stress_adversarial.test.ts`:
+  Update lines 46 (title), 52 (`100`), 56 (`100`), 60 (`100`).
+- `src/lib/gait/__tests__/dte.test.ts`:
+  Add test for `stepTimeCvDTE` clamping to `[-100.0, +100.0]`.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify the implementation:
-
-1. **Targeted Tests**:
-   ```bash
-   npx vitest run src/lib/gait/__tests__/e2e_engine_enhancements.test.ts src/lib/gait/__tests__/split_half_stress_m8_2.test.ts
-   ```
-2. **Full Suite**:
-   ```bash
-   npx vitest run
-   ```
-3. **Invalidation Conditions**:
-   - Any test failures in the 861-test suite.
-   - `stepTimeCV` remaining below 0.03 for Scenario 2.
-   - Monotonicity condition `ciWidths[1] <= ciWidths[2]` failing in `split_half_stress_m8_2`.
+1. Run `npx vitest run src/lib/gait/__tests__/symmetry.test.ts` to verify Zifchock SA exact outputs and maximum 100% cap.
+2. Run `npx vitest run src/lib/gait/__tests__/dte.test.ts` to verify DTE clamping.
+3. Run `npx vitest run` across the full test suite to ensure 100% pass rate.
+4. Run `npx tsc --noEmit` to verify 0 TypeScript compilation errors.

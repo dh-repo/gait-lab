@@ -44,11 +44,13 @@ describe("Milestone 6 Challenger 2 Empirical Stress Tests", () => {
       expect(middle60.mean).toBe(108.6);
       expect(middle64.mean).toBe(108.6);
 
-      // Age > 64 => elderly
+      // Age 65-74 => elderly, Age 75-84 => advanced_75_84
       const elderly65 = getNormativeReference("cadenceSpm", 65, "male");
-      const elderly80 = getNormativeReference("cadenceSpm", 80, "male");
+      const elderly70 = getNormativeReference("cadenceSpm", 70, "male");
+      const adv80 = getNormativeReference("cadenceSpm", 80, "male");
       expect(elderly65.mean).toBe(103.2);
-      expect(elderly80.mean).toBe(103.2);
+      expect(elderly70.mean).toBe(103.2);
+      expect(adv80.mean).toBe(98.5);
     });
 
     it("correctly stratifies by sex across all categories (male, female, combined)", () => {

@@ -326,9 +326,9 @@ function computeGaitMetricsCore(
     const zCad = cad(zeniHs.length);
     const oCad = cad(oscHs.length);
     const walkFit = (c: number) => {
-      if (c < 45 || c > 165) return -1e9;
+      if (c < 40 || c > 140) return -1e9;
       // peak preference ~100–115 spm
-      return -Math.abs(c - 108) - (c < 70 ? 40 : 0);
+      return -Math.abs(c - 108);
     };
     if (oscHs.length >= 4 && walkFit(oCad) > walkFit(zCad)) {
       stepEvents = osc;
@@ -360,7 +360,7 @@ function computeGaitMetricsCore(
   const cvIntervals = steadyStrides.length >= 2 ? steadyStrides : stepIntervals;
   const avgStepTimeSec = mean(cvIntervals.length >= 2 ? cvIntervals : stepIntervals) || 0;
   // Prefer interval-based cadence (ignores lead-in/out standing); fall back to count/duration
-  const cadenceFromIntervals = avgStepTimeSec > 0.2 && avgStepTimeSec < 1.5 ? 60 / avgStepTimeSec : 0;
+  const cadenceFromIntervals = avgStepTimeSec > 0.2 && avgStepTimeSec <= 2.5 ? 60 / avgStepTimeSec : 0;
   const cadenceFromCount = durationSec > 0 ? (stepCount / durationSec) * 60 : 0;
   const cadenceSpm =
     cadenceFromIntervals > 0
@@ -390,7 +390,7 @@ function computeGaitMetricsCore(
   const kneeFlexRight = !isFrontal ? range(rightKneeAngle) : null;
   const kneeFlexSA = (kneeFlexLeft != null && kneeFlexRight != null) ? symmetryAngle(kneeFlexLeft, kneeFlexRight) : 0;
 
-  // Overall composite Zifchock Symmetry Angle (SA) [0, 50]%
+  // Overall composite Zifchock Symmetry Angle (SA) [0, 100]%
   const symmetryAngleVal = Number(((stepTimeSA + armSwingSA + kneeFlexSA) / (kneeFlexLeft != null ? 3 : 2)).toFixed(2));
 
   // Legacy percentage asymmetries retained for compatibility
@@ -398,9 +398,9 @@ function computeGaitMetricsCore(
   const armSwingAsymmetry = asymmetryRatio(armSwingLeft, armSwingRight);
   const kneeAsymmetry = (kneeFlexLeft != null && kneeFlexRight != null) ? asymmetryRatio(kneeFlexLeft, kneeFlexRight) : null;
 
-  // Stride length proxy: hip travel between same-side steps (valid in sagittal/oblique)
-  const leftStride: number[] = [];
-  const rightStride: number[] = [];
+  // Contralateral step distance (step length)
+  const leftStep: number[] = [];
+  const rightStep: number[] = [];
   for (let i = 1; i < heelStrikes.length; i++) {
     if (heelStrikes[i].side !== heelStrikes[i - 1].side) {
       const i0 = nearestIndex(series.map((s) => s.t), heelStrikes[i - 1].timeSec);
@@ -409,7 +409,24 @@ function computeGaitMetricsCore(
         series[i1].midHipX - series[i0].midHipX,
         series[i1].midHipY - series[i0].midHipY,
       ) / mean(series.map((s) => s.torso));
-      if (heelStrikes[i].side === "left") leftStride.push(travel);
+      if (heelStrikes[i].side === "left") leftStep.push(travel);
+      else rightStep.push(travel);
+    }
+  }
+
+  // Ipsilateral stride length: hip travel between consecutive same-side steps (valid in sagittal/oblique)
+  const leftStride: number[] = [];
+  const rightStride: number[] = [];
+  for (const side of ["left", "right"] as const) {
+    const sideStrikes = heelStrikes.filter((e) => e.side === side);
+    for (let i = 1; i < sideStrikes.length; i++) {
+      const i0 = nearestIndex(series.map((s) => s.t), sideStrikes[i - 1].timeSec);
+      const i1 = nearestIndex(series.map((s) => s.t), sideStrikes[i].timeSec);
+      const travel = Math.hypot(
+        series[i1].midHipX - series[i0].midHipX,
+        series[i1].midHipY - series[i0].midHipY,
+      ) / mean(series.map((s) => s.torso));
+      if (side === "left") leftStride.push(travel);
       else rightStride.push(travel);
     }
   }

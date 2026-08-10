@@ -153,6 +153,90 @@ describe("Rule-Based Guesses Engine (guesses.ts)", () => {
     });
   });
 
+  describe("R8 Compensatory Gait Patterns", () => {
+    it("triggers steppage-gait when knee flexion is high and ankle dorsiflexion is deficient", () => {
+      const metrics = createMockMetrics({
+        kneeFlexLeft: 70,
+        kneeFlexRight: 72,
+        viewAngle: "sagittal",
+      });
+      (metrics as any).ankleDorsiflexion = -6.0;
+
+      const guesses = buildEducatedGuesses(metrics);
+      const steppageGuess = guesses.find((g) => g.id === "steppage-gait");
+      expect(steppageGuess).toBeDefined();
+      expect(steppageGuess?.category).toBe("neuromotor");
+      expect(steppageGuess?.patternTag).toContain("steppage gait");
+    });
+
+    it("triggers festinating-gait when cadence is accelerating/high with short steps or high arm swing asymmetry", () => {
+      const metrics = createMockMetrics({
+        cadenceSpm: 126,
+        stepTimeCV: 0.10,
+        gaitSpeedMps: 0.8,
+        armSwingAsymmetry: 0.45,
+      });
+
+      const guesses = buildEducatedGuesses(metrics);
+      const festinatingGuess = guesses.find((g) => g.id === "festinating-gait");
+      expect(festinatingGuess).toBeDefined();
+      expect(festinatingGuess?.patternTag).toContain("festinating");
+    });
+
+    it("triggers scissoring-gait when step width is narrow/crossover with elevated hip adduction", () => {
+      const metrics = createMockMetrics({
+        meanStepWidth: 0.04,
+        pelvicObliquity: 0.12,
+        viewAngle: "frontal",
+      });
+
+      const guesses = buildEducatedGuesses(metrics);
+      const scissoringGuess = guesses.find((g) => g.id === "scissoring-gait");
+      expect(scissoringGuess).toBeDefined();
+      expect(scissoringGuess?.category).toBe("neuromotor");
+    });
+
+    it("triggers waddling-gait when pelvic obliquity > 8° and trunk lateral sway is elevated", () => {
+      const metrics = createMockMetrics({
+        pelvicObliquity: 0.16,
+        lateralSway: 0.09,
+        viewAngle: "frontal",
+      });
+
+      const guesses = buildEducatedGuesses(metrics);
+      const waddlingGuess = guesses.find((g) => g.id === "waddling-gait");
+      expect(waddlingGuess).toBeDefined();
+      expect(waddlingGuess?.patternTag).toContain("waddling gait");
+    });
+
+    it("triggers trendelenburg-sign when unilateral pelvic drop > 5°", () => {
+      const metrics = createMockMetrics({
+        pelvicObliquity: 0.10,
+        lateralSway: 0.04,
+        viewAngle: "frontal",
+      });
+
+      const guesses = buildEducatedGuesses(metrics);
+      const trendGuess = guesses.find((g) => g.id === "trendelenburg-sign");
+      expect(trendGuess).toBeDefined();
+      expect(trendGuess?.patternTag).toContain("Trendelenburg sign");
+    });
+
+    it("triggers circumduction-gait when knee flexion is restricted and lateral swing arc is high", () => {
+      const metrics = createMockMetrics({
+        kneeFlexLeft: 20,
+        kneeFlexRight: 22,
+        lateralSway: 0.09,
+        stepTimeAsymmetry: 0.25,
+      });
+
+      const guesses = buildEducatedGuesses(metrics);
+      const circumGuess = guesses.find((g) => g.id === "circumduction-gait");
+      expect(circumGuess).toBeDefined();
+      expect(circumGuess?.patternTag).toContain("circumduction gait");
+    });
+  });
+
   describe("Evidence Formatting & String Safety", () => {
     it("ensures zero evidence items contain undefined, NaN, or null substrings", () => {
       const metrics = createMockMetrics();

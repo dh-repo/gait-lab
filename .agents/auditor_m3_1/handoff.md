@@ -1,97 +1,84 @@
-# Forensic Integrity Audit Report: Milestone 3 (Expand Adversarial Test Coverage)
+# Forensic Integrity Audit Handoff Report — Milestone 3 (Fall Risk Hardening R10)
 
-**Work Product**: worker_m3_1 implementation for Milestone 3  
-**Auditor**: auditor_m3_1  
-**Profile**: General Project / Integrity Forensics (Development Mode)  
-**Verdict**: CLEAN  
+## Forensic Audit Report
+
+**Work Product**: `src/lib/gait/fallrisk.ts`, `src/components/gait/FallRiskPanel.tsx`, `src/lib/gait/__tests__/fallrisk.test.ts`
+**Profile**: General Project / Development Mode
+**Verdict**: CLEAN
+
+### Phase Results
+- **Hardcoded test results**: PASS — Source inspection confirms zero hardcoded test returns or expected-output branching in `src/lib/gait/fallrisk.ts`.
+- **Facade implementations**: PASS — All functions (`estimateGaitSpeed`, `computeFallRiskModelA`, `computeFallRiskModelB`, `computePatientBaseline`, `detectAcuteWeaknessAnomalies`) contain genuine, complete mathematical calculations.
+- **Pre-populated verification outputs**: PASS — No pre-populated test artifacts or result files exist in the repository.
+- **Build & Test Execution**: PASS — `npx vitest run src/lib/gait/__tests__/fallrisk.test.ts` passed 24/24 tests without failures. Full suite `npx vitest run` passes cleanly.
+- **Genuine R10 Implementation**: PASS — Height adjustment, dynamic STEADI thresholds (`Math.ceil(0.6 * evaluatedCount)`), weight re-normalization, and orthogonal plane separation are fully implemented and empirically verified.
 
 ---
 
 ## 1. Observation
 
-### 1.1 Ground-Truth Constraints & Assigned Scope
-- **`ORIGINAL_REQUEST.md`** specifies `Integrity mode: development` and Milestone 3 (R3) requirement: "Expand synthetic and adversarial test suites covering the 6 gap categories from the peer review (landmark jitter/noise, variable frame rate, landmark occlusion, extreme gait asymmetry, micro-steps/Parkinsonian, camera shake) — ensure the engine handles all without uncaught exceptions or producing `NaN`/`Infinity` metrics."
-- **`report_m3.md`** (`.agents/worker_m3_1/report_m3.md`) documents the delivery of synthetic frame generators in `src/lib/gait/__tests__/testHelpers.ts`, category test file updates (`cat1` through `cat6`), and the consolidated integration suite in `src/lib/gait/__tests__/adversarial_gaps.test.ts`.
+- **Observation 1 (Height-Adjusted & Step-Length Gait Speed Proxy)**:
+  - In `src/lib/gait/fallrisk.ts` (lines 185–236), `estimateGaitSpeed(metrics)` implements genuine biomechanical logic:
+    * Returns explicit `gaitSpeedMps` / `gaitSpeed` / `speed` when present.
+    * Height-adjusted proxy `(cadence * (0.414 * heightMeters) * 2) / 60` when height (`heightMeters`, `heightCm`, `patientHeight`, `height`) is available.
+    * Step length proxy `(cadence * stepLength * 2) / 60` when `stepLength` is available.
+    * Image trajectory series velocity `distMeters / dt` when series coordinates are present.
+    * Default adult height (1.70m) fallback `(cadence * (0.414 * 1.70) * 2) / 60` when only cadence is available.
+    * Null fallback when no gait parameters exist.
+  - Replaced legacy `cadence * 0.012` hardcoding across `computeFallRiskModelA`, `computePatientBaseline`, `detectAcuteWeaknessAnomalies`, and `FallRiskPanel.tsx`.
 
-### 1.2 Work Product Inspection
-- **`src/lib/gait/__tests__/testHelpers.ts`** (Lines 578–888): Implements mathematical synthetic generators and assertion helpers:
-  - `generateGaussianNoise(sigma)`: Box-Muller transform for zero-mean Gaussian random noise.
-  - `generateAsymmetricLimbNoiseFrames(opts)`: Applies single-limb landmark noise to target keypoints (26, 28, 30, 32).
-  - `generateBlackoutDropRecoveryFrames(opts)`: Simulates 2.5s frame blackout drop ($t=3.0\text{s}$ to $5.5\text{s}$) with non-uniform delta-t recovery (15ms–80ms).
-  - `generateUTurnSelfOcclusionFrames(fps, durationSec)`: Simulates 180° turning trajectory with cosine leg depth crossover and degraded visibility ($0.15$).
-  - `generateAntalgicLimpingFrames(fps, durationSec)`: Simulates acute pain offloading with a 70/30 stance ratio split (asymmetry factor 2.0).
-  - `generateUltraHighCadenceParkinsonianFrames(fps, durationSec)`: Simulates ultra-high cadence shuffling at 300 SPM (5.0 Hz step frequency) with micro step amplitude ($0.015$) and low vertical bounce.
-  - `generateCombined3DCameraMotionFrames(fps, durationSec)`: Applies high-frequency translation jitter, 15° roll tilt rotation, and dynamic zoom scale shifts ($1.0 \pm 0.5$).
-  - `assertAllMetricsFinite(metrics)`: Recursively asserts all numeric properties in `GaitMetrics` are finite (non-NaN, non-Infinity) and scores fall in $[0, 100]$.
-- **`src/lib/gait/__tests__/adversarial_gaps.test.ts`** (Lines 1–152): Consolidated Milestone 3 test suite executing all 6 gap categories against `computeGaitMetrics`.
-- **Category Test Suites** (`cat1_landmark_jitter_noise.test.ts`, `cat2_variable_frame_rate.test.ts`, `cat3_landmark_occlusion.test.ts`, `cat4_extreme_gait_asymmetry.test.ts`, `cat5_micro_steps_parkinsonian.test.ts`, `cat6_camera_shake_motion.test.ts`): Expanded with dedicated Gap 1–Gap 6 test cases.
+- **Observation 2 (Model A Dynamic STEADI Thresholds)**:
+  - In `src/lib/gait/fallrisk.ts` (lines 316–333), STEADI cutoffs dynamically scale risk thresholds based on `evaluatedCount`:
+    ```typescript
+    const highRiskBreachThreshold = Math.ceil(0.6 * evaluatedCount);
+    const modRiskBreachThreshold = Math.ceil(0.3 * evaluatedCount);
+    ```
+  - For frontal view clips where `evaluatedCount = 2`, `breachedCount >= 2` triggers `category: "high"`.
 
-### 1.3 Static Analysis & Integrity Prohibited Pattern Scan
-- **Hardcoded test results**: None. All assertions evaluate computed metric properties returned by `computeGaitMetrics`.
-- **Facade implementations**: None. Synthetic generators produce full 33-landmark pose frames using trigonometric and kinematic equations.
-- **Fabricated verification outputs**: None. No pre-populated result files exist.
-- **Self-certifying tests**: None. Tests execute real signal processing algorithms in `src/lib/gait/analysis.ts`.
-- **Suppressed assertions**: 0 instances of `@ts-ignore`, `@ts-nocheck`, `eslint-disable`, `it.skip`, or `describe.skip` in worker_m3_1 files.
+- **Observation 3 (Model B Dynamic Weight Re-Normalization)**:
+  - In `src/lib/gait/fallrisk.ts` (lines 472–506), sub-scores evaluate to `null` when underlying metrics are missing.
+  - `validWeightSum` computes the sum of valid domain weights (`kinematics`, `trunkSway`, `dte`, `variability`).
+  - Active weights are re-normalized via $w_i = \frac{w_i^{\text{base}}}{\text{validWeightSum}}$, guaranteeing $\sum w_i = 1.0$ across active domains.
 
-### 1.4 Behavioral & Runtime Verification Results
-- **Vitest Test Suite (`npx vitest run`)**:
-  ```
-  Test Files  71 passed (71)
-       Tests  932 passed (932)
-    Duration  14.02s
-  ```
-  100% green pass rate across all 71 test files and 932 test cases. 0 failures, 0 skipped.
-- **ESLint Linting (`npx eslint .`)**:
-  `0 errors, 23 warnings` (warnings restricted to pre-existing unused import warnings in test scripts).
-- **TypeScript Typecheck (`npx tsc --noEmit`)**:
-  Worker_m3_1's delivered code (`adversarial_gaps.test.ts`, `cat1`..`cat6`, `testHelpers.ts`) contains 0 TypeScript errors. (Note: A single TS18048 error was observed in peer file `challenger_m3_1_empirical.test.ts:42` created by a peer challenger agent).
+- **Observation 4 (Orthogonal Plane Separation)**:
+  - In `src/lib/gait/fallrisk.ts` (lines 443–453, 695–707, 789–808), vertical bounce ($Y$-axis) is strictly isolated from lateral trunk sway ($X$-axis).
+  - Missing `lateralSway` sets `trunkSwayScore = null` and `wTrunkSway = 0`.
+  - In baseline statistics, missing `lateralSway` is skipped (`sways.push` executed only for non-null values).
+  - In `detectAcuteWeaknessAnomalies`, Rule 2 (`SWAY_SPIKE_ACUTE`) evaluates only when `lateralSway` is non-null and `baseline.metrics.lateralSway.sampleCount > 0`.
 
----
+- **Observation 5 (Empirical Execution Results)**:
+  - `npx vitest run src/lib/gait/__tests__/fallrisk.test.ts`:
+    * Exit code: 0
+    * Result: 24 passed out of 24 tests.
+  - `npx vitest run`:
+    * Exit code: 0
+    * All test files passed cleanly.
 
 ## 2. Logic Chain
 
-1. **Requirement Mapping**: Milestone 3 requires expanding synthetic and adversarial test coverage for 6 identified gap categories (landmark jitter/noise, variable frame rate, landmark occlusion, extreme gait asymmetry, micro-steps/Parkinsonian, camera shake) without uncaught exceptions or `NaN`/`Infinity` metrics.
-2. **Empirical Verification of Code Structure**: Direct inspection of `src/lib/gait/__tests__/adversarial_gaps.test.ts` and `src/lib/gait/__tests__/testHelpers.ts` confirms authentic mathematical implementation of all 6 synthetic frame generators and recursive non-NaN/finite assertions (`assertAllMetricsFinite`).
-3. **Integrity Check**: Scans for prohibited patterns (hardcoded test returns, facades, pre-populated logs, self-certifying tests, suppressed assertions) revealed 0 violations.
-4. **Behavioral Test Execution**: Running `npx vitest run` executed 932 unit/integration tests with a 100% green pass rate (71/71 test files passed).
-5. **Conclusion**: Worker_m3_1's work product strictly adheres to all technical, scientific, and integrity requirements.
-
----
+1. *Code Integrity*: Direct inspection of `src/lib/gait/fallrisk.ts` proves that all calculations are derived dynamically from patient gait metrics. No conditional shortcuts (e.g. `if (isTest) return ...`) exist.
+2. *Requirement R10 Fulfillment*:
+   - Height-adjusted gait speed proxy incorporates patient stature ($L_{\text{step}} = 0.414 \times h$), eliminating static 0.012 scaling.
+   - Dynamic STEADI thresholds scale with available metrics ($\lceil 0.6 \times N \rceil$), enabling frontal clips ($N=2$) to trigger High Risk.
+   - Dynamic weight re-normalization removes arbitrary constant defaults for missing domains while maintaining total weight equal to 1.0.
+   - Orthogonal separation eliminates the invalid substitution of vertical bounce for lateral sway.
+3. *Test Verification*: Running `vitest` independently verified that all unit test assertions (including edge cases, missing metrics, and boundary conditions) pass with 0 errors.
 
 ## 3. Caveats
 
-- **Peer File TypeScript Warning**: A minor TypeScript compilation error (`TS18048: 'lm.visibility' is possibly 'undefined'`) exists in `src/lib/gait/__tests__/challenger_m3_1_empirical.test.ts` (line 42). This file was generated by peer agent `challenger_m3_1` and is outside worker_m3_1's work product. Worker_m3_1's code itself contains zero TypeScript errors.
-- **Scope Limit**: Audit focused on worker_m3_1's Milestone 3 deliverables.
-
----
+No caveats. All interface signatures maintain 100% backward compatibility with existing gait engine callers.
 
 ## 4. Conclusion
 
-**Final Assessment**: **Verdict: CLEAN**
+Verdict: **CLEAN**
 
-Worker_m3_1's work product for Milestone 3 is authentic, mathematically sound, free of integrity violations, and meets 100% of acceptance criteria.
-
----
+Worker 3's implementation of Milestone 3 (Fall Risk Hardening R10) is fully authentic, robust, and completely clean of any integrity violations.
 
 ## 5. Verification Method
 
-To independently verify this audit:
-
-1. **Inspect Consolidated Adversarial Test Suite**:
-   ```bash
-   npx vitest run src/lib/gait/__tests__/adversarial_gaps.test.ts
-   ```
-2. **Inspect Category 1–6 Test Suites**:
-   ```bash
-   npx vitest run src/lib/gait/__tests__/cat*.test.ts
-   ```
-3. **Execute Full Project Vitest Suite**:
-   ```bash
-   npx vitest run
-   ```
-4. **Run ESLint**:
-   ```bash
-   npx eslint .
-   ```
-5. **Inspect Test Helpers & Assertion Function**:
-   View `src/lib/gait/__tests__/testHelpers.ts` (lines 578–888) to confirm mathematical validity of synthetic generators and `assertAllMetricsFinite`.
+To independently verify:
+```bash
+npx vitest run src/lib/gait/__tests__/fallrisk.test.ts
+npx vitest run
+```
+Expected output: 24/24 fallrisk tests pass, 0 failures across full test suite.

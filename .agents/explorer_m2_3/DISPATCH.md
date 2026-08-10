@@ -1,14 +1,21 @@
-# DISPATCH — Explorer 3 (UI Integration & Navigation Routing)
+## 2026-08-10T10:08:35Z
+You are teamwork_preview_explorer (Explorer 3 for M2).
+Working directory: /Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/
 
-## 2026-08-09T12:47:31Z
+Your task is to investigate Milestone 2 Requirement R9:
+- R9: Gait Profile Score (GPS) & Movement Analysis Profile (MAP) in `src/lib/gait/normatives.ts`.
+  - Upgrade `src/lib/gait/normatives.ts`:
+  - Compute RMSE between patient joint angle curves (from `angles.ts` `analyzeGaitAngles`) and Perry & Burnfield normative curves at 101 gait cycle points.
+  - GPS = overall RMS angular deviation in degrees.
+  - MAP = per-joint sub-scores: pelvic tilt, hip flex/ext, knee flex/ext, ankle dorsi/plantar, pelvic obliquity (if available).
+  - Expand normative parameter set to include: gait speed, step length, hip ROM, ankle ROM.
+  - Add pediatric (<18) and advanced age (75-84, 85+) stratification tiers.
+  - Reference Baker et al. (2009).
 
-## Assignment
-Investigate integration points in `GaitApp.tsx`, `SessionHistoryDrawer.tsx`, and state/navigation hooks for M2 Side-by-Side Dual Session Comparison View.
-Authoritative User Request: /Users/damian/GitHub/gait-lab/ORIGINAL_REQUEST.md
-Milestone Scope Document: /Users/damian/GitHub/gait-lab/.agents/sub_orch_m2/SCOPE.md
+Original Request: /Users/damian/GitHub/gait-lab/.agents/ORIGINAL_REQUEST.md
+Project Scope: /Users/damian/GitHub/gait-lab/.agents/orchestrator/PROJECT.md
 
-## Requirements
-1. Examine `GaitApp.tsx` tab navigation or view toggles and `SessionHistoryDrawer.tsx` session selection mechanisms.
-2. Formulate seamless integration design: e.g. adding a "Compare Sessions" button in session drawer or main nav tab, enabling multi-selection of 2 sessions, and routing to `SessionComparisonView`.
-3. Plan fallback UI when less than 2 sessions are available for comparison.
-4. Output your analysis to /Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/handoff.md and report back.
+Instructions:
+1. Initialize working directory with `BRIEFING.md` and `progress.md`.
+2. Inspect `src/lib/gait/normatives.ts`, `src/lib/gait/angles.ts`, and test files.
+3. Produce a detailed investigation report at `/Users/damian/GitHub/gait-lab/.agents/explorer_m2_3/handoff.md`. Send message back to parent. Do NOT edit source code files.

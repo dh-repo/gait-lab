@@ -23,7 +23,7 @@ describe("Milestone 1 Robustness & NaN Injection Tests", () => {
   });
 
   describe("Symmetry Angle Range Check & Verification", () => {
-    test("VERIFY: symmetryAngle formula caps output at 50% max", () => {
+    test("VERIFY: symmetryAngle formula caps output at 100% max", () => {
       // Test 10,000 random positive pairs of (valLeft, valRight)
       let maxObservedSA = 0;
       for (let i = 0; i < 10000; i++) {
@@ -33,15 +33,15 @@ describe("Milestone 1 Robustness & NaN Injection Tests", () => {
         if (sa > maxObservedSA) maxObservedSA = sa;
       }
 
-      // Theoretical limit for formula `(Math.abs(45 - thetaDeg) / 90) * 100` is 50.0%
-      expect(maxObservedSA).toBeLessThanOrEqual(50.0);
+      // Theoretical limit for formula `(Math.abs(45 - thetaDeg) / 45) * 100` is 100.0%
+      expect(maxObservedSA).toBeLessThanOrEqual(100.0);
     });
 
     test("VERIFY: symmetryAngle with negative numbers", () => {
       // Math.abs should handle negative numbers correctly
       expect(symmetryAngle(-10, 10)).toBe(0);
       expect(symmetryAngle(-50, -50)).toBe(0);
-      expect(symmetryAngle(-100, 0)).toBe(50);
+      expect(symmetryAngle(-100, 0)).toBe(100);
     });
   });
 

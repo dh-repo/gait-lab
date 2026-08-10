@@ -5,6 +5,8 @@ import {
   calculateAnkleAngle,
   getNormativeGaitCurves,
   computeGaitAngleAnalysis,
+  calculateArmSwingAsymmetry,
+  calculateTrunkSway,
 } from "../angles";
 import type { Landmark, PoseFrame } from "../types";
 import type { GaitEvent } from "../events";
@@ -298,6 +300,118 @@ describe("Joint Kinematic Angles Module (angles.ts)", () => {
       expect(result.rightStrides).toHaveLength(0);
       expect(result.normalizedPoints).toHaveLength(101);
       expect(result.metrics.kneeRomLeft).not.toBeNull();
+    });
+  });
+
+  describe("R6: Arm Swing Asymmetry Index (ASA)", () => {
+    it("returns ASA ≈ 0% for symmetric arm swing", () => {
+      const landmarks: Landmark[][] = [];
+      for (let i = 0; i < 30; i++) {
+        const t = (i / 30) * 2 * Math.PI;
+        const swing = Math.sin(t) * 0.15;
+        const frame: Landmark[] = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+        frame[LM.L_SHOULDER] = { x: 0.4, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.R_SHOULDER] = { x: 0.6, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.L_WRIST] = { x: 0.4 + swing, y: 0.4, z: 0, visibility: 0.9 };
+        frame[LM.R_WRIST] = { x: 0.6 + swing, y: 0.4, z: 0, visibility: 0.9 };
+        frame[LM.L_HIP] = { x: 0.4, y: 0.5, z: 0, visibility: 0.9 };
+        frame[LM.R_HIP] = { x: 0.6, y: 0.5, z: 0, visibility: 0.9 };
+        frame[LM.L_KNEE] = { x: 0.4 - swing, y: 0.7, z: 0, visibility: 0.9 };
+        frame[LM.R_KNEE] = { x: 0.6 - swing, y: 0.7, z: 0, visibility: 0.9 };
+        landmarks.push(frame);
+      }
+
+      const res = calculateArmSwingAsymmetry(landmarks);
+      expect(res.leftAmplitude).toBeGreaterThan(0);
+      expect(res.rightAmplitude).toBeGreaterThan(0);
+      expect(res.asymmetryIndex).toBeCloseTo(0, 0);
+    });
+
+    it("returns ASA ≈ 100% when one arm is completely frozen", () => {
+      const landmarks: Landmark[][] = [];
+      for (let i = 0; i < 30; i++) {
+        const t = (i / 30) * 2 * Math.PI;
+        const swing = Math.sin(t) * 0.2;
+        const frame: Landmark[] = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+        frame[LM.L_SHOULDER] = { x: 0.4, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.R_SHOULDER] = { x: 0.6, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.L_WRIST] = { x: 0.4 + swing, y: 0.4, z: 0, visibility: 0.9 }; // Left arm swinging
+        frame[LM.R_WRIST] = { x: 0.6, y: 0.4, z: 0, visibility: 0.9 };         // Right arm frozen
+        landmarks.push(frame);
+      }
+
+      const res = calculateArmSwingAsymmetry(landmarks);
+      expect(res.leftAmplitude).toBeGreaterThan(5);
+      expect(res.rightAmplitude).toBeCloseTo(0, 1);
+      expect(res.asymmetryIndex).toBeGreaterThan(90);
+    });
+
+    it("computes phase correlation between arm swing and contralateral leg", () => {
+      const landmarks: Landmark[][] = [];
+      for (let i = 0; i < 30; i++) {
+        const t = (i / 30) * 2 * Math.PI;
+        const swing = Math.sin(t) * 0.15;
+        const frame: Landmark[] = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+        frame[LM.L_SHOULDER] = { x: 0.4, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.R_SHOULDER] = { x: 0.6, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.L_WRIST] = { x: 0.4 + swing, y: 0.4, z: 0, visibility: 0.9 };
+        frame[LM.R_WRIST] = { x: 0.6 - swing, y: 0.4, z: 0, visibility: 0.9 };
+        frame[LM.L_HIP] = { x: 0.4, y: 0.5, z: 0, visibility: 0.9 };
+        frame[LM.R_HIP] = { x: 0.6, y: 0.5, z: 0, visibility: 0.9 };
+        frame[LM.L_KNEE] = { x: 0.4 - swing, y: 0.7, z: 0, visibility: 0.9 };
+        frame[LM.R_KNEE] = { x: 0.6 + swing, y: 0.7, z: 0, visibility: 0.9 };
+        landmarks.push(frame);
+      }
+
+      const res = calculateArmSwingAsymmetry(landmarks);
+      expect(res.phaseCorrelation).not.toBeNaN();
+    });
+
+    it("handles empty or invalid inputs gracefully", () => {
+      const emptyRes = calculateArmSwingAsymmetry([]);
+      expect(emptyRes).toEqual({ leftAmplitude: 0, rightAmplitude: 0, asymmetryIndex: 0, phaseCorrelation: 0 });
+    });
+  });
+
+  describe("R7: Trunk Sway Quantification", () => {
+    it("returns near-zero excursion for perfectly upright still posture", () => {
+      const landmarks: Landmark[][] = [];
+      for (let i = 0; i < 20; i++) {
+        const frame: Landmark[] = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+        frame[LM.L_SHOULDER] = { x: 0.4, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.R_SHOULDER] = { x: 0.6, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.L_HIP] = { x: 0.4, y: 0.6, z: 0, visibility: 0.9 };
+        frame[LM.R_HIP] = { x: 0.6, y: 0.6, z: 0, visibility: 0.9 };
+        landmarks.push(frame);
+      }
+
+      const sway = calculateTrunkSway(landmarks);
+      expect(sway.lateralExcursionDeg).toBeCloseTo(0, 1);
+      expect(sway.sagittalExcursionDeg).toBeCloseTo(0, 1);
+      expect(sway.harmonicRatio).toBeGreaterThanOrEqual(1.0);
+    });
+
+    it("computes non-zero lateral excursion and harmonic ratio for periodic sway", () => {
+      const landmarks: Landmark[][] = [];
+      for (let i = 0; i < 30; i++) {
+        const t = (i / 30) * 2 * Math.PI * 2; // 2 cycles
+        const dx = Math.sin(t) * 0.05;
+        const frame: Landmark[] = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+        frame[LM.L_SHOULDER] = { x: 0.4 + dx, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.R_SHOULDER] = { x: 0.6 + dx, y: 0.2, z: 0, visibility: 0.9 };
+        frame[LM.L_HIP] = { x: 0.4, y: 0.6, z: 0, visibility: 0.9 };
+        frame[LM.R_HIP] = { x: 0.6, y: 0.6, z: 0, visibility: 0.9 };
+        landmarks.push(frame);
+      }
+
+      const sway = calculateTrunkSway(landmarks);
+      expect(sway.lateralExcursionDeg).toBeGreaterThan(2.0);
+      expect(sway.harmonicRatio).toBeGreaterThan(0);
+    });
+
+    it("handles empty landmark arrays gracefully", () => {
+      const emptySway = calculateTrunkSway([]);
+      expect(emptySway).toEqual({ lateralExcursionDeg: 0, sagittalExcursionDeg: 0, harmonicRatio: 1.0 });
     });
   });
 });

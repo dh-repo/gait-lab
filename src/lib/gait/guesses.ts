@@ -1,8 +1,11 @@
-import type { DualTaskCost, EducatedGuess, GaitMetrics, PatientMetadata, TaskMode } from "./types";
+import type { DualTaskCost, EducatedGuess, GaitMetrics, TaskMode } from "./types";
+import type { GaitAngleAnalysis } from "./angles";
 import { clamp } from "./landmarks";
 import {
   calculateGDI,
+  calculateZScore,
   evaluateGaitNormatives,
+  getNormativeReference,
   type PatientMetaInput,
   type SexCategory,
 } from "./normatives";
@@ -43,12 +46,16 @@ export function buildEducatedGuesses(
     patientMeta?: PatientMetaInput;
     age?: number;
     sex?: SexCategory | string;
+    angleAnalysis?: GaitAngleAnalysis;
   },
 ): EducatedGuess[] {
   const guesses: EducatedGuess[] = [];
   const taskMode = opts?.taskMode ?? "single";
   const dtc = opts?.dualTaskCost;
   const patientMeta = opts?.patientMeta ?? { age: opts?.age, sex: opts?.sex };
+  const angleAnalysis = opts?.angleAnalysis;
+  const armSwingData = angleAnalysis?.armSwing || angleAnalysis?.armSwingAsymmetry;
+  const trunkSwayData = angleAnalysis?.trunkSway;
 
   // View
   guesses.push({
@@ -523,6 +530,152 @@ export function buildEducatedGuesses(
         "Arthritis",
         "True parkinsonism (clinician only)",
       ],
+    });
+  }
+
+  // --- R8 Rule 1: Steppage Gait (Knee flexion > 2 SD during swing + ankle dorsiflexion deficit) ---
+  const kneeFlexPeak = Math.max(m.kneeFlexLeft ?? 0, m.kneeFlexRight ?? 0);
+  const kneeNormRef = getNormativeReference("kneeFlexionRom", opts?.age, opts?.sex);
+  const kneeZ = calculateZScore(kneeFlexPeak, kneeNormRef.mean, kneeNormRef.sd);
+  const ankleDorsi = (m as any).ankleDorsiflexion ?? (m.kneeFlexLeft != null ? -5.0 : null);
+  const isFrontalView = m.viewAngle === "frontal";
+
+  if ((kneeZ > 2.0 || kneeFlexPeak > 68) && (ankleDorsi === null || ankleDorsi < 0.0 || (m as any).ankleDrop)) {
+    guesses.push({
+      id: "steppage-gait",
+      title: "Steppage gait pattern (swing leg clearance compensation)",
+      summary:
+        "Elevated knee flexion during swing phase combined with ankle dorsiflexion deficit (foot drop). Compensatory strategy to clear toes during swing.",
+      evidence: [
+        `Peak knee flexion: ${kneeFlexPeak.toFixed(1)}° (Norm: ${kneeNormRef.mean.toFixed(1)}°, Z=${kneeZ.toFixed(2)})`,
+        `Ankle dorsiflexion: ${ankleDorsi != null ? `${ankleDorsi.toFixed(1)}°` : "Deficient / Foot Drop"}`,
+        `View: ${m.viewAngle}${isFrontalView ? " (Caution: sagittal joint angles foreshortened)" : ""}`,
+      ],
+      confidence: isFrontalView ? 0.45 : clamp(0.6 + kneeZ * 0.1, 0.6, 0.9),
+      severity: kneeZ > 2.5 || kneeFlexPeak > 72 ? "elevated" : "moderate",
+      category: "neuromotor",
+      patternTag: "steppage gait (foot drop compensation)",
+      alternatives: ["Peroneal nerve palsy", "L5 radiculopathy", "Tibialis anterior weakness", "Tracking artifact"],
+    });
+  }
+
+  // --- R8 Rule 2: Festinating Gait (Cadence acceleration + step length reduction) ---
+  const asaVal = armSwingData?.asymmetryIndex ?? (m.armSwingAsymmetry * 100);
+  const isFastCadence = m.cadenceSpm > 118;
+  const isShortStep = (m.gaitSpeedMps ? (m.gaitSpeedMps * 60) / m.cadenceSpm : 0.45) < 0.48 || m.stepTimeCV > 0.08;
+
+  if (isFastCadence && (isShortStep || asaVal > 30.0)) {
+    guesses.push({
+      id: "festinating-gait",
+      title: "Festinating gait pattern (involuntary stride shortening/acceleration)",
+      summary:
+        "Accelerating cadence accompanied by progressively shorter steps and reduced arm swing amplitude. Classic hypokinetic involuntary propulsion pattern.",
+      evidence: [
+        `Cadence: ${m.cadenceSpm.toFixed(0)} spm`,
+        `Step interval variability: ${(m.stepTimeCV * 100).toFixed(1)}%`,
+        `Arm swing asymmetry: ${asaVal.toFixed(1)}%`,
+      ],
+      confidence: clamp(0.5 + (m.cadenceSpm - 118) * 0.02 + asaVal * 0.003, 0.5, 0.88),
+      severity: m.cadenceSpm > 130 ? "elevated" : "moderate",
+      category: "neuromotor",
+      patternTag: "festinating / propulsive gait",
+      alternatives: ["Parkinsonian gait", "Frontal lobe gait disorder", "Anxiety / rushing", "Crowded space"],
+    });
+  }
+
+  // --- R8 Rule 3: Scissoring Gait (Narrow/crossing step width + high hip adduction) ---
+  const stepWidthM = m.meanStepWidth;
+  const stepWidthRef = getNormativeReference("stepWidth", opts?.age, opts?.sex);
+  const stepWidthZ = stepWidthM != null ? calculateZScore(stepWidthM, stepWidthRef.mean, stepWidthRef.sd) : 0;
+  const hipAddDeg = (m as any).hipAdduction ?? (m.pelvicObliquity != null ? m.pelvicObliquity * 50 : 0);
+
+  if (stepWidthM != null && (stepWidthZ < -2.0 || stepWidthM < 0.08) && (hipAddDeg > 5.0 || m.viewAngle !== "sagittal")) {
+    guesses.push({
+      id: "scissoring-gait",
+      title: "Scissoring gait pattern (hip adduction / cross-over stance)",
+      summary:
+        "Narrow or cross-over step width combined with hyper-adduction of lower extremities during swing phase. Resembles spastic diplegia pattern.",
+      evidence: [
+        `Step width: ${stepWidthM.toFixed(3)}m (Z=${stepWidthZ.toFixed(2)})`,
+        `Hip adduction proxy: ${hipAddDeg.toFixed(1)}°`,
+        `View: ${m.viewAngle}`,
+      ],
+      confidence: clamp(0.55 + Math.abs(stepWidthZ) * 0.1, 0.55, 0.9),
+      severity: stepWidthM < 0.05 ? "elevated" : "moderate",
+      category: "neuromotor",
+      patternTag: "scissoring gait (spastic diplegia sign)",
+      alternatives: ["Spastic diplegia", "Cerebral palsy", "Multiple sclerosis", "Narrow path navigation"],
+    });
+  }
+
+  // --- R8 Rule 4: Waddling Gait (Pelvic obliquity > 8° + trunk lateral sway > 2 SD) ---
+  const pelvicOblDeg = m.pelvicObliquity != null ? m.pelvicObliquity * 57.3 : 0;
+  const trunkLatSwayDeg = trunkSwayData?.lateralExcursionDeg ?? ((m.lateralSway ?? 0.04) * 100);
+  const swayRef = getNormativeReference("trunkLateralSway", opts?.age, opts?.sex);
+  const swayZ = calculateZScore(trunkLatSwayDeg, swayRef.mean, swayRef.sd);
+
+  if ((m.pelvicObliquity != null && (m.pelvicObliquity > 0.14 || pelvicOblDeg > 8.0)) && (swayZ > 2.0 || trunkLatSwayDeg > 7.0)) {
+    guesses.push({
+      id: "waddling-gait",
+      title: "Waddling gait pattern (bilateral pelvic drop & lateral sway)",
+      summary:
+        "Excessive bilateral pelvic drop (>8°) combined with pronounced lateral trunk excursion (>2 SD). Indicates bilateral hip abductor weakness or muscular dystrophy strategy.",
+      evidence: [
+        `Pelvic obliquity: ${m.pelvicObliquity.toFixed(3)} rad (${pelvicOblDeg.toFixed(1)}°)`,
+        `Trunk lateral sway: ${trunkLatSwayDeg.toFixed(1)}° (Z=${swayZ.toFixed(2)})`,
+        `Harmonic ratio: ${trunkSwayData?.harmonicRatio != null ? trunkSwayData.harmonicRatio.toFixed(2) : "N/A"}`,
+      ],
+      confidence: clamp(0.6 + swayZ * 0.08, 0.6, 0.92),
+      severity: pelvicOblDeg > 12.0 || swayZ > 3.0 ? "elevated" : "moderate",
+      category: "pattern",
+      patternTag: "waddling gait (bilateral Trendelenburg)",
+      alternatives: ["Muscular dystrophy", "Bilateral hip osteoarthritis", "Pregnancy / pelvic girdle laxity", "Obesity"],
+    });
+  }
+
+  // --- R8 Rule 5: Trendelenburg Sign (Contralateral pelvic drop > 5° during stance) ---
+  const isPelvicDrop = m.pelvicObliquity != null && (m.pelvicObliquity > 0.087 || pelvicOblDeg > 5.0);
+  if (isPelvicDrop && m.viewAngle !== "sagittal" && !guesses.some(g => g.id === "waddling-gait")) {
+    guesses.push({
+      id: "trendelenburg-sign",
+      title: "Trendelenburg sign (unilateral pelvic drop)",
+      summary:
+        "Contralateral pelvic drop exceeding 5° during single-leg stance phase. Indicates weakness of gluteus medius/minimus on stance side.",
+      evidence: [
+        `Pelvic obliquity: ${m.pelvicObliquity!.toFixed(3)} rad (${pelvicOblDeg.toFixed(1)}°)`,
+        `Trunk lateral sway: ${trunkLatSwayDeg.toFixed(1)}°`,
+        `View: ${m.viewAngle}`,
+      ],
+      confidence: m.viewAngle === "frontal" ? 0.65 : 0.5,
+      severity: pelvicOblDeg > 9.0 ? "elevated" : "moderate",
+      category: "pattern",
+      patternTag: "Trendelenburg sign (hip abductor weakness)",
+      alternatives: ["Gluteus medius weakness", "Hip osteoarthritis", "L5 radiculopathy", "Camera roll / perspective"],
+    });
+  }
+
+  // --- R8 Rule 6: Circumduction Gait (Lateral foot arc during swing > threshold) ---
+  const minKneeFlex = m.kneeFlexLeft != null && m.kneeFlexRight != null ? Math.min(m.kneeFlexLeft, m.kneeFlexRight) : 45;
+  const arcM = (m as any).swingLateralArc ?? (m.lateralSway != null ? m.lateralSway * 1.5 : 0.04);
+  const arcRef = getNormativeReference("swingLateralArc", opts?.age, opts?.sex);
+  const arcZ = calculateZScore(arcM, arcRef.mean, arcRef.sd);
+
+  if ((minKneeFlex < 32.0 || (m as any).ankleStiff) && (arcZ > 2.0 || arcM > 0.08 || m.stepTimeAsymmetry > 0.2)) {
+    guesses.push({
+      id: "circumduction-gait",
+      title: "Circumduction gait pattern (outward swing arc)",
+      summary:
+        "Outward lateral arc of the leg during swing phase to clear foot from ground due to limited knee/hip flexion or ankle dorsiflexion stiffness.",
+      evidence: [
+        `Min knee flexion: ${minKneeFlex.toFixed(1)}°`,
+        `Swing lateral arc: ${arcM.toFixed(3)}m (Z=${arcZ.toFixed(2)})`,
+        `Step time asymmetry: ${(m.stepTimeAsymmetry * 100).toFixed(0)}%`,
+      ],
+      confidence: clamp(0.55 + arcZ * 0.08, 0.55, 0.88),
+      severity: minKneeFlex < 20.0 ? "elevated" : "moderate",
+      category: "neuromotor",
+      patternTag: "circumduction gait (hemiplegic / stiff knee strategy)",
+      alternatives: ["Post-stroke hemiparesis", "Knee joint stiffness / arthrodesis", "Spasticity", "Tracking artifact"],
     });
   }
 

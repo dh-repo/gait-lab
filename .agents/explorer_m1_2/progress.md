@@ -1,12 +1,11 @@
-# Progress Log - Explorer M1-2
+# Progress Log
 
-Last visited: 2026-08-09T21:07:45Z
+Last visited: 2026-08-10T14:03:05Z
 
-- [x] Updated DISPATCH.md and BRIEFING.md
-- [x] Read mandatory reference files (`ORIGINAL_REQUEST.md`, `PROJECT.md`, `SCOPE.md`, `explorer_survey_1/analysis.md`)
-- [x] Inspected existing codebase files (`src/lib/gait/signal.ts`, `src/lib/gait/types.ts`, `src/lib/gait/pose.ts`, `src/lib/gait/analysis.ts`, `src/lib/gait/__tests__/signal.test.ts`)
-- [x] Detailed mathematical formulation and edge case analysis for Savitzky-Golay 5-point 1D smoothing
-- [x] Drafted full implementation proposal for `savitzkyGolay5` and `smoothPoseFrames`
-- [x] Drafted test specifications for `signal.test.ts`
-- [x] Wrote `analysis.md` and `handoff.md`
-- [x] Send completion message to parent
+- [x] Step 1: Record dispatch in DISPATCH.md
+- [x] Step 2: Initialize BRIEFING.md and progress.md
+- [x] Step 3: Inspect ORIGINAL_REQUEST.md and PROJECT.md for M1 scope context
+- [x] Step 4: Inspect `src/lib/gait/analysis.ts` (especially lines 320-340 and 390-420) and all related tests
+- [x] Step 5: Detail precise observations and fix strategy for R2 & R3
+- [x] Step 6: Formulate 5-component `handoff.md`
+- [x] Step 7: Notify parent agent via `send_message`
