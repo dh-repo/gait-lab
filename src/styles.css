@@ -89,11 +89,18 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Clinical High-Density Data Tables */
+/* Clinical High-Density Data Tables — wrap in .clinical-table-scroll on mobile */
+.clinical-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .clinical-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  min-width: 280px;
 }
 
 .clinical-table th {

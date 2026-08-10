@@ -199,7 +199,7 @@ export function CognitiveClusters({
             aria-labelledby="cluster-header-spatiotemporal"
             className="p-4 space-y-4"
           >
-            <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+            <div className="clinical-table-scroll rounded-lg border border-[var(--color-border)]">
               <table className="clinical-table w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-[var(--color-surface-2)] text-[var(--color-muted)] font-medium border-b border-[var(--color-border)]">
@@ -315,7 +315,7 @@ export function CognitiveClusters({
             aria-labelledby="cluster-header-symmetry"
             className="p-4 space-y-4"
           >
-            <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+            <div className="clinical-table-scroll rounded-lg border border-[var(--color-border)]">
               <table className="clinical-table w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-[var(--color-surface-2)] text-[var(--color-muted)] font-medium border-b border-[var(--color-border)]">
@@ -488,7 +488,7 @@ export function CognitiveClusters({
             aria-labelledby="cluster-header-stability"
             className="p-4 space-y-4"
           >
-            <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+            <div className="clinical-table-scroll rounded-lg border border-[var(--color-border)]">
               <table className="clinical-table w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-[var(--color-surface-2)] text-[var(--color-muted)] font-medium border-b border-[var(--color-border)]">
@@ -599,7 +599,7 @@ export function CognitiveClusters({
             aria-labelledby="cluster-header-dualtask"
             className="p-4 space-y-4"
           >
-            <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+            <div className="clinical-table-scroll rounded-lg border border-[var(--color-border)]">
               <table className="clinical-table w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-[var(--color-surface-2)] text-[var(--color-muted)] font-medium border-b border-[var(--color-border)]">

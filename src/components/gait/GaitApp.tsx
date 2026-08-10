@@ -1186,39 +1186,43 @@ export function GaitApp() {
               </p>
             </header>
 
-            {/* Protocol + source as quiet controls, not competing cards */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1.5">
+            {/* Protocol + source — full-width on phone, side-by-side from sm */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="w-full space-y-1.5 sm:w-auto">
                 <p className="section-eyebrow">Assessment protocol</p>
-                <div className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
+                <div className="flex w-full rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5 sm:inline-flex sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setTaskMode("single")}
+                    aria-label="Single-Task (Walk Only)"
                     className={cn(
-                      "rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                      "min-h-11 flex-1 rounded-full px-3 py-2 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] sm:flex-none sm:px-3.5",
                       taskMode === "single"
                         ? "bg-[var(--color-info-bg)] text-[var(--color-info-text)] shadow-sm"
                         : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
                     )}
                   >
-                    Single-Task (Walk Only)
+                    <span className="sm:hidden">Walk only</span>
+                    <span className="hidden sm:inline">Single-Task (Walk Only)</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setTaskMode("dual")}
+                    aria-label="Dual-Task (Walk + Cognitive)"
                     className={cn(
-                      "rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                      "min-h-11 flex-1 rounded-full px-3 py-2 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] sm:flex-none sm:px-3.5",
                       taskMode === "dual"
                         ? "bg-[var(--color-info-bg)] text-[var(--color-info-text)] shadow-sm"
                         : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
                     )}
                   >
-                    Dual-Task (Walk + Cognitive)
+                    <span className="sm:hidden">Walk + cognitive</span>
+                    <span className="hidden sm:inline">Dual-Task (Walk + Cognitive)</span>
                   </button>
                 </div>
               </div>
 
-              <div className="inline-flex self-start rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5 sm:self-auto">
+              <div className="flex w-full rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5 sm:inline-flex sm:w-auto">
                 <button
                   type="button"
                   onClick={() => {
@@ -1226,26 +1230,26 @@ export function GaitApp() {
                     setInputMode("file");
                   }}
                   className={cn(
-                    "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:min-h-0 sm:min-w-0",
+                    "inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] sm:flex-none",
                     inputMode === "file"
                       ? "bg-[var(--color-info-bg)] text-[var(--color-info-text)] shadow-sm"
                       : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
                   )}
                 >
-                  <Film className="size-3.5" />
+                  <Film className="size-[18px]" />
                   Video file
                 </button>
                 <button
                   type="button"
                   onClick={() => setInputMode("webcam")}
                   className={cn(
-                    "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:min-h-0 sm:min-w-0",
+                    "inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] sm:flex-none",
                     inputMode === "webcam"
                       ? "bg-[var(--color-info-bg)] text-[var(--color-info-text)] shadow-sm"
                       : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
                   )}
                 >
-                  <Camera className="size-3.5" />
+                  <Camera className="size-[18px]" />
                   Webcam
                 </button>
               </div>
@@ -1870,11 +1874,11 @@ export function GaitApp() {
               </div>
             </div>
 
-            {/* Underline tabs — not a boxed control strip */}
+            {/* Underline tabs — scroll on narrow screens so all remain reachable */}
             <div
               role="tablist"
               aria-label="Analysis tabs"
-              className="flex gap-0 border-b border-[var(--color-border)]"
+              className="-mx-5 flex gap-0 overflow-x-auto border-b border-[var(--color-border)] px-5 sm:-mx-8 sm:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               <TabBtn active={tab === "clusters"} onClick={() => setTab("clusters")}>
                 Findings
@@ -1914,34 +1918,41 @@ export function GaitApp() {
                   </div>
 
                   <div className="space-y-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                    <div className="flex items-center gap-2">
-                      <Button variant="secondary" size="sm" onClick={togglePlay} aria-label={isPlaying ? "Pause video" : "Play video"} className="h-8 px-2.5">
-                        {isPlaying ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => stepFrame(-1)} aria-label="Step back 1 frame" className="h-8 px-2 text-xs">
-                        <SkipBack className="size-3" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => stepFrame(1)} aria-label="Step forward 1 frame" className="h-8 px-2 text-xs">
-                        <SkipForward className="size-3" />
-                      </Button>
-                      <input
-                        type="range"
-                        role="slider"
-                        aria-label="Video timeline scrubber"
-                        aria-valuenow={currentTime}
-                        aria-valuemin={0}
-                        aria-valuemax={duration || 1}
-                        aria-valuetext={`${formatTimecode(currentTime)} of ${formatTimecode(duration)}`}
-                        min={0}
-                        max={duration || 1}
-                        step={0.033}
-                        value={currentTime}
-                        onChange={(e) => seekToTime(parseFloat(e.target.value))}
-                        className="h-1.5 flex-1 cursor-pointer rounded-lg bg-[var(--color-border)] accent-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
-                      />
-                      <span className="min-w-[100px] text-right font-mono text-[11px] tabular text-[var(--color-subtle)]">
-                        {formatTimecode(currentTime)} / {formatTimecode(duration)}
-                      </span>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Button variant="secondary" size="sm" onClick={togglePlay} aria-label={isPlaying ? "Pause video" : "Play video"} className="min-h-11 min-w-11 px-2.5 sm:min-h-8 sm:min-w-0 sm:h-8">
+                          {isPlaying ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => stepFrame(-1)} aria-label="Step back 1 frame" className="min-h-11 min-w-11 px-2 text-xs sm:min-h-8 sm:min-w-0 sm:h-8">
+                          <SkipBack className="size-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => stepFrame(1)} aria-label="Step forward 1 frame" className="min-h-11 min-w-11 px-2 text-xs sm:min-h-8 sm:min-w-0 sm:h-8">
+                          <SkipForward className="size-3.5" />
+                        </Button>
+                        <span className="ml-auto font-mono text-[11px] tabular text-[var(--color-subtle)] sm:hidden">
+                          {formatTimecode(currentTime)} / {formatTimecode(duration)}
+                        </span>
+                      </div>
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <input
+                          type="range"
+                          role="slider"
+                          aria-label="Video timeline scrubber"
+                          aria-valuenow={currentTime}
+                          aria-valuemin={0}
+                          aria-valuemax={duration || 1}
+                          aria-valuetext={`${formatTimecode(currentTime)} of ${formatTimecode(duration)}`}
+                          min={0}
+                          max={duration || 1}
+                          step={0.033}
+                          value={currentTime}
+                          onChange={(e) => seekToTime(parseFloat(e.target.value))}
+                          className="h-2 w-full min-w-0 flex-1 cursor-pointer rounded-lg bg-[var(--color-border)] accent-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+                        />
+                        <span className="hidden shrink-0 text-right font-mono text-[11px] tabular text-[var(--color-subtle)] sm:inline sm:min-w-[100px]">
+                          {formatTimecode(currentTime)} / {formatTimecode(duration)}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-border)] pt-2 text-[11px] text-[var(--color-muted)]">
@@ -2129,7 +2140,7 @@ function TabBtn({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "relative -mb-px min-h-11 px-4 py-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-ring)] sm:min-h-12",
+        "relative -mb-px min-h-11 shrink-0 whitespace-nowrap px-3.5 py-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-ring)] sm:min-h-12 sm:px-4",
         active
           ? "text-[var(--color-info-text)]"
           : "text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]/50",

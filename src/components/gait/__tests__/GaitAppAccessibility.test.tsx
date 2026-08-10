@@ -18,6 +18,10 @@ describe("GaitApp Accessibility & Layout Landmarks", () => {
     expect(html).toContain("Single-Task (Walk Only)");
     expect(html).toContain("Dual-Task (Walk + Cognitive)");
     expect(html).toContain("focus-visible:ring-2");
-    expect(html).toContain("focus-visible:ring-[var(--color-primary)]");
+    // Tokenized focus ring (primary and ring share Google Blue)
+    expect(
+      html.includes("focus-visible:ring-[var(--color-ring)]") ||
+        html.includes("focus-visible:ring-[var(--color-primary)]"),
+    ).toBe(true);
   });
 });

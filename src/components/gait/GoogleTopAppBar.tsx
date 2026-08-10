@@ -127,7 +127,7 @@ export function GoogleTopAppBar({
               size="sm"
               onClick={onReset}
               aria-label="Start new session"
-              className="min-h-11 min-w-11 text-[var(--color-muted)] sm:min-h-0 sm:min-w-0"
+              className="min-h-11 min-w-11 text-[var(--color-muted)] sm:min-w-0"
             >
               <RotateCcw className="size-3.5" />
               <span className="hidden sm:inline">New session</span>

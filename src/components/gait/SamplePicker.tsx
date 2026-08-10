@@ -122,7 +122,7 @@ export function SamplePicker({ onSelectSample, onCustomUploadClick, isLoading }:
           </p>
         </div>
         {onCustomUploadClick && (
-          <Button size="sm" variant="ghost" onClick={onCustomUploadClick} className="text-[var(--color-muted)]">
+          <Button size="sm" variant="ghost" onClick={onCustomUploadClick} className="min-h-11 min-w-11 text-[var(--color-muted)] sm:min-h-0 sm:min-w-0">
             <Video className="size-[18px]" />
             Upload
           </Button>
