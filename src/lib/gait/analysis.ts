@@ -316,10 +316,41 @@ function computeGaitMetricsCore(
     stepEvents = estimateStepsFromOscillation(midHipY, times, durationSec);
   }
 
+  // Frontal: choose between Zeni and hip-Y oscillation by how close cadence is to walk band.
+  if (isFrontal) {
+    const times = series.map((s) => s.t);
+    const zeniHs = stepEvents.filter((e) => e.type === "heel_strike");
+    const osc = estimateStepsFromOscillation(midHipY, times, durationSec);
+    const oscHs = osc.filter((e) => e.type === "heel_strike");
+    const cad = (n: number) => (durationSec > 0 ? (n / durationSec) * 60 : 0);
+    const zCad = cad(zeniHs.length);
+    const oCad = cad(oscHs.length);
+    const walkFit = (c: number) => {
+      if (c < 45 || c > 165) return -1e9;
+      // peak preference ~100–115 spm
+      return -Math.abs(c - 108) - (c < 70 ? 40 : 0);
+    };
+    if (oscHs.length >= 4 && walkFit(oCad) > walkFit(zCad)) {
+      stepEvents = osc;
+    }
+  }
+
   // Calculate step and stride timing statistics from Heel Strikes
-  const heelStrikes = stepEvents.filter((e) => e.type === "heel_strike");
+  // Drop physiologically impossible double-fires (< 0.30s ≈ >200 spm)
+  const MIN_STEP_SEC = 0.3;
+  let heelStrikes = stepEvents
+    .filter((e) => e.type === "heel_strike")
+    .sort((a, b) => a.timeSec - b.timeSec);
+  {
+    const deduped: typeof heelStrikes = [];
+    for (const e of heelStrikes) {
+      if (deduped.length === 0 || e.timeSec - deduped[deduped.length - 1].timeSec >= MIN_STEP_SEC) {
+        deduped.push(e);
+      }
+    }
+    heelStrikes = deduped;
+  }
   const stepCount = heelStrikes.length;
-  const cadenceSpm = durationSec > 0 ? (stepCount / durationSec) * 60 : 0;
 
   const stepIntervals: number[] = [];
   for (let i = 1; i < heelStrikes.length; i++) {
@@ -327,7 +358,14 @@ function computeGaitMetricsCore(
   }
   const { steadyStrides } = filterSteadyStateStrides(stepIntervals);
   const cvIntervals = steadyStrides.length >= 2 ? steadyStrides : stepIntervals;
-  const avgStepTimeSec = mean(stepIntervals) || 0;
+  const avgStepTimeSec = mean(cvIntervals.length >= 2 ? cvIntervals : stepIntervals) || 0;
+  // Prefer interval-based cadence (ignores lead-in/out standing); fall back to count/duration
+  const cadenceFromIntervals = avgStepTimeSec > 0.2 && avgStepTimeSec < 1.5 ? 60 / avgStepTimeSec : 0;
+  const cadenceFromCount = durationSec > 0 ? (stepCount / durationSec) * 60 : 0;
+  const cadenceSpm =
+    cadenceFromIntervals > 0
+      ? cadenceFromIntervals
+      : cadenceFromCount;
   const stepTimeCV = avgStepTimeSec > 1e-6 ? std(cvIntervals) / avgStepTimeSec : 0;
 
   // Separate left and right step time intervals for Zifchock's Symmetry Angle (SA)
@@ -392,8 +430,9 @@ function computeGaitMetricsCore(
   const maHipY = ma(hipYNorm, win);
   const latRes = hipXNorm.map((v, i) => v - maHipX[i]);
   const vertRes = hipYNorm.map((v, i) => v - maHipY[i]);
-  const rawLateralSway = Math.min(std(latRes), 0.12);
-  const verticalBounce = Math.min(std(vertRes), 0.1);
+  // Report true residual magnitudes (soft-cap only for display sanity, not floor)
+  const rawLateralSway = Number(Math.min(std(latRes), 0.35).toFixed(4));
+  const verticalBounce = Number(Math.min(std(vertRes), 0.3).toFixed(4));
   const rawStepWidthVariability = std(series.map((s) => s.stepWidth));
 
   const lateralSway = !isSagittal ? rawLateralSway : null;
@@ -423,26 +462,37 @@ function computeGaitMetricsCore(
   // camera-derived image-coordinate landmarks. It also depends on harmonics 10-20
   // (~9-18 Hz), which this pipeline's 6 Hz low-pass deletes before the FFT sees them.
 
-  // Path smoothness: 1 - residual lateral deviation relative to progress
-  const prog = midHipX;
-  const det = detrend(prog);
+  // Path smoothness along dominant progress axis (frontal approach → hip Y / size; sagittal → X)
+  const rangeX = range(midHipX);
+  const rangeY = range(midHipY);
+  const prog = rangeX >= rangeY * 0.85 ? midHipX : midHipY;
+  // Also use torso scale growth as progress for pure frontal approach (subject fills frame)
+  const torsoProg = torsoS;
+  const rangeTorso = range(torsoProg);
+  const progPrimary =
+    isFrontal && rangeTorso > range(prog) * 0.5 ? torsoProg : prog;
+  const det = detrend(progPrimary);
   const pathSmoothness = Number(
-    clamp(1 - std(det) / Math.max(range(prog), 0.02), 0, 1).toFixed(2),
+    clamp(1 - std(det) / Math.max(range(progPrimary), 0.02), 0, 1).toFixed(2),
   );
 
   // Secondary exploratory composite scores (demoted indices, non-diagnostic)
-  const effSway = lateralSway ?? rawLateralSway;
+  // Soft-saturate sway/bounce so frontal residual caps don't floor automaticity
+  const softSway = Math.min(1, (lateralSway ?? rawLateralSway) / 0.08);
+  const softBounce = Math.min(1, verticalBounce / 0.06);
   const effStepWidthVar = stepWidthVariability ?? rawStepWidthVariability;
   const effKneeFlexL = kneeFlexLeft ?? 45;
   const effKneeFlexR = kneeFlexRight ?? 45;
+  const cvForScore = Math.min(stepTimeCV, 0.35);
+  const strideCvForScore = Math.min(strideTimeCV, 0.4);
 
   const stabilityScore = clamp(
-    100 - (effSway * 220 + verticalBounce * 180 + Math.min(effStepWidthVar, 0.25) * 35),
+    100 - (softSway * 28 + softBounce * 22 + Math.min(effStepWidthVar, 0.25) * 35),
     8,
     98,
   );
   const rhythmScore = clamp(
-    100 - stepTimeCV * 120 - Math.abs(cadenceSpm - 110) * 0.25,
+    100 - cvForScore * 120 - Math.abs(cadenceSpm - 110) * 0.25,
     5,
     98,
   );
@@ -461,7 +511,7 @@ function computeGaitMetricsCore(
     98,
   );
   const automaticityScore = clamp(
-    100 - stepTimeCV * 180 - strideTimeCV * 80 - effSway * 200 - (1 - pathSmoothness) * 25,
+    100 - cvForScore * 140 - strideCvForScore * 60 - softSway * 18 - (1 - pathSmoothness) * 20,
     5,
     98,
   );

@@ -337,8 +337,8 @@ export function detectGaitEventsZeni(
     const filtLY = zeroPhaseButterworth(leftAnkleY, effectiveFps, 5.0);
     const filtRY = zeroPhaseButterworth(rightAnkleY, effectiveFps, 5.0);
     const filtMidY = zeroPhaseButterworth(midAnkleY, effectiveFps, 5.0);
-    // ~0.28s min gap ≈ max ~210 spm; lower prominence to catch small frontal motion
-    const yMinGap = Math.max(3, Math.floor(0.28 * effectiveFps));
+    // ~0.33s min gap ≈ max ~180 spm — filters bounce doubles without starving real walk
+    const yMinGap = Math.max(4, Math.floor(0.33 * effectiveFps));
     const midStrikes = findExtrema(filtMidY, "max", yMinGap, Math.max(0.0005, 0.08 * (Math.max(...filtMidY) - Math.min(...filtMidY))));
 
     // Assign successive contacts to alternating sides (typical walk)

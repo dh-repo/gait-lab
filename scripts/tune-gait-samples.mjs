@@ -26,6 +26,10 @@ mkdirSync(outDir, { recursive: true });
 const SAMPLES = [
   { id: "tuning_3992", match: /Home frontal \(single\)|tuning-3992/i },
   { id: "tuning_3993", match: /Home frontal \(multi\)|tuning-3993/i },
+  // Synthetic / prior refs for regression across view angles
+  { id: "sagittal", match: /Sagittal View \(Side\)|sagittal-gait/i },
+  { id: "frontal", match: /Frontal View \(Front\)|frontal-gait/i },
+  { id: "store_aisle", match: /No video\? Use this one|store-aisle|Rear Follow-Cam/i },
 ];
 
 async function launchBrowser() {
