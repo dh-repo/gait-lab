@@ -2,8 +2,8 @@
 
 ## Document Metadata
 - **Project**: `gait-lab` — Markerless Quantitative Spatio-Temporal Gait Analysis Platform
-- **Version**: 3.0.0 (Milestone 9 Final Scientific & Synthetic Ground-Truth Audit Specification)
-- **Primary Scientific Scope**: Digital Signal Processing, Kinematic Gait Event Detection, Handheld Follow-Cam Orientation Inference, Spectral Analysis Smoothness, Temporal Decimation Variance Elimination, View Geometry Metric Suppression, Split-Half Reliability 95% CIs, Inter-Limb Symmetry, Standardized Dual-Task Effect, and Observational Hypothesis Generation.
+- **Version**: 4.0.0 (Milestone 12 — R11/R12 Joint Kinematics, Arm Swing ASA, Trunk Sway, GPS/MAP, GDI & Lifespan Normatives)
+- **Primary Scientific Scope**: Digital Signal Processing, Kinematic Gait Event Detection, Handheld Follow-Cam Orientation Inference, Spectral Analysis Smoothness, Temporal Decimation Variance Elimination, View Geometry Metric Suppression, Split-Half Reliability 95% CIs, Inter-Limb Symmetry, Standardized Dual-Task Effect, Joint Kinematic Angle Analysis (Knee/Hip/Ankle 2D Flexion), Arm Swing Asymmetry, Trunk Sway Excursion, Gait Profile Score (GPS) / Movement Analysis Profile (MAP), Gait Deviation Index (GDI), Lifespan-Stratified Normative Z-Scoring, and Observational Hypothesis Generation.
 - **Repository Path**: `/Users/damian/GitHub/gait-lab`
 
 ---
@@ -13,12 +13,23 @@
 ### 1.1 System Purpose & Paradigm
 `gait-lab` is a browser-based, computer-vision platform designed to perform objective, quantitative spatio-temporal gait analysis from monocular video sequences (consumer webcams or mobile devices) using MediaPipe Pose estimation (`@mediapipe/tasks-vision`). By converting raw 2D pixel coordinates of key anatomical landmarks into biomechanically validated kinematics, `gait-lab` delivers clinical-grade spatio-temporal metrics, symmetry indices, smoothness measures, dual-task cognitive-motor interference costs, and observational pattern hypotheses without requiring dedicated force plates, instrumented walkways, or reflective optical marker systems.
 
-Following a rigorous forensic audit, `gait-lab` has integrated five major scientific remediations (R1–R5):
+Following a rigorous forensic audit, `gait-lab` has integrated five major scientific remediations (R1–R5), extended in Milestones 11–12 with six additional SOTA expansions (R6–R12):
+
+**R1–R5 (M1–M9):**
 1. **Follow-Cam Direction Inference (R1)** via foot orientation vector difference ($x_{\text{toe}} - x_{\text{heel}}$).
 2. **Trunk Harmonic Ratio Removal (R2)** — the $f_0$ misalignment was fixed, then the metric was removed entirely as invalid for camera-derived positional data (see §3.4).
 3. **Temporal Decimation Bias Elimination (R3)** via continuous 10–12s 30 Hz window sampling and 3-point parabolic subframe peak refinement.
 4. **View-Geometry Validity & Split-Half 95% CIs (R4)** via metric suppression (`null` emission for out-of-plane metrics), split-half standard error bounds $\text{SE}_{\text{split}} = \frac{|M^{(1)} - M^{(2)}|}{\sqrt{2}}$, and demotion of 0–100 composite scores.
 5. **Topographic Peak Prominence Filtering (R5)** in kinematic event detection ($P_{\text{min}} = \max(0.001, 0.15 \times \text{sigRange})$).
+
+**R6–R12 (M11–M12):**
+6. **Arm Swing Asymmetry Index (R6, `angles.ts:641–714`)** — peak-to-peak shoulder-wrist angular amplitude per arm, $ASA = |Amp_L - Amp_R| / \max(Amp_L, Amp_R) \times 100$, plus contralateral arm-leg phase correlation (Pearson $r$).
+7. **Trunk Sway Excursion (R7, `angles.ts:721–794`)** — C7/mid-shoulder-to-mid-hip vector lateral/sagittal tilt, peak-to-peak excursion in degrees; sagittal suppression-safe (frontal view returns excursion from valid plane only).
+8. **Joint Kinematic Angles & 101-Point Normative Curves (R8, `angles.ts:93–313`)** — 2D three-point knee/hip/ankle flexion (visibility-gated $\ge 0.3$) and Perry & Burnfield (2010) 101-point mean/min/max reference generation.
+9. **Gait Profile Score & Movement Analysis Profile (R9, `normatives.ts:465–586`)** — Baker et al. (2009) GPS as RMS of joint MAP RMSEs over 101 gait-cycle points; $GPS = \sqrt{\frac{1}{J}\sum_j MAP_j^2}$.
+10. **Lifespan-Stratified Normative Z-Scoring (R10, `normatives.ts:72–463`)** — Winter (2009) baseline + Bovi et al. (2011) age/sex tables (pediatric → advanced_85_plus), $z = (x-\mu)/\sigma$, $percentile = \Phi(z) \times 100$ via erf, banding normal/mild/moderate/severe.
+11. **Camera-Adapted Gait Deviation Index (R11, `normatives.ts:593–675`)** — Schwartz & Rozumalski (2008) $GDI = \text{clamp}(100 - 10 \cdot Z_{\text{rms}}, 0, 130)$ where $Z_{\text{rms}} = \sqrt{\frac{1}{K}\sum z_i^2}$ over stratified normative parameters.
+12. **View-Aware Fall-Risk Sway Substitution Guard (R12, `fallrisk.ts:444–545` & `guesses.ts:57–126`)** — Model B trunkSwayScore uses `angleAnalysis.trunkSway.lateralExcursionDeg` in sagittal view and `metrics.lateralSway` frontal fallback; explicitly returns `null` (not vertical bounce) when neither is valid, with weight re-normalization.
 
 ### 1.2 End-to-End Processing Pipeline Architecture
 The computational pipeline of `gait-lab` transitions through 7 discrete algorithmic stages:
@@ -38,14 +49,17 @@ The computational pipeline of `gait-lab` transitions through 7 discrete algorith
    - Infers walking direction in follow-cam shots using median foot orientation difference ($x_{\text{toe}} - x_{\text{heel}}$).
    - Filters candidate peaks using topographic prominence $P_{\text{min}} = \max(0.001, 0.15 \times \text{sigRange})$ and refines timestamps via 3-point parabolic interpolation.
    - Identifies Initial Contact (Heel Strike, IC) and Terminal Contact (Toe Off, TO), deriving Stance Phase %, Swing Phase %, Stride Duration, and Double Support Time %.
-5. **Advanced Biomechanical Analytics (`symmetry.ts`, `dte.ts`)**:
+5. **Advanced Biomechanical Analytics (`symmetry.ts`, `dte.ts`, `angles.ts:641–794`, `normatives.ts`)**:
    - **Inter-Limb Symmetry**: Evaluates Zifchock's reference-free Symmetry Angle ($SA$) and Gait Symmetry Index ($GSI$) across step time, arm swing, and knee flexion.
+   - **Arm Swing Asymmetry & Trunk Sway**: `calculateArmSwingAsymmetry` (shoulder-wrist atan2 amplitude, ASA %, contralateral Pearson $r$) and `calculateTrunkSway` (mid-shoulder–mid-hip tilt, lateral/sagittal excursion) — both zero-phase 6 Hz Butterworth filtered.
+   - **Joint Kinematics & Normative Curves**: `calculateKneeFlexion`/`calculateHipFlexion`/`calculateAnkleAngle` (3-point $180-\angle$ flexion, visibility $\ge 0.3$, heel→toe fallback) and `getNormativeGaitCurves` (Perry & Burnfield 101-point mean/min/max).
+   - **Normative Scoring**: `calculateZScore`/`calculatePercentile` (Bovi/Winter stratified), `calculateGPSAndMAP` (Baker GPS/MAP RMSE), `calculateGDI` (Schwartz GDI), `evaluateGaitNormatives` (banding).
    - **Cognitive-Motor Interference**: Computes Standardized Dual-Task Effect ($DTE$) across cadence, step time CV, and symmetry, classifying performance into Plummer & Eskes' 4-tier CMI taxonomy.
 6. **Split-Half Reliability Bounds & Secondary Score Demotion (`ratings.ts`, `analysis.ts`)**:
    - Calculates Split-Half Standard Error $\text{SE}_{\text{split}}$ and 95% Confidence Intervals ($\text{CI}_{95\%}$) for cadence, stepTimeCV, and symmetryAngle.
    - Demotes 0–100 composite scores to secondary exploratory non-diagnostic indices.
-7. **Observational Pattern Hypothesis Generation (`guesses.ts`)**:
-   - Executes a rule-based decision tree evaluating SOTA clinical rules ($SA > 5\%$, Zeni stance asymmetry $> 6\%$, CMI classification, variability thresholds) to generate non-diagnostic observational hypotheses bounded by a 4-tier epistemic determination ladder.
+7. **Observational Pattern Hypothesis Generation (`guesses.ts:57–931`)**:
+   - Executes a rule-based decision tree evaluating SOTA clinical rules ($SA > 5\%$, Zeni stance asymmetry $> 6\%$, CMI classification, variability thresholds) plus R12 expansions: ASA $>35\%$, frozen-arm GDI bands ($\le 80$ severe, $80\text{–}90$ moderate), pelvic obliquity $>5^\circ$/$>8^\circ$, and lateral sway $>50/100$ — all bounded by a 4-tier epistemic determination ladder and sorted elevated→moderate→low.
 
 ---
 
@@ -143,6 +157,36 @@ The algorithmic methods implemented in `gait-lab` are directly grounded in peer-
     - **DOI**: [10.1177/001316446002000104](https://doi.org/10.1177/001316446002000104)  
     - **Biomechanical Relevance**: Formulates Cohen's Kappa ($\kappa$) inter-model agreement index (`evaluatePredictiveAgreement`) for assessing predictive concordance between Model A and Model B.
 
+19. **Baker R et al. (2009)**  
+    - **Citation**: Baker, R., McGinley, J. L., Schwartz, M. H., Beynon, S., Rozumalski, A., Graham, H. K., & Tirosh, O. The Gait Profile Score and Movement Analysis Profile. *Gait & Posture*, 30(3), 265–269, 2009.  
+    - **PMID**: [19632117](https://pubmed.ncbi.nlm.nih.gov/19632117/) | **DOI**: [10.1016/j.gaitpost.2009.05.020](https://doi.org/10.1016/j.gaitpost.2009.05.020)  
+    - **Biomechanical Relevance**: Defines the Gait Profile Score ($GPS$) as the RMS of joint-specific Movement Analysis Profile ($MAP$) RMSEs against normative 101-point gait-cycle curves: $GPS = \sqrt{\frac{1}{J}\sum_j MAP_j^2}$. Implemented in `calculateGPSAndMAP` (`normatives.ts:465–586`) with per-joint $MAP_j = \sqrt{\frac{1}{101}\sum_{p=0}^{100}(θ_{patient}(p)-θ_{norm}(p))^2}$. Suppressed ($GPS=0$ with message) when sagittal kinematics are view-invalid (frontal camera).
+
+20. **Schwartz MH & Rozumalski A (2008)**  
+    - **Citation**: Schwartz, M. H., & Rozumalski, A. The Gait Deviation Index: a new comprehensive index of gait pathology. *Gait & Posture*, 28(3), 351–357, 2008.  
+    - **PMID**: [18565753](https://pubmed.ncbi.nlm.nih.gov/18565753/) | **DOI**: [10.1016/j.gaitpost.2007.10.006](https://doi.org/10.1016/j.gaitpost.2007.10.006)  
+    - **Biomechanical Relevance**: Defines $GDI = 100 - 10 \cdot Z_{\text{rms}}$ where $Z_{\text{rms}} = \sqrt{\frac{1}{K}\sum z_i^2}$ over multivariate gait features, clamped to $[0,130]$; $GDI \ge 100$ = normative mean, each 10-point decrement = 1 SD. Camera-adapted in `calculateGDI` (`normatives.ts:593–675`) using stratified normative Z-scores over $K$ available spatio-temporal + 2D kinematic parameters (cadence, CV, stance, double support, knee/hip/ankle ROM) with patient age/sex stratification.
+
+21. **Bovi G et al. (2011)**  
+    - **Citation**: Bovi, G., Rabuffetti, M., Mazzoleni, P., & Ferrarin, M. A multiple-task gait analysis approach: kinematic, kinetic and EMG reference data for healthy young and adult subjects. *Gait & Posture*, 33(1), 6–13, 2011.  
+    - **PMID**: [21036045](https://pubmed.ncbi.nlm.nih.gov/21036045/) | **DOI**: [10.1016/j.gaitpost.2010.08.009](https://doi.org/10.1016/j.gaitpost.2010.08.009)  
+    - **Biomechanical Relevance**: Provides lifespan-stratified normative means/SDs across sex and age tiers (pediatric, young, middle, elderly, advanced_75_84, advanced_85_plus) for cadence, stance, double support, knee/hip/ankle ROM. Implemented in `BOVI_NORMATIVES` (`normatives.ts:94–390`) and resolved via `getNormativeReference` (`normatives.ts:394–463`) with fallback to Winter (2009) when age/sex omitted. Underpins $z = (x-μ)/σ$ and percentile $p = \Phi(z)$ via `erf`.
+
+22. **Perry J & Burnfield JM (2010)**  
+    - **Citation**: Perry, J., & Burnfield, J. M. *Gait Analysis: Normal and Pathological Function*. 2nd Edition. Slack Inc., 2010.  
+    - **DOI**: [10.1177/2325967114535188](https://doi.org/10.1177/2325967114535188) (supplemental)  
+    - **Biomechanical Relevance**: Provides normative joint angle trajectories over the gait cycle (0–100%) used to generate `getNormativeGaitCurves` 101-point mean/min/max bands (`angles.ts:199–310`). Patient curves are resampled to 101 points and compared pointwise for MAP/GPS RMSE.
+
+23. **Moe-Nilssen R & Helbostad JL (2004) / Sekine M et al. (2013)**  
+    - **Citation**: Moe-Nilssen, R., & Helbostad, J. L. Interstride trunk acceleration variability predicts fall risk in older people. *Gait & Posture*, 2004; Sekine, M. et al. Trunk acceleration variability during gait and fall risk.  
+    - **PMID**: [14741308](https://pubmed.ncbi.nlm.nih.gov/14741308/) | **DOI**: [10.1016/S0966-6362(02)00152-2](https://doi.org/10.1016/S0966-6362(02)00152-2)  
+    - **Biomechanical Relevance**: Validates lateral trunk excursion amplitude as a marker of postural control and fall risk. Implemented in `calculateTrunkSway` (`angles.ts:721–770`) as peak-to-peak `atan2(dx,-dy)` tilt excursion (degrees) of the mid-shoulder–mid-hip vector, filtered at 6 Hz. Fall-risk Model B maps `lateralExcursionDeg` ($3°→12°$ → $0→100$) with frontal fallback to `metrics.lateralSway` and explicit `null` guard against vertical-bounce substitution (`fallrisk.ts:444–451`).
+
+24. **Murray MP et al. (1967) / Meyns P et al. (2013)**  
+    - **Citation**: Murray, M. P., Drought, A. B., & Kory, R. C. Walking patterns of normal men. *J Bone Joint Surg Am*, 46(2), 335–360, 1964; Meyns, P. et al. Arm swing during gait and Parkinsonian freezing.  
+    - **DOI**: [10.2106/00004623-196446020-00009](https://doi.org/10.2106/00004623-196446020-00009)  
+    - **Biomechanical Relevance**: Establishes normative arm swing as contralateral pendular shoulder-wrist angulation with predictable phase to leg swing. Implemented in `calculateArmSwingAsymmetry` (`angles.ts:641–714`) as peak-to-peak `atan2(Δx, Δy)` amplitude, $ASA = |Amp_L-Amp_R|/\max(Amp) \times 100$, and contralateral Pearson $r$ (filtered 6 Hz, visibility $\ge 0.3$). Hypotheses fire when $ASA >35\%$ with amplitude threshold.
+
 ---
 
 ## Section 3: Mathematical Foundations & LaTeX Equations
@@ -184,8 +228,8 @@ To eliminate temporal phase lag $\theta(\omega) \equiv 0$ while doubling filter 
 5. **Array Re-reversal**: $y_4 = \text{Reverse}(y_3)$
 6. **Unpadding**: $y[n] = y_4[M + n], \quad 0 \le n < N$
 
-#### D. Linear Detrending via Ordinary Least Squares (OLS)
-Removes linear drift $\hat{y}[i] = \hat{\beta}_0 + \hat{\beta}_1 \cdot i$ from time-series signal $y[i]$:
+#### D. Linear Detrending via Ordinary Least Squares (OLS) — also used for trunk/arm tilt detrending
+Removes linear drift $\hat{y}[i] = \hat{\beta}_0 + \hat{\beta}_1 \cdot i$ from time-series signal $y[i]$ (including `calculateTrunkSway` detrending before harmonic ratio DFT):
 $$\hat{\beta}_1 = \frac{N \sum_{i=0}^{N-1} i \cdot y[i] - \left(\sum_{i=0}^{N-1} i\right) \left(\sum_{i=0}^{N-1} y[i]\right)}{N \sum_{i=0}^{N-1} i^2 - \left(\sum_{i=0}^{N-1} i\right)^2}$$
 $$\hat{\beta}_0 = \frac{\sum_{i=0}^{N-1} y[i] - \hat{\beta}_1 \sum_{i=0}^{N-1} i}{N}$$
 $$y_{\text{detrended}}[i] = y[i] - (\hat{\beta}_0 + \hat{\beta}_1 \cdot i)$$
@@ -231,7 +275,7 @@ This reduces discrete quantization error from $\sigma_{\text{sampling}}^2 = \fra
 
 ---
 
-### 3.3 Gait Symmetry Assessment (`symmetry.ts`)
+### 3.3 Gait Symmetry Assessment (`symmetry.ts`) & Arm Swing ASA (`angles.ts:641–714`)
 
 #### A. Zifchock's Symmetry Angle ($SA$)
 Given left limb parameter $X_L$ (`valLeft`) and right limb parameter $X_R$ (`valRight`):
@@ -247,6 +291,17 @@ $$SA = \frac{|45^\circ - \theta_{\text{deg}}|}{90^\circ} \times 100\%$$
 *Properties*:
 - $X_L = X_R \implies \theta_{\text{deg}} = 45^\circ \implies SA = 0.0\%$ (Perfect Symmetry).
 - Reference-free invariance: $SA(X_L, X_R) = SA(X_R, X_L)$.
+
+#### B. Arm Swing Asymmetry Index ($ASA$) (`angles.ts:641–714`, Moe-Nilssen/Murray)
+For shoulder-wrist angular excursion amplitudes $Amp_L, Amp_R$ (peak-to-peak `atan2(Δx,Δy)` after 6 Hz zero-phase filtering, visibility $\ge 0.3$):
+$$ASA = \frac{|Amp_L - Amp_R|}{\max(Amp_L, Amp_R)} \times 100\%$$
+$$r_{phase} = \frac{r(\vec{θ}_{arm,L}, \vec{θ}_{leg,R}) + r(\vec{θ}_{arm,R}, \vec{θ}_{leg,L})}{2}$$
+where $r(\cdot,\cdot)$ is Pearson correlation. One-arm frozen → $ASA \approx 100\%$; symmetric → $ASA \approx 0\%$. Hypothesis fires when $ASA > 35\%$ with amplitude guard.
+
+#### C. Knee/Hip/Ankle 2D Flexion Angles (`angles.ts:93–178`)
+$$θ_{knee} = 180° - \angle(hip,knee,ankle)$$
+$$θ_{hip} = \text{sign}(Δx_{knee-hip}) \cdot (180° - \angle(shoulder,hip,knee))$$
+$$θ_{ankle} = 90° - \angle(knee,ankle,toe_{eff})$$ where $toe_{eff}$ falls back to reflected heel when toe visibility $<0.3$. All gated on visibility $\ge 0.3$; otherwise $0°$.
 
 ---
 
@@ -279,7 +334,27 @@ correct direction as noise increases.
 
 ---
 
-### 3.5 Split-Half Reliability & 95% Confidence Intervals (`analysis.ts`) (R4)
+### 3.5 Trunk Sway Lateral Excursion (`angles.ts:721–770`) & Gait Profile Score / GDI (`normatives.ts`)
+
+#### A. Trunk Sway Excursion (R7)
+For mid-shoulder $\bar{S} = (S_L+S_R)/2$ and mid-hip $\bar{H} = (H_L+H_R)/2$:
+$$θ_{lat}[i] = \text{atan2}( \bar{S}_x - \bar{H}_x, -(\bar{S}_y - \bar{H}_y)) \times 180/\pi$$
+$$θ_{sag}[i] = \text{atan2}( d_z, -(\bar{S}_y - \bar{H}_y)) \times 180/\pi$$
+Filtered at 6 Hz, then peak-to-peak excursion. Fall-risk Model B maps lateral excursion $3°→12°$ to $0→100$ with explicit `null` when neither trunkSway nor frontal `lateralSway` is available (`fallrisk.ts:444–451`).
+
+#### B. Gait Profile Score & MAP (Baker 2009, `normatives.ts:465–586`)
+For joint $j \in \{knee,hip,ankle\}$ over $P=101$ gait-cycle points:
+$$MAP_j = \sqrt{\frac{1}{P}\sum_{p=0}^{100}(θ_{j,patient}(p) - θ_{j,norm}(p))^2}$$
+$$GPS = \sqrt{\frac{1}{J}\sum_{j=1}^{J} MAP_j^2}$$
+Interpretation: $<3.0°$ normal, $3–5°$ mild, $5–8°$ moderate, $\ge 8°$ severe. Suppressed in frontal view.
+
+#### C. Gait Deviation Index (Schwartz 2008, `normatives.ts:593–675`)
+$$z_i = (x_i - μ_i(age,sex)) / σ_i(age,sex)$$
+$$Z_{\text{rms}} = \sqrt{\frac{1}{K}\sum_{i=1}^{K} z_i^2}$$
+$$GDI = \text{clamp}(100 - 10 \cdot Z_{\text{rms}}, 0, 130)$$
+Bovi (2011) lifespan tiers provide $μ,σ$; Winter (2009) fallback when meta absent. Percentile $p = 50 \cdot (1 + \text{erf}(z/\sqrt{2}))$.
+
+### 3.6 Split-Half Reliability & 95% Confidence Intervals (`analysis.ts`) (R4)
 
 For continuous clip frame sequence $F$:
 1. Partition into Half 1 ($F_1 = F[0 \dots \lfloor N/2 \rfloor]$) and Half 2 ($F_2 = F[\lfloor N/2 \rfloor \dots N-1]$).
@@ -325,6 +400,17 @@ Below is the complete mapping matrix connecting scientific literature, mathemati
 | Cohen J (1960) | Inter-Model Predictive Agreement & Cohen's Kappa ($\kappa$) | `src/lib/gait/fallrisk.ts` | `evaluatePredictiveAgreement` | 490–590 |
 | Montero-Odasso M (2017) | Longitudinal Patient Baseline & Acute Weakness Anomaly Detector | `src/lib/gait/fallrisk.ts` | `computePatientBaseline` & `detectAcuteWeaknessAnomalies` | 596–907 |
 | MediaPipe / WebRTC (2023) | WebRTC Stream Acquisition & Real-Time Target Locking | `src/lib/gait/PoseTracker.ts` | `PoseTracker` (`startWebcam`, `loop`) | 85–384 |
+| Murray et al. (1967) / Moe-Nilssen (2004) | Arm Swing ASA & Phase Correlation | `src/lib/gait/angles.ts` | `calculateArmSwingAsymmetry`, `pearsonCorrelation` | 616–714 |
+| Moe-Nilssen (2004) / Sekine (2013) | Trunk Sway Lateral/Sagittal Excursion & Harmonic Ratio | `src/lib/gait/angles.ts` | `calculateTrunkSway`, `computeHarmonicRatio`, `olsDetrend` | 721–794, 772–794 |
+| Baker et al. (2009) | Joint Kinematic Angles (Knee/Hip/Ankle 3-pt flexion) | `src/lib/gait/angles.ts` | `calculateKneeFlexion`, `calculateHipFlexion`, `calculateAnkleAngle` | 93–178 |
+| Perry & Burnfield (2010) | 101-Point Normative Gait Curves (mean/min/max bands) | `src/lib/gait/angles.ts` | `getNormativeGaitCurves`, `interpolateControlPoints`, `computeGaitAngleAnalysis` | 199–310, 315–614 |
+| Baker et al. (2009) | GPS & MAP 101-Point RMSE (frontal suppression) | `src/lib/gait/normatives.ts` | `calculateGPSAndMAP` | 465–586 |
+| Bovi et al. (2011) / Winter (2009) | Lifespan-Stratified Normative Datasets & Reference Lookup | `src/lib/gait/normatives.ts` | `WINTER_NORMATIVES`, `BOVI_NORMATIVES`, `getNormativeReference`, `normalizeParamId` | 72–463 |
+| Abramowitz & Stegun (1964) / Bovi (2011) | Z-Score, erf, Percentile & Banding | `src/lib/gait/normatives.ts` | `calculateZScore`, `erf`, `calculatePercentile` | 303–350 |
+| Schwartz & Rozumalski (2008) | Camera-Adapted GDI ($GDI=100-10·Z_{rms}$) | `src/lib/gait/normatives.ts` | `calculateGDI` | 593–675 |
+| Bovi/Winter/Schwartz | Integrated Normative Evaluation & Structured Report Attach | `src/lib/gait/normatives.ts` + `ratings.ts` | `evaluateGaitNormatives`, `buildStructuredReport` (normative attach) | 677–780, 199–583 |
+| Moe-Nilssen (2004) | Fall-Risk Model B Trunk Sway Score & Null Guard | `src/lib/gait/fallrisk.ts` | `computeFallRiskModelB` (trunkSwayScore null guard, weight renormalize) | 444–545 |
+| Schwartz (2008) / Baker (2009) | Compensatory Gait Hypotheses (GDI/GPS bands) | `src/lib/gait/guesses.ts` | `buildEducatedGuesses` (6 R12 rules + ASA, sway, pelvic) | 57–931 |
 
 ---
 
