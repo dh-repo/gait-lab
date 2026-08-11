@@ -885,7 +885,24 @@ export function isLikelyHumanTrack(
 export function hungarianAlgorithm(costMatrix: number[][]): number[] {
   const n = costMatrix.length;
   if (n === 0) return [];
-  const m = costMatrix[0].length;
+  const mOrig = costMatrix[0]?.length ?? 0;
+  if (mOrig === 0) return new Array(n).fill(-1);
+  // Pad to square N x N with sentinel 1e9 so rectangular n>m does not hang (do-while needs p[j0]===0)
+  const N = Math.max(n, mOrig);
+  const INF = 1e9;
+  const mat: number[][] = Array.from({ length: N }, (_, i) =>
+    Array.from({ length: N }, (_, j) => {
+      if (i < n && j < mOrig) {
+        const v = costMatrix[i][j];
+        return Number.isFinite(v) ? v : INF;
+      }
+      return INF;
+    }),
+  );
+  const nPad = N;
+  const m = N;
+  // Use padded matrix from here; slice result back to n rows
+  const costMatrixPad = mat;
 
   const u = new Float64Array(n + 1);
   const v = new Float64Array(m + 1);
@@ -906,7 +923,7 @@ export function hungarianAlgorithm(costMatrix: number[][]): number[] {
 
       for (let j = 1; j <= m; j++) {
         if (!used[j]) {
-          const cur = costMatrix[i0 - 1][j - 1] - u[i0] - v[j];
+          const cur = costMatrixPad[i0 - 1][j - 1] - u[i0] - v[j];
           if (cur < minv[j]) {
             minv[j] = cur;
             way[j] = j0;
@@ -937,13 +954,18 @@ export function hungarianAlgorithm(costMatrix: number[][]): number[] {
     } while (j0 !== 0);
   }
 
-  const result = new Int32Array(n).fill(-1);
+  const paddedResult = new Int32Array(N).fill(-1);
   for (let j = 1; j <= m; j++) {
     if (p[j] > 0) {
-      result[p[j] - 1] = j - 1;
+      paddedResult[p[j] - 1] = j - 1;
     }
   }
-
+  // Slice back to original n rows; map dummy columns (>=mOrig) to -1 (unassigned)
+  const result = new Int32Array(n).fill(-1);
+  for (let i = 0; i < n; i++) {
+    const col = paddedResult[i];
+    result[i] = col >= 0 && col < mOrig ? col : -1;
+  }
   return Array.from(result);
 }
 
