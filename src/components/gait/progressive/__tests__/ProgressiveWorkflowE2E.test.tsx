@@ -235,7 +235,7 @@ describe("ProgressiveWorkflowE2E Test Suite (Tiers 1-4)", () => {
 
       // Level 2 Kinematics rendered
       expect(screen.getByRole("tab", { name: /Knee/i })).toBeInTheDocument();
-      expect(screen.getByText(/Initial Contact|IC/i)).toBeInTheDocument(); // Perry 8-phase ribbon
+      expect(screen.getAllByText(/Initial Contact|\bIC\b/).length).toBeGreaterThanOrEqual(1); // Perry 8-phase ribbon
       expect(screen.getByText(/Cadence/i)).toBeInTheDocument(); // Spatiotemporal table
     });
 
@@ -377,7 +377,7 @@ describe("ProgressiveWorkflowE2E Test Suite (Tiers 1-4)", () => {
       expect(screen.getByRole("tab", { name: /Knee/i })).toBeInTheDocument();
 
       // F8: Perry 8-Phase Ribbon
-      expect(screen.getByText(/Initial Contact|IC/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Initial Contact|\bIC\b/).length).toBeGreaterThanOrEqual(1);
 
       // F9: Symmetry Angle
       expect(screen.getByText(/3\.1/)).toBeInTheDocument();
@@ -470,13 +470,54 @@ describe("ProgressiveWorkflowE2E Test Suite (Tiers 1-4)", () => {
       // Step 2: Switch to Level 2 Biomechanics
       const tabs = screen.getAllByRole("tab");
       fireEvent.click(tabs[1]);
-      expect(screen.getByText(/Initial Contact|IC/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Initial Contact|\bIC\b/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/3\.1/)).toBeInTheDocument(); // Symmetry angle
+
+      // Step 3: Transition to Level 3
+      fireEvent.click(tabs[2]);
+
+      // F11: MAP Chart
+      expect(screen.getByRole("heading", { name: /Gait Profile Score|GPS|MAP/i })).toBeInTheDocument();
+
+      // F12: Camera Perspective & Homography
+      expect(screen.getByText(/Optical Calibration|Camera Homography/i)).toBeInTheDocument();
+
+      // F13: SOAP Note Generator
+      expect(screen.getByRole("button", { name: /SOAP Note/i })).toBeInTheDocument();
+
+      // F14: Research Exporters
+      expect(screen.getByRole("button", { name: /Export CSV/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Export JSON/i })).toBeInTheDocument();
+    });
+
+    it("verifies interactive tier navigation through dedicated header tabs", () => {
+      const onTierChange = vi.fn();
+      const onSoap = vi.fn();
+      const onCalib = vi.fn();
+      const onExport = vi.fn();
+
+      render(
+        <IntegratedProgressiveWorkspace
+          analysis={comprehensiveMockAnalysis}
+          onOpenSoapNote={onSoap}
+          onOpenCalibration={onCalib}
+          onExportCsv={onExport}
+        />
+      );
+
+      // Step 1: Patient overview at Level 1
+      expect(screen.getAllByText("82").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByTestId("mock-digital-twin-canvas")).toBeInTheDocument();
+
+      // Step 2: Switch to Level 2 Biomechanics
+      const tabs = screen.getAllByRole("tab");
+      fireEvent.click(tabs[1]);
+      expect(screen.getAllByText(/Initial Contact|\bIC\b/).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText(/3\.1/)).toBeInTheDocument(); // Symmetry angle
 
       // Step 3: Switch to Level 3 Specialist
       fireEvent.click(tabs[2]);
       expect(screen.getByRole("heading", { name: /Gait Profile Score|GPS|MAP/i })).toBeInTheDocument();
-
       // Step 4: Trigger calibration and SOAP note
       const calibBtn = screen.getByRole("button", { name: /Calibrate Camera|Homography/i });
       fireEvent.click(calibBtn);

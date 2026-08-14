@@ -73,11 +73,11 @@ describe("Level2BiomechanicsView Component", () => {
       render(<Level2BiomechanicsView analysis={mockAnalysis} currentTimeSec={1.2} />);
 
       // Check for Perry phase abbreviations or labels
-      expect(screen.getByText(/Initial Contact|IC/i)).toBeInTheDocument();
-      expect(screen.getByText(/Loading Response|LR/i)).toBeInTheDocument();
-      expect(screen.getByText(/Mid Stance|MST|MSt/i)).toBeInTheDocument();
-      expect(screen.getByText(/Terminal Stance|TST|TSt/i)).toBeInTheDocument();
-      expect(screen.getByText(/Pre Swing|Pre-Swing|PSW|PSw/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Initial Contact|\bIC\b/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Loading Response|\bLR\b/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Mid Stance|\bMST\b|\bMSt\b/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Terminal Stance|\bTST\b|\bTSt\b/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Pre Swing|Pre-Swing|\bPSW\b|\bPSw\b/).length).toBeGreaterThanOrEqual(1);
     });
 
     it("renders Zifchock Symmetry Angle (SA%) and Gait Symmetry Index (GSI)", () => {
@@ -216,11 +216,11 @@ describe("Level2BiomechanicsView Component", () => {
       );
 
       // Phase at 0.1s is Initial Contact
-      expect(screen.getByText(/Initial Contact|IC/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Initial Contact|\bIC\b/).length).toBeGreaterThanOrEqual(1);
 
       // Advance time to Mid Stance
       rerender(<Level2BiomechanicsView analysis={mockAnalysis} currentTimeSec={0.8} />);
-      expect(screen.getByText(/Mid Stance|MST/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Mid Stance|\bMST\b/).length).toBeGreaterThanOrEqual(1);
     });
 
     it("verifies bilateral stance + swing phase percentage invariant (sum ~100%)", () => {

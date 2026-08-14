@@ -9,6 +9,7 @@ import type {
 import { MovementAnalysisProfile } from "../MovementAnalysisProfile";
 import { CameraCalibrationAssistant } from "../CameraCalibrationAssistant";
 import { SOAPNoteModal } from "../SOAPNoteModal";
+import { ClinicalIntelligenceCard } from "../ClinicalIntelligenceCard";
 import {
   exportGaitSessionAsJson,
   exportGaitMetricsAsCsv,
@@ -214,6 +215,11 @@ export function Level3SpecialistView({
           </div>
         </CardContent>
       </Card>
+
+      {/* Clinical Intelligence & Differential Diagnosis Synthesis */}
+      {currentAnalysis && (
+        <ClinicalIntelligenceCard analysis={currentAnalysis} patientMeta={meta} />
+      )}
 
       {/* 2. Observed Movement Patterns (Shown on All view) */}
       {selectedPlane === "All" && currentAnalysis?.guesses && currentAnalysis.guesses.length > 0 && (

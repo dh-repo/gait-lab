@@ -97,7 +97,7 @@ describe("Level3SpecialistView Component", () => {
       ).toBeInTheDocument();
 
       // Kinematic variables or chart container
-      expect(screen.getByText(/Knee Flexion|Pelvic|Hip/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Knee Flexion|Pelvic|Hip/i).length).toBeGreaterThanOrEqual(1);
     });
 
     it("displays MCID (1.6°) and control (5.2°) reference markers or labels", () => {
@@ -230,7 +230,7 @@ describe("Level3SpecialistView Component", () => {
 
       render(<Level3SpecialistView analysis={noMetaAnalysis} />);
       // Should still render workstation without throwing
-      expect(screen.getByRole("heading", { name: /Specialist|Clinical|GPS/i })).toBeInTheDocument();
+      expect(screen.getAllByRole("heading", { name: /Specialist|Clinical|GPS/i }).length).toBeGreaterThanOrEqual(1);
     });
 
     it("filters MAP kinematic variables when anatomical plane filter is toggled", () => {
@@ -241,7 +241,7 @@ describe("Level3SpecialistView Component", () => {
       fireEvent.click(sagittalFilter);
 
       // Should filter to Sagittal plane variables
-      expect(screen.getByText(/Knee Flexion|Hip Flexion/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Knee Flexion|Hip Flexion/i).length).toBeGreaterThanOrEqual(1);
     });
   });
 

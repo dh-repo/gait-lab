@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import type { AnalysisResult } from "@/lib/gait/types";
+import type { AnalysisResult, PatientMetadata } from "@/lib/gait/types";
 import type { segmentGaitPhases } from "@/lib/gait/phases";
 import { JointAnglesChart } from "../JointAnglesChart";
+import { KineticLoadingChart } from "../KineticLoadingChart";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ import {
 export interface Level2BiomechanicsViewProps {
   analysis?: AnalysisResult;
   result?: AnalysisResult;
+  patientMeta?: PatientMetadata;
   currentGaitCyclePct?: number;
   timeSec?: number;
   currentTimeSec?: number;
@@ -48,6 +50,7 @@ const PERRY_8_PHASES = [
 export function Level2BiomechanicsView({
   analysis,
   result,
+  patientMeta,
   currentGaitCyclePct = 0,
   timeSec,
   currentTimeSec,
@@ -420,6 +423,11 @@ export function Level2BiomechanicsView({
           </table>
         </CardContent>
       </Card>
+
+      {/* Vertical Ground Reaction Force (vGRF) Kinetic Loading Profile */}
+      {currentAnalysis && (
+        <KineticLoadingChart analysis={currentAnalysis} patientMeta={patientMeta} />
+      )}
     </div>
   );
 }
