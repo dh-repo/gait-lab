@@ -2221,6 +2221,7 @@ export function GaitApp() {
                 {selectedTier === "level1_patient" && (
                   <Level1PatientView
                     analysis={result}
+                    patientMeta={patientMeta}
                     currentTimeSec={totalFrames > 0 && effectiveFps > 0 ? currentFrameIndex / effectiveFps : 0}
                     isPlaying={isPlaying}
                     onTogglePlay={togglePlay}
@@ -2300,6 +2301,7 @@ export function GaitApp() {
                   <Level3SpecialistView
                     analysis={result}
                     patientMeta={patientMeta}
+                    onUpdateMeta={handleUpdateMeta}
                     onOpenCalibration={() => setCameraCalibrationOpen(true)}
                   />
                 )}
