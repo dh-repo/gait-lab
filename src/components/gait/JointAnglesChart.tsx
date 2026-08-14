@@ -9,6 +9,7 @@ import {
   Area,
   Line,
   CartesianGrid,
+  ReferenceLine,
 } from "recharts";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { AlertTriangle, Activity } from "lucide-react";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 export interface JointAnglesChartProps {
   angleAnalysis: GaitAngleAnalysis;
+  currentGaitCyclePct?: number;
   className?: string;
 }
 
@@ -64,7 +66,7 @@ function CustomTooltip({ active, payload, label }: any) {
   return null;
 }
 
-export function JointAnglesChart({ angleAnalysis, className }: JointAnglesChartProps) {
+export function JointAnglesChart({ angleAnalysis, currentGaitCyclePct, className }: JointAnglesChartProps) {
   const [activeJoint, setActiveJoint] = useState<JointTab>("knee");
 
   const chartData = useMemo(() => {
@@ -303,6 +305,7 @@ export function JointAnglesChart({ angleAnalysis, className }: JointAnglesChartP
               <CartesianGrid stroke="#E8EAED" />
               <XAxis
                 dataKey="gaitCyclePct"
+                type="number"
                 unit="%"
                 domain={[0, 100]}
                 tick={{ fontSize: 11, fontFamily: "Roboto, sans-serif", fill: "#5F6368", style: { fontVariantNumeric: "tabular-nums" } }}
@@ -391,6 +394,22 @@ export function JointAnglesChart({ angleAnalysis, className }: JointAnglesChartP
                 dot={false}
                 name={jointMeta.rightName}
               />
+              {currentGaitCyclePct !== undefined && currentGaitCyclePct >= 0 && currentGaitCyclePct <= 100 && (
+                <ReferenceLine
+                  x={currentGaitCyclePct}
+                  stroke="#00E5FF"
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  isFront={true}
+                  label={{
+                    value: `${Math.round(currentGaitCyclePct)}%`,
+                    position: "top",
+                    fill: "#00E5FF",
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>

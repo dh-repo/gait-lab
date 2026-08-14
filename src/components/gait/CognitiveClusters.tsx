@@ -1,12 +1,16 @@
-import React, { useState } from "react";
-import { ChevronDown, ChevronUp, Activity, Layers, Zap, Brain } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { ChevronDown, ChevronUp, Activity, Layers, Zap, Brain, AlertTriangle, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { JointAnglesChart } from "./JointAnglesChart";
 import type { GaitMetrics, DualTaskCost, TaskMode } from "@/lib/gait/types";
 import { resolveDteValues } from "@/lib/gait/guesses";
 import type { GaitAngleAnalysis } from "@/lib/gait/angles";
 import { computeGaitAngleAnalysis } from "@/lib/gait/angles";
+import { classifyGaitAnomalies, type AnomalyFinding } from "@/lib/gait/anomalies";
+import { generateHomeExerciseProgram } from "@/lib/gait/rehab/generator";
+import { HepEditorModal } from "./rehab/HepEditorModal";
 import { cn } from "@/lib/utils";
 
 export interface CognitiveClustersProps {
@@ -19,6 +23,7 @@ export interface CognitiveClustersProps {
    */
   taskMode?: TaskMode;
   angleAnalysis?: GaitAngleAnalysis;
+  currentGaitCyclePct?: number;
   className?: string;
 }
 
@@ -59,6 +64,7 @@ export function CognitiveClusters({
   dualTaskCost,
   taskMode,
   angleAnalysis,
+  currentGaitCyclePct,
   className,
 }: CognitiveClustersProps) {
   // All sections open for a scannable clinical table view (tests also assert dual-task copy in-DOM)
@@ -130,6 +136,15 @@ export function CognitiveClusters({
           ? "Borderline"
           : "Pathological";
 
+  const anomalies = classifyGaitAnomalies(metrics, derivedAngleAnalysis);
+  const [isHepModalOpen, setIsHepModalOpen] = useState(false);
+  const [selectedAnomaly, setSelectedAnomaly] = useState<AnomalyFinding | null>(null);
+
+  const hepProgram = useMemo(() => {
+    const targetAnomalies = selectedAnomaly ? [selectedAnomaly] : anomalies;
+    return generateHomeExerciseProgram(metrics, targetAnomalies, derivedAngleAnalysis);
+  }, [metrics, selectedAnomaly, anomalies, derivedAngleAnalysis]);
+
   return (
     <section
       role="region"
@@ -140,6 +155,71 @@ export function CognitiveClusters({
         className,
       )}
     >
+      {/* Evidence-Backed Clinical Anomaly Alerts */}
+      {anomalies.length > 0 && (
+        <div className="border-b border-[var(--color-border)] bg-amber-950/20 p-4 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs uppercase tracking-wider">
+              <AlertTriangle className="size-4" />
+              <span>Automated Clinical Anomaly Screening ({anomalies.length} Flagged)</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setSelectedAnomaly(null);
+                setIsHepModalOpen(true);
+              }}
+              className="h-7 text-xs border-amber-600/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/50 gap-1"
+            >
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>Generate Exercise Prescription</span>
+            </Button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {anomalies.map((a) => (
+              <div key={a.id} className="p-3 rounded-lg border border-amber-500/30 bg-slate-950/60 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-amber-200">{a.name}</span>
+                  <Badge tone={a.severity === "severe" ? "danger" : "warn"} className="text-[10px] h-4 px-1.5 uppercase">
+                    {a.severity}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-slate-300">{a.clinicalSignificance}</p>
+                <p className="text-[10px] text-slate-400 font-mono">Citation: {a.literatureCitation}</p>
+                <div className="flex items-center justify-between pt-1 border-t border-amber-500/20">
+                  <p className="text-[10px] text-slate-500 italic">Target: {a.therapeuticTarget}</p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setSelectedAnomaly(a);
+                      setIsHepModalOpen(true);
+                    }}
+                    className="h-5 px-1.5 text-[10px] text-amber-400 hover:text-amber-300 hover:bg-amber-950/40"
+                  >
+                    Prescribe Exercise →
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Embedded HEP Editor Modal */}
+      <HepEditorModal
+        initialProgram={hepProgram}
+        metrics={metrics}
+        anomalies={selectedAnomaly ? [selectedAnomaly] : anomalies}
+        angleAnalysis={derivedAngleAnalysis}
+        isOpen={isHepModalOpen}
+        onClose={() => {
+          setIsHepModalOpen(false);
+          setSelectedAnomaly(null);
+        }}
+      />
+
       {/* CLUSTER 1: Spatiotemporal Pace */}
       <div
         data-testid="cluster-spatiotemporal"
@@ -424,7 +504,7 @@ export function CognitiveClusters({
             </div>
 
             {/* Expandable Joint Angles Chart ROM Waveforms */}
-            <JointAnglesChart angleAnalysis={derivedAngleAnalysis} />
+            <JointAnglesChart angleAnalysis={derivedAngleAnalysis} currentGaitCyclePct={currentGaitCyclePct} />
           </div>
         )}
       </div>

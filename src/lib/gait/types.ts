@@ -1,6 +1,7 @@
 import type { GaitEvent } from "./events";
 import type { DTEAnalysis } from "./dte";
 import type { GaitAngleAnalysis } from "./angles";
+import type { CameraPerspectiveParams } from "./perspective";
 
 export type ViewAngle = "sagittal" | "frontal" | "oblique" | "unknown";
 
@@ -182,6 +183,8 @@ export type AnalysisResult = {
   dualTaskCost?: DualTaskCost;
   angleAnalysis?: GaitAngleAnalysis;
   patientMeta?: PatientMetadata;
+  frames?: PoseFrame[];
+  cameraPerspective?: CameraPerspectiveParams;
 };
 
 export type AnalysisProgress = {
@@ -224,6 +227,14 @@ export type {
 } from "./fallrisk";
 
 export type { PoseDetectionResult } from "./pose";
+
+export type {
+  WarningLevel,
+  AlignmentGuidance,
+  AnthropometricRatios,
+  CameraPerspectiveParams,
+  CalibrationOptions,
+} from "./perspective";
 
 
 

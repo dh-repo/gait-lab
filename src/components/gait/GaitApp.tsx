@@ -5,16 +5,12 @@ import {
   ArrowRight,
   Bookmark,
   Check,
+  Compass,
   Upload,
   Film,
   Loader2,
   Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-
   ClipboardCheck,
-
   Camera,
   Square,
   RefreshCw,
@@ -25,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { SkeletonCanvas } from "./SkeletonCanvas";
+import { CameraCalibrationAssistant } from "./CameraCalibrationAssistant";
 import { MetricsPanel } from "./MetricsPanel";
 import { GuessesPanel } from "./GuessesPanel";
 import { GuidePanel } from "./GuidePanel";
@@ -34,6 +31,11 @@ import { SamplePicker } from "./SamplePicker";
 import { WorkflowHeader, type WorkflowStage } from "./WorkflowHeader";
 import { SideNavRail } from "./SideNavRail";
 import { FallRiskPanel } from "./FallRiskPanel";
+import { DigitalTwinCanvas } from "./DigitalTwinCanvas";
+import { GaitTimelineScrubber } from "./GaitTimelineScrubber";
+import { LiveBiofeedbackHUD } from "./LiveBiofeedbackHUD";
+import { SOAPNoteModal } from "./SOAPNoteModal";
+import { segmentGaitPhases } from "@/lib/gait/phases";
 import {
   computeDualTaskCost,
   computeGaitMetrics,
@@ -44,6 +46,11 @@ import {
   humanLikenessScore,
 } from "@/lib/gait/analysis";
 import { computeGaitAngleAnalysis, calculateKneeFlexion } from "@/lib/gait/angles";
+import {
+  estimateCameraPerspective,
+  rectifyPoseFrames,
+  type CameraPerspectiveParams,
+} from "@/lib/gait/perspective";
 import { detectGaitEventsZeni } from "@/lib/gait/events";
 import { buildEducatedGuesses, resolveDteValues } from "@/lib/gait/guesses";
 import { PERSON_COLORS, boundingBox } from "@/lib/gait/landmarks";
@@ -148,6 +155,9 @@ interface LiveMetrics {
   confidence: number;
   /** Seconds of pose data currently retained in the rolling buffer. */
   recordedSec: number;
+  stanceBalanceLeft: number;
+  stanceBalanceRight: number;
+  comSwayDistance: number;
 }
 
 const EMPTY_LIVE_METRICS: LiveMetrics = {
@@ -158,7 +168,40 @@ const EMPTY_LIVE_METRICS: LiveMetrics = {
   kneeAngleRight: 0,
   confidence: 0,
   recordedSec: 0,
+  stanceBalanceLeft: 50,
+  stanceBalanceRight: 50,
+  comSwayDistance: 0.04,
 };
+
+export function computeLiveCoMSway(frames: PoseFrame[]): number {
+  if (!frames || frames.length < 5) return 0.04;
+  const comXList: number[] = [];
+  const torsoHeights: number[] = [];
+
+  for (const f of frames) {
+    if (!f.landmarks || f.landmarks.length < 25) continue;
+    const lSh = f.landmarks[11];
+    const rSh = f.landmarks[12];
+    const lHip = f.landmarks[23];
+    const rHip = f.landmarks[24];
+    if (!lSh || !rSh || !lHip || !rHip) continue;
+
+    const midShoulder = { x: (lSh.x + rSh.x) / 2, y: (lSh.y + rSh.y) / 2 };
+    const midHip = { x: (lHip.x + rHip.x) / 2, y: (lHip.y + rHip.y) / 2 };
+    const torsoH = Math.hypot(midShoulder.x - midHip.x, midShoulder.y - midHip.y);
+    if (torsoH < 0.05) continue;
+
+    const midTorsoX = (lSh.x + rSh.x + lHip.x + rHip.x) / 4;
+    comXList.push(midTorsoX);
+    torsoHeights.push(torsoH);
+  }
+
+  if (comXList.length < 5) return 0.04;
+  const meanTorso = torsoHeights.reduce((a, b) => a + b, 0) / torsoHeights.length;
+  const rangeX = Math.max(...comXList) - Math.min(...comXList);
+  const swayMeters = (rangeX / meanTorso) * 0.48;
+  return Number(swayMeters.toFixed(3));
+}
 
 /** Seconds of pose data currently held in a tracker's rolling buffer. */
 
@@ -243,6 +286,10 @@ export function GaitApp() {
   const [overlaySkeleton, setOverlaySkeleton] = useState(true);
   const [overlayJointArcs, setOverlayJointArcs] = useState(true);
   const [overlaySwayVector, setOverlaySwayVector] = useState(true);
+  const [perspectiveCorrectionEnabled, setPerspectiveCorrectionEnabled] = useState(true);
+  const [cameraCalibrationOpen, setCameraCalibrationOpen] = useState(false);
+  const [cameraPerspective, setCameraPerspective] = useState<CameraPerspectiveParams | null>(null);
+  const [viewportMode, setViewportMode] = useState<"2d" | "3d" | "split">("2d");
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -303,9 +350,10 @@ export function GaitApp() {
     const v = videoRef.current;
     if (!v) return;
     v.pause();
-    const dt = deltaFrames * (1 / 30);
+    const fps = result?.metrics?.fpsEffective && result.metrics.fpsEffective > 0 ? result.metrics.fpsEffective : 30;
+    const dt = deltaFrames * (1 / fps);
     v.currentTime = Math.min(Math.max(0, v.currentTime + dt), v.duration || 0);
-  }, []);
+  }, [result]);
 
   const seekToTime = useCallback((timeSec: number) => {
     const v = videoRef.current;
@@ -327,6 +375,64 @@ export function GaitApp() {
     });
     return map;
   }, [people]);
+
+  const phaseSegmentation = useMemo(() => {
+    if (!result) return null;
+    const events = {
+      leftHeelStrikes: result.metrics.stepEvents?.filter((e) => e.side === "left" && e.type === "heel_strike").map((e) => e.frame) || [],
+      rightHeelStrikes: result.metrics.stepEvents?.filter((e) => e.side === "right" && e.type === "heel_strike").map((e) => e.frame) || [],
+      leftToeOffs: result.metrics.stepEvents?.filter((e) => e.side === "left" && e.type === "toe_off").map((e) => e.frame) || [],
+      rightToeOffs: result.metrics.stepEvents?.filter((e) => e.side === "right" && e.type === "toe_off").map((e) => e.frame) || [],
+    };
+    return segmentGaitPhases(events, result.analyzedFrames || 300);
+  }, [result]);
+
+  const effectiveFps = useMemo(() => {
+    return result?.metrics?.fpsEffective && result.metrics.fpsEffective > 0
+      ? result.metrics.fpsEffective
+      : 30;
+  }, [result]);
+
+  const totalFrames = useMemo(() => {
+    if (result?.frames && result.frames.length > 0) {
+      return result.frames.length;
+    }
+    return Math.max(1, Math.floor((duration || 1) * effectiveFps));
+  }, [result, duration, effectiveFps]);
+
+  const currentFrameIndex = useMemo(() => {
+    const computed = Math.floor(currentTime * effectiveFps);
+    return Math.min(Math.max(0, computed), totalFrames - 1);
+  }, [currentTime, effectiveFps, totalFrames]);
+
+  const currentFramePoses = useMemo(() => {
+    if (result?.frames && result.frames.length > 0) {
+      const frame = result.frames[currentFrameIndex] || result.frames[0];
+      if (frame?.landmarks) {
+        return [{ id: selectedPersonId || 1, landmarks: frame.landmarks }];
+      }
+    }
+    return scanPoses.filter((p) => p.id === selectedPersonId || scanPoses.length === 1);
+  }, [result, currentFrameIndex, selectedPersonId, scanPoses]);
+
+  const allLandmarkFrames = useMemo(() => {
+    if (result?.frames && result.frames.length > 0) {
+      return result.frames.map((f) => f.landmarks);
+    }
+    return scanPoses.map((p) => p.landmarks);
+  }, [result, scanPoses]);
+
+  const currentFrameInfo = useMemo(() => {
+    if (!phaseSegmentation?.frameTimeline) return null;
+    return phaseSegmentation.frameTimeline[currentFrameIndex] || null;
+  }, [phaseSegmentation, currentFrameIndex]);
+
+  const currentGaitCyclePct = useMemo(() => {
+    if (currentFrameInfo?.leftCyclePct !== undefined) return currentFrameInfo.leftCyclePct;
+    if (currentFrameInfo?.rightCyclePct !== undefined) return currentFrameInfo.rightCyclePct;
+    if (totalFrames > 1) return (currentFrameIndex / (totalFrames - 1)) * 100;
+    return 0;
+  }, [currentFrameInfo, currentFrameIndex, totalFrames]);
 
   // Derived 4-stage workflow step
   const computedStage: WorkflowStage = useMemo(() => {
@@ -543,10 +649,13 @@ export function GaitApp() {
           setLiveMetrics((prev) => {
             let stepCount = prev.stepCount;
             let cadence = prev.cadence;
+            let stanceBalanceLeft = prev.stanceBalanceLeft;
+            let stanceBalanceRight = prev.stanceBalanceRight;
 
             if (runEvents) {
               const effFps = tracker.getEffectiveFps() || WEBCAM_TARGET_FPS;
-              const heelStrikes = detectGaitEventsZeni(frames, effFps).stepEvents.filter(
+              const breakdown = detectGaitEventsZeni(frames, effFps);
+              const heelStrikes = breakdown.stepEvents.filter(
                 (e) => e.type === "heel_strike",
               );
               stepCount = heelStrikes.length;
@@ -556,7 +665,14 @@ export function GaitApp() {
                 heelStrikes.length >= 2 && recordedSec > 0
                   ? (heelStrikes.length / recordedSec) * 60
                   : null;
+
+              if (breakdown.leftStancePct > 0 && breakdown.rightStancePct > 0) {
+                stanceBalanceLeft = breakdown.leftStancePct;
+                stanceBalanceRight = breakdown.rightStancePct;
+              }
             }
+
+            const comSwayDistance = computeLiveCoMSway(frames);
 
             return {
               fps,
@@ -566,6 +682,9 @@ export function GaitApp() {
               kneeAngleRight: kRight,
               confidence,
               recordedSec,
+              stanceBalanceLeft,
+              stanceBalanceRight,
+              comSwayDistance,
             };
           });
         });
@@ -673,8 +792,15 @@ export function GaitApp() {
         setBaselineSingle(metrics);
       }
 
+      const perspectiveParams = estimateCameraPerspective(uniformFrames);
+      setCameraPerspective(perspectiveParams);
+      const framesForAngles =
+        perspectiveCorrectionEnabled && !perspectiveParams.isOrthogonal
+          ? rectifyPoseFrames(uniformFrames, perspectiveParams)
+          : uniformFrames;
+
       const angleAnalysis = computeGaitAngleAnalysis(
-        uniformFrames,
+        framesForAngles,
         metrics.stepEvents || [],
         metrics.viewAngle || "unknown",
       );
@@ -688,12 +814,15 @@ export function GaitApp() {
         dualTaskCost,
         angleAnalysis,
         patientMeta,
+        frames: uniformFrames,
+        cameraPerspective: perspectiveParams,
         notes: [
           `Live WebCam Real-Time Gait Session (${recordedFrames.length} raw frames resampled to ${uniformFrames.length} uniform 30Hz frames)`,
           `Analysed the most recent ${recordedSpanSec.toFixed(1)}s retained in the rolling buffer (capacity ~${WEBCAM_BUFFER_SEC.toFixed(0)}s); anything recorded before that was discarded`,
           `Effective session duration: ${metrics.durationSec.toFixed(1)}s`,
           `View angle estimate: ${metrics.viewAngle}`,
           `Task mode: ${taskMode === "dual" ? "walk + cognitive" : "walk only"}`,
+          `Optical attitude: ${perspectiveParams.pitchDeg >= 0 ? "+" : ""}${perspectiveParams.pitchDeg.toFixed(1)}° pitch, ${perspectiveParams.yawDeg.toFixed(1)}° yaw (${perspectiveParams.warningLevel.toUpperCase()}${perspectiveCorrectionEnabled && !perspectiveParams.isOrthogonal ? " — 3D homography rectified" : ""})`,
         ],
       };
 
@@ -709,7 +838,7 @@ export function GaitApp() {
       setError(err instanceof Error ? err.message : "Live webcam analysis failed");
       setPhase("error");
     }
-  }, [stopWebcam, taskMode, baselineSingle, patientMeta]);
+  }, [stopWebcam, taskMode, baselineSingle, patientMeta, perspectiveCorrectionEnabled]);
 
   const processFile = useCallback(
     async (file: File) => {
@@ -1031,8 +1160,15 @@ export function GaitApp() {
       if (taskMode === "single") {
         setBaselineSingle(metrics);
       }
+      const perspectiveParams = estimateCameraPerspective(frames);
+      setCameraPerspective(perspectiveParams);
+      const framesForAngles =
+        perspectiveCorrectionEnabled && !perspectiveParams.isOrthogonal
+          ? rectifyPoseFrames(frames, perspectiveParams)
+          : frames;
+
       const angleAnalysis = computeGaitAngleAnalysis(
-        frames,
+        framesForAngles,
         metrics.stepEvents || [],
         metrics.viewAngle || "unknown",
       );
@@ -1045,11 +1181,14 @@ export function GaitApp() {
         dualTaskCost,
         angleAnalysis,
         patientMeta,
+        frames,
+        cameraPerspective: perspectiveParams,
         notes: [
           `Analyzed ${frames.length} uniform 30Hz frames over ${metrics.durationSec.toFixed(1)}s`,
           `Effective sample rate ~${(((metrics as Record<string, unknown>).samplingFps as number) ?? metrics.fpsEffective).toFixed(1)} fps`,
           `View angle estimate: ${metrics.viewAngle}`,
           `Task mode: ${taskMode === "dual" ? "walk + cognitive" : "walk only"}`,
+          `Optical attitude: ${perspectiveParams.pitchDeg >= 0 ? "+" : ""}${perspectiveParams.pitchDeg.toFixed(1)}° pitch, ${perspectiveParams.yawDeg.toFixed(1)}° yaw (${perspectiveParams.warningLevel.toUpperCase()}${perspectiveCorrectionEnabled && !perspectiveParams.isOrthogonal ? " — 3D homography rectified" : ""})`,
           dualTaskCost
             ? `Dual-task cadence DTE ${resolveDteValues(dualTaskCost).cadenceDte.toFixed(1)}% (${dualTaskCost.cmiClassification})`
             : taskMode === "single"
@@ -1073,7 +1212,7 @@ export function GaitApp() {
       setError(e instanceof Error ? e.message : "Analysis failed");
       setPhase("error");
     }
-  }, [selectedPersonId, people, taskMode, baselineSingle, patientMeta]);
+  }, [selectedPersonId, people, taskMode, baselineSingle, patientMeta, perspectiveCorrectionEnabled]);
 
   const handleSaveSession = useCallback(async () => {
     if (!result) return;
@@ -1581,6 +1720,14 @@ export function GaitApp() {
                       showSkeleton={overlaySkeleton}
                       showJointArcs={overlayJointArcs}
                       showSwayVector={overlaySwayVector}
+                      perspectiveParams={
+                        cameraPerspective ??
+                        (scanPoses.length > 0
+                          ? estimateCameraPerspective([{ timeMs: 0, landmarks: scanPoses[0].landmarks }])
+                          : undefined)
+                      }
+                      showSpiritLevel={true}
+                      showTiltWarning={true}
                     />
 
                     {/* Live capture status panel (restrained clinical HUD) */}
@@ -1631,6 +1778,15 @@ export function GaitApp() {
                       </div>
                     )}
                   </div>
+
+                  {/* Live Biofeedback Pacing & Balance Station */}
+                  <LiveBiofeedbackHUD
+                    currentCadence={liveMetrics.cadence || 108}
+                    targetCadence={110}
+                    stanceBalanceLeft={liveMetrics.stanceBalanceLeft}
+                    stanceBalanceRight={liveMetrics.stanceBalanceRight}
+                    comSwayDistance={liveMetrics.comSwayDistance}
+                  />
                 </CardContent>
               </Card>
             )}
@@ -1672,6 +1828,14 @@ export function GaitApp() {
                         personColors={personColors}
                         interactive={phase === "select_person"}
                         onSelectPerson={setSelectedPersonId}
+                        perspectiveParams={
+                          cameraPerspective ??
+                          (scanPoses.length > 0
+                            ? estimateCameraPerspective([{ timeMs: 0, landmarks: scanPoses[0].landmarks }])
+                            : undefined)
+                        }
+                        showSpiritLevel={true}
+                        showTiltWarning={true}
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center text-sm text-[var(--color-subtle)]">
@@ -1913,6 +2077,15 @@ export function GaitApp() {
                     {saveError}
                   </p>
                 )}
+                <CameraCalibrationAssistant
+                  frames={result?.frames ?? []}
+                  perspectiveParams={cameraPerspective ?? undefined}
+                  enablePerspectiveCorrection={perspectiveCorrectionEnabled}
+                  onTogglePerspectiveCorrection={setPerspectiveCorrectionEnabled}
+                  isOpen={cameraCalibrationOpen}
+                  onClose={() => setCameraCalibrationOpen(false)}
+                />
+                <SOAPNoteModal analysis={result} patientMetadata={patientMeta} />
                 <Button size="sm" onClick={() => handleSelectStage(4)}>
                   Open report <ArrowRight className="size-3.5 ml-1.5" />
                 </Button>
@@ -1949,58 +2122,86 @@ export function GaitApp() {
                 className="flex flex-col lg:sticky lg:top-24"
               >
                 <Card className="overflow-hidden border-[var(--color-border)] p-0 shadow-none">
-                  <div className="relative aspect-video bg-black">
-                    <SkeletonCanvas
-                      video={videoRef.current}
-                      poses={scanPoses.filter((p) => p.id === selectedPersonId || scanPoses.length === 1)}
-                      selectedId={selectedPersonId}
-                      personColors={personColors}
-                      interactive={false}
-                      showSkeleton={overlaySkeleton}
-                      showJointArcs={overlayJointArcs}
-                      showSwayVector={overlaySwayVector}
-                    />
+                  {/* Viewport Mode Switcher Header */}
+                  <div className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs">
+                    <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-sky-400" />
+                      Biomechanical Kinematic Viewport
+                    </span>
+                    <div className="flex items-center gap-1 bg-slate-900/60 p-0.5 rounded-lg border border-slate-800">
+                      <Button
+                        variant={viewportMode === "2d" ? "default" : "ghost"}
+                        size="sm"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => setViewportMode("2d")}
+                      >
+                        2D Stream
+                      </Button>
+                      <Button
+                        variant={viewportMode === "3d" ? "default" : "ghost"}
+                        size="sm"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => setViewportMode("3d")}
+                      >
+                        3D Twin
+                      </Button>
+                      <Button
+                        variant={viewportMode === "split" ? "default" : "ghost"}
+                        size="sm"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => setViewportMode("split")}
+                      >
+                        Dual View
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="space-y-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <Button variant="secondary" size="sm" onClick={togglePlay} aria-label={isPlaying ? "Pause video" : "Play video"} className="min-h-11 min-w-11 px-2.5 sm:min-h-8 sm:min-w-0 sm:h-8">
-                          {isPlaying ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => stepFrame(-1)} aria-label="Step back 1 frame" className="min-h-11 min-w-11 px-2 text-xs sm:min-h-8 sm:min-w-0 sm:h-8">
-                          <SkipBack className="size-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => stepFrame(1)} aria-label="Step forward 1 frame" className="min-h-11 min-w-11 px-2 text-xs sm:min-h-8 sm:min-w-0 sm:h-8">
-                          <SkipForward className="size-3.5" />
-                        </Button>
-                        <span className="ml-auto font-mono text-[11px] tabular text-[var(--color-subtle)] sm:hidden">
-                          {formatTimecode(currentTime)} / {formatTimecode(duration)}
-                        </span>
-                      </div>
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <input
-                          type="range"
-                          role="slider"
-                          aria-label="Video timeline scrubber"
-                          aria-valuenow={currentTime}
-                          aria-valuemin={0}
-                          aria-valuemax={duration || 1}
-                          aria-valuetext={`${formatTimecode(currentTime)} of ${formatTimecode(duration)}`}
-                          min={0}
-                          max={duration || 1}
-                          step={0.033}
-                          value={currentTime}
-                          onChange={(e) => seekToTime(parseFloat(e.target.value))}
-                          className="h-2 w-full min-w-0 flex-1 cursor-pointer rounded-lg bg-[var(--color-border)] accent-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+                  {/* Viewport Canvas Surfaces */}
+                  <div className={cn("relative bg-black", viewportMode === "split" ? "grid grid-cols-1 md:grid-cols-2" : "aspect-video")}>
+                    {(viewportMode === "2d" || viewportMode === "split") && (
+                      <div className="relative aspect-video bg-black">
+                        <SkeletonCanvas
+                          video={videoRef.current}
+                          poses={currentFramePoses}
+                          selectedId={selectedPersonId}
+                          personColors={personColors}
+                          interactive={false}
+                          showSkeleton={overlaySkeleton}
+                          showJointArcs={overlayJointArcs}
+                          showSwayVector={overlaySwayVector}
+                          perspectiveParams={cameraPerspective ?? undefined}
+                          showSpiritLevel={true}
+                          showTiltWarning={true}
                         />
-                        <span className="hidden shrink-0 text-right font-mono text-[11px] tabular text-[var(--color-subtle)] sm:inline sm:min-w-[100px]">
-                          {formatTimecode(currentTime)} / {formatTimecode(duration)}
-                        </span>
                       </div>
-                    </div>
+                    )}
+                    {(viewportMode === "3d" || viewportMode === "split") && (
+                      <div className="relative aspect-video bg-slate-950 flex items-center justify-center">
+                        <DigitalTwinCanvas
+                          landmarks={currentFramePoses[0]?.landmarks}
+                          allFrames={allLandmarkFrames}
+                          currentFrameIndex={currentFrameIndex}
+                          isPlaying={isPlaying}
+                        />
+                      </div>
+                    )}
+                  </div>
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-border)] pt-2 text-[11px] text-[var(--color-muted)]">
+                  {/* GaitTimelineScrubber with Perry 8-Phase Ribbon */}
+                  <div className="p-3 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
+                    <GaitTimelineScrubber
+                      currentFrame={currentFrameIndex}
+                      totalFrames={totalFrames}
+                      isPlaying={isPlaying}
+                      onPlayToggle={togglePlay}
+                      onFrameChange={(f) => seekToTime(f / effectiveFps)}
+                      onStepBack={() => stepFrame(-1)}
+                      onStepForward={() => stepFrame(1)}
+                      fps={effectiveFps}
+                      phaseTimeline={phaseSegmentation?.frameTimeline}
+                    />
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-border)] mt-3 pt-2 text-[11px] text-[var(--color-muted)]">
                       <span className="truncate font-medium text-[var(--color-fg)]">
                         {fileName ?? "Video clip"}
                       </span>
@@ -2115,6 +2316,7 @@ export function GaitApp() {
                     dualTaskCost={result.dualTaskCost}
                     taskMode={result.taskMode}
                     angleAnalysis={result.angleAnalysis}
+                    currentGaitCyclePct={currentGaitCyclePct}
                   />
                 ) : tab === "guesses" ? (
                   <GuessesPanel guesses={result.guesses} dualTaskCost={result.dualTaskCost} />

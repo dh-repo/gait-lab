@@ -90,6 +90,10 @@ function pathXCoords(d: string): number[] {
 }
 
 describe("SessionComparisonView Component & Delta Engine", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   const mockNormative = getNormativeGaitCurves();
 
   const createMockAngleAnalysis = (isSuppressed = false): GaitAngleAnalysis => ({
@@ -826,6 +830,101 @@ describe("SessionComparisonView Component & Delta Engine", () => {
       // It must instead admit they are arbitrary, and that a smaller change may be real.
       expect(text).toContain("arbitrary");
       expect(text).toMatch(/may still be real/);
+    });
+  });
+
+  describe("Synchronized Dual 3D Avatar WebGL Stage Integration", () => {
+    beforeAll(() => {
+      installResizeObserverStub();
+    });
+
+    afterEach(() => {
+      cleanup();
+    });
+
+    it("renders dual avatar comparison card with controls, scrubber, and ribbon", () => {
+      render(
+        <SessionComparisonView
+          sessions={[sessionA, sessionB]}
+          initialSessionA={sessionA}
+          initialSessionB={sessionB}
+        />,
+      );
+
+      expect(screen.getByTestId("dual-avatar-card")).toBeTruthy();
+      expect(screen.getByText("Synchronized Dual 3D Avatar Comparison")).toBeTruthy();
+      expect(screen.getByTestId("dual-play-pause-btn")).toBeTruthy();
+      expect(screen.getByTestId("dual-step-forward-btn")).toBeTruthy();
+      expect(screen.getByTestId("dual-step-back-btn")).toBeTruthy();
+      expect(screen.getByTestId("dual-reset-phase-btn")).toBeTruthy();
+      expect(screen.getByTestId("dual-phase-scrubber")).toBeTruthy();
+      expect(screen.getByTestId("dual-live-angles-readout")).toBeTruthy();
+    });
+
+    it("controls playback, stepping, scrubber, and speed toggles", () => {
+      render(
+        <SessionComparisonView
+          sessions={[sessionA, sessionB]}
+          initialSessionA={sessionA}
+          initialSessionB={sessionB}
+        />,
+      );
+
+      const playBtn = screen.getByTestId("dual-play-pause-btn");
+      expect(playBtn.textContent).toContain("Play");
+      fireEvent.click(playBtn);
+      expect(playBtn.textContent).toContain("Pause");
+      fireEvent.click(playBtn);
+      expect(playBtn.textContent).toContain("Play");
+
+      const stepFwdBtn = screen.getByTestId("dual-step-forward-btn");
+      fireEvent.click(stepFwdBtn);
+
+      const scrubber = screen.getByTestId("dual-phase-scrubber") as HTMLInputElement;
+      fireEvent.change(scrubber, { target: { value: "35" } });
+      expect(scrubber.value).toBe("35");
+
+      const speed2x = screen.getByTestId("dual-speed-2x");
+      fireEvent.click(speed2x);
+
+      const resetBtn = screen.getByTestId("dual-reset-phase-btn");
+      fireEvent.click(resetBtn);
+      expect(scrubber.value).toBe("0");
+    });
+
+    it("jumps phase when clicking Perry 8-phase ribbon segment buttons", () => {
+      render(
+        <SessionComparisonView
+          sessions={[sessionA, sessionB]}
+          initialSessionA={sessionA}
+          initialSessionB={sessionB}
+        />,
+      );
+
+      const midStanceBtn = screen.getByTestId("phase-btn-mid_stance");
+      fireEvent.click(midStanceBtn);
+
+      const scrubber = screen.getByTestId("dual-phase-scrubber") as HTMLInputElement;
+      expect(Number(scrubber.value)).toBe(12);
+
+      const initialSwingBtn = screen.getByTestId("phase-btn-initial_swing");
+      fireEvent.click(initialSwingBtn);
+      expect(Number(scrubber.value)).toBe(60);
+    });
+
+    it("displays live joint angle telemetry and deltas", () => {
+      render(
+        <SessionComparisonView
+          sessions={[sessionA, sessionB]}
+          initialSessionA={sessionA}
+          initialSessionB={sessionB}
+        />,
+      );
+
+      const readout = screen.getByTestId("dual-live-angles-readout");
+      expect(readout.textContent).toContain("Knee Flexion");
+      expect(readout.textContent).toContain("Hip Angle");
+      expect(readout.textContent).toContain("Ankle Angle");
     });
   });
 });

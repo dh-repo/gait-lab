@@ -1,5 +1,5 @@
 import type { GaitMetrics, PatientMetadata } from "./types";
-import { getNormativeGaitCurves, type GaitAngleAnalysis } from "./angles";
+import type { GaitAngleAnalysis } from "./angles";
 
 export type SexCategory = "male" | "female" | "combined";
 export type AgeGroupCategory =
@@ -457,130 +457,53 @@ export function getNormativeReference(
   };
 }
 
+export {
+  type GPSKinematicVariable,
+  type GPSAnatomicalPlane,
+  type GPSJointSegment,
+  type GPSSeverity,
+  type GVSVariableMeta,
+  type GVSScoreEntry,
+  type FullGPSResult,
+  type GPSNormativePoint,
+  GPS_VARIABLES_META,
+  GPS_VARIABLE_ORDER,
+  GPS_CONTROL_THRESHOLD_DEG,
+  GPS_MCID_THRESHOLD_DEG,
+  getGPSNormativeCurves,
+  calculateGVS,
+  classifyGPSSeverity,
+  computeFullGPSAndMAP,
+  evaluateGPSDelta,
+} from "./gpsNormatives";
+import { computeFullGPSAndMAP } from "./gpsNormatives";
+
 /**
  * Calculates Gait Profile Score (GPS) & Movement Analysis Profile (MAP) per Baker et al. (2009).
- * Computes RMSE between patient joint angle curves and Perry & Burnfield normative mean curves
- * at 101 gait cycle points (0% to 100%).
+ * Computes RMSE between patient joint angle curves and normative reference curves across evaluated variables.
  */
 export function calculateGPSAndMAP(
   angleAnalysis?: GaitAngleAnalysis,
 ): GaitProfileScoreResult {
-  const defaultResult: GaitProfileScoreResult = {
-    gpsScore: 0,
-    map: {
-      pelvicTilt: null,
-      hipFlexionExtension: null,
-      kneeFlexionExtension: null,
-      ankleDorsiflexionPlantarflexion: null,
-      pelvicObliquity: null,
-    },
-    evaluatedJointCount: 0,
-    interpretation: angleAnalysis?.isSuppressed
-      ? "Unevaluated: Sagittal joint angle kinematics suppressed in frontal camera view."
-      : "Unevaluated: No joint angle curve data available.",
-    citation: "Baker et al. (2009)",
-  };
+  const fullResult = computeFullGPSAndMAP(angleAnalysis);
 
-  if (
-    !angleAnalysis ||
-    angleAnalysis.isSuppressed ||
-    !angleAnalysis.normalizedPoints ||
-    angleAnalysis.normalizedPoints.length < 101
-  ) {
-    return defaultResult;
-  }
-
-  const patientPoints = angleAnalysis.normalizedPoints;
-  const normCurves = angleAnalysis.normativeData || getNormativeGaitCurves();
-
-  if (!normCurves || normCurves.length < 101) return defaultResult;
-
-  let kneeSumSq = 0, kneeCount = 0;
-  let hipSumSq = 0, hipCount = 0;
-  let ankleSumSq = 0, ankleCount = 0;
-  let tiltSumSq = 0, tiltCount = 0;
-  let oblSumSq = 0, oblCount = 0;
-
-  for (let i = 0; i < 101; i++) {
-    const pt = patientPoints[i];
-    const norm = normCurves[i];
-
-    // Knee
-    const kVals: number[] = [];
-    if (typeof pt.kneeAngleLeft === "number" && Number.isFinite(pt.kneeAngleLeft)) kVals.push(pt.kneeAngleLeft);
-    if (typeof pt.kneeAngleRight === "number" && Number.isFinite(pt.kneeAngleRight)) kVals.push(pt.kneeAngleRight);
-    if (kVals.length > 0) {
-      const diff = (kVals.reduce((a, b) => a + b, 0) / kVals.length) - norm.kneeMean;
-      kneeSumSq += diff * diff;
-      kneeCount++;
-    }
-
-    // Hip
-    const hVals: number[] = [];
-    if (typeof pt.hipAngleLeft === "number" && Number.isFinite(pt.hipAngleLeft)) hVals.push(pt.hipAngleLeft);
-    if (typeof pt.hipAngleRight === "number" && Number.isFinite(pt.hipAngleRight)) hVals.push(pt.hipAngleRight);
-    if (hVals.length > 0) {
-      const diff = (hVals.reduce((a, b) => a + b, 0) / hVals.length) - norm.hipMean;
-      hipSumSq += diff * diff;
-      hipCount++;
-    }
-
-    // Ankle
-    const aVals: number[] = [];
-    if (typeof pt.ankleAngleLeft === "number" && Number.isFinite(pt.ankleAngleLeft)) aVals.push(pt.ankleAngleLeft);
-    if (typeof pt.ankleAngleRight === "number" && Number.isFinite(pt.ankleAngleRight)) aVals.push(pt.ankleAngleRight);
-    if (aVals.length > 0) {
-      const diff = (aVals.reduce((a, b) => a + b, 0) / aVals.length) - norm.ankleMean;
-      ankleSumSq += diff * diff;
-      ankleCount++;
-    }
-
-    // Pelvic Tilt (if present)
-    if (typeof (pt as any).pelvicTiltAngle === "number" && Number.isFinite((pt as any).pelvicTiltAngle)) {
-      const diff = (pt as any).pelvicTiltAngle - ((norm as any).pelvicTiltMean ?? 10.0);
-      tiltSumSq += diff * diff;
-      tiltCount++;
-    }
-
-    // Pelvic Obliquity (if present)
-    if (typeof (pt as any).pelvicObliquityAngle === "number" && Number.isFinite((pt as any).pelvicObliquityAngle)) {
-      const diff = (pt as any).pelvicObliquityAngle - ((norm as any).pelvicObliquityMean ?? 0.0);
-      oblSumSq += diff * diff;
-      oblCount++;
-    }
-  }
-
-  const mapSubScores: MAPSubScores = {
-    kneeFlexionExtension: kneeCount >= 101 ? Number(Math.sqrt(kneeSumSq / 101).toFixed(2)) : null,
-    hipFlexionExtension: hipCount >= 101 ? Number(Math.sqrt(hipSumSq / 101).toFixed(2)) : null,
-    ankleDorsiflexionPlantarflexion: ankleCount >= 101 ? Number(Math.sqrt(ankleSumSq / 101).toFixed(2)) : null,
-    pelvicTilt: tiltCount >= 101 ? Number(Math.sqrt(tiltSumSq / 101).toFixed(2)) : null,
-    pelvicObliquity: oblCount >= 101 ? Number(Math.sqrt(oblSumSq / 101).toFixed(2)) : null,
-  };
-
-  const validScores: number[] = [];
-  if (mapSubScores.kneeFlexionExtension != null) validScores.push(mapSubScores.kneeFlexionExtension);
-  if (mapSubScores.hipFlexionExtension != null) validScores.push(mapSubScores.hipFlexionExtension);
-  if (mapSubScores.ankleDorsiflexionPlantarflexion != null) validScores.push(mapSubScores.ankleDorsiflexionPlantarflexion);
-  if (mapSubScores.pelvicTilt != null) validScores.push(mapSubScores.pelvicTilt);
-  if (mapSubScores.pelvicObliquity != null) validScores.push(mapSubScores.pelvicObliquity);
-
-  if (validScores.length === 0) return defaultResult;
-
-  const sumSq = validScores.reduce((s, val) => s + val * val, 0);
-  const gpsScore = Number(Math.sqrt(sumSq / validScores.length).toFixed(2));
-
-  let interpretation = "";
-  if (gpsScore < 3.0) interpretation = "Normal normative kinematic profile (GPS < 3.0°).";
-  else if (gpsScore < 5.0) interpretation = "Mild kinematic gait deviation (GPS 3.0°–5.0°).";
-  else if (gpsScore < 8.0) interpretation = "Moderate kinematic gait deviation (GPS 5.0°–8.0°).";
-  else interpretation = "Severe / pathological kinematic gait deviation (GPS ≥ 8.0°).";
+  const kneeEntry = fullResult.gvsEntries.find((e) => e.variable === "kneeFlexion");
+  const hipEntry = fullResult.gvsEntries.find((e) => e.variable === "hipFlexion");
+  const ankleEntry = fullResult.gvsEntries.find((e) => e.variable === "ankleFlexion");
+  const tiltEntry = fullResult.gvsEntries.find((e) => e.variable === "pelvicTilt");
+  const oblEntry = fullResult.gvsEntries.find((e) => e.variable === "pelvicObliquity");
 
   return {
-    gpsScore,
-    map: mapSubScores,
-    evaluatedJointCount: validScores.length,
-    interpretation,
+    gpsScore: fullResult.overallGPS,
+    map: {
+      kneeFlexionExtension: kneeEntry?.overallGVS ?? null,
+      hipFlexionExtension: hipEntry?.overallGVS ?? null,
+      ankleDorsiflexionPlantarflexion: ankleEntry?.overallGVS ?? null,
+      pelvicTilt: tiltEntry?.overallGVS ?? null,
+      pelvicObliquity: oblEntry?.overallGVS ?? null,
+    },
+    evaluatedJointCount: fullResult.evaluatedVariableCount,
+    interpretation: fullResult.interpretation,
     citation: "Baker et al. (2009)",
   };
 }

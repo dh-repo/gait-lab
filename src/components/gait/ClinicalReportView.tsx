@@ -33,6 +33,8 @@ import {
 } from "@/lib/gait/fallrisk";
 import { FallRiskGaugeDial } from "./FallRiskGaugeDial";
 import { AcuteWeaknessCard } from "./AcuteWeaknessCard";
+import { MovementAnalysisProfile } from "./MovementAnalysisProfile";
+import { computeFullGPSAndMAP } from "@/lib/gait/gpsNormatives";
 
 export type PatientMetadata = {
   patientId: string;
@@ -146,6 +148,10 @@ export function ClinicalReportView({
       },
     ];
   }, [result.metrics]);
+
+  const fullGPS = useMemo(() => {
+    return computeFullGPSAndMAP(derivedAngleAnalysis, patientMeta as any);
+  }, [derivedAngleAnalysis, patientMeta]);
 
   const romMetrics = derivedAngleAnalysis.metrics;
 
@@ -273,6 +279,12 @@ export function ClinicalReportView({
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   <Badge tone={bandTone(report.domains.find((d) => d.key === "overall")?.band ?? "good")}>
                     {report.domains.find((d) => d.key === "overall")?.bandLabel}
+                  </Badge>
+                  <Badge
+                    data-testid="report-gps-badge"
+                    tone={fullGPS.severity === "normal" ? "success" : fullGPS.severity === "mild" ? "warn" : "danger"}
+                  >
+                    GPS: {fullGPS.overallGPS.toFixed(1)}° ({fullGPS.severity.toUpperCase()})
                   </Badge>
                   <Badge tone="neutral" className="bg-[var(--color-surface-2)] text-[var(--color-muted)] border-[var(--color-border)]">
                     {result.taskMode === "dual" ? "Walk + cognitive" : "Walk only"}
@@ -571,6 +583,13 @@ export function ClinicalReportView({
           <JointAnglesChart angleAnalysis={derivedAngleAnalysis} />
         </CardContent>
       </Card>
+
+      {/* Movement Analysis Profile (MAP) & Gait Profile Score (GPS) */}
+      <MovementAnalysisProfile
+        gpsResult={fullGPS}
+        angleAnalysis={derivedAngleAnalysis}
+        patientMeta={patientMeta as any}
+      />
 
       {/* Dual-Task Cost Block (if applicable) */}
       {result.dualTaskCost && (

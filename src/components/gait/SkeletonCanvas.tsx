@@ -3,6 +3,9 @@ import { useEffect, useRef } from "react";
 import { POSE_CONNECTIONS, PERSON_COLORS } from "@/lib/gait/landmarks";
 import { calculateKneeFlexion } from "@/lib/gait/angles";
 import type { Landmark } from "@/lib/gait/types";
+import type { CameraPerspectiveParams } from "@/lib/gait/perspective";
+import { AlertTriangle, AlertOctagon, Compass } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface SkeletonCanvasProps {
   video: HTMLVideoElement | null;
@@ -14,6 +17,9 @@ export interface SkeletonCanvasProps {
   showSkeleton?: boolean;
   showJointArcs?: boolean;
   showSwayVector?: boolean;
+  perspectiveParams?: CameraPerspectiveParams;
+  showSpiritLevel?: boolean;
+  showTiltWarning?: boolean;
 }
 
 export function SkeletonCanvas({
@@ -26,6 +32,9 @@ export function SkeletonCanvas({
   showSkeleton = true,
   showJointArcs = true,
   showSwayVector = true,
+  perspectiveParams,
+  showSpiritLevel = true,
+  showTiltWarning = true,
 }: SkeletonCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -114,6 +123,17 @@ export function SkeletonCanvas({
     }
   }
 
+  // Spirit Level Bubble offset calculations for HUD overlay
+  const maxDeg = 30;
+  const bubbleX = perspectiveParams
+    ? Math.max(-1, Math.min(1, (perspectiveParams.rollDeg || (perspectiveParams.yawDeg - 90)) / maxDeg))
+    : 0;
+  const bubbleY = perspectiveParams
+    ? Math.max(-1, Math.min(1, perspectiveParams.pitchDeg / maxDeg))
+    : 0;
+  const bubblePxX = 24 + bubbleX * 14;
+  const bubblePxY = 24 + bubbleY * 14;
+
   return (
     <div
       data-testid="skeleton-canvas-wrapper"
@@ -140,6 +160,86 @@ export function SkeletonCanvas({
           </span>
         )}
       </div>
+
+      {/* Spirit Level Bubble HUD & Optical Alignment Indicator */}
+      {perspectiveParams && showSpiritLevel && (
+        <div
+          data-testid="skeleton-spirit-level-hud"
+          className="absolute top-3 right-3 pointer-events-none flex items-center gap-2 rounded-lg bg-slate-900/85 backdrop-blur-md px-2.5 py-1.5 border border-slate-700/80 shadow-lg text-white"
+        >
+          {/* Mini Spirit Level SVG Bubble Gauge */}
+          <div className="relative size-12 flex items-center justify-center">
+            <svg width="48" height="48" viewBox="0 0 48 48" className="overflow-visible">
+              <circle cx="24" cy="24" r="20" fill="#0f172a" stroke="#475569" strokeWidth="1" />
+              <circle cx="24" cy="24" r="8" fill="none" stroke="#10b981" strokeWidth="1" strokeDasharray="2 1" />
+              <line x1="24" y1="4" x2="24" y2="44" stroke="#334155" strokeWidth="0.75" />
+              <line x1="4" y1="24" x2="44" y2="24" stroke="#334155" strokeWidth="0.75" />
+              <circle
+                cx={bubblePxX}
+                cy={bubblePxY}
+                r="3.5"
+                fill={
+                  perspectiveParams.warningLevel === "nominal"
+                    ? "#34d399"
+                    : perspectiveParams.warningLevel === "warning"
+                      ? "#fbbf24"
+                      : "#f43f5e"
+                }
+                stroke="#ffffff"
+                strokeWidth="1"
+              />
+            </svg>
+          </div>
+
+          <div className="flex flex-col text-[10px] font-mono leading-tight">
+            <div className="flex items-center gap-1">
+              <Compass className="size-3 text-sky-400" />
+              <span className="font-semibold text-slate-200">
+                {perspectiveParams.pitchDeg >= 0 ? `+${perspectiveParams.pitchDeg.toFixed(1)}°` : `${perspectiveParams.pitchDeg.toFixed(1)}°`}
+              </span>
+            </div>
+            <span className={cn(
+              "font-bold uppercase tracking-wider text-[9px]",
+              perspectiveParams.warningLevel === "nominal"
+                ? "text-emerald-400"
+                : perspectiveParams.warningLevel === "warning"
+                  ? "text-amber-400"
+                  : "text-rose-400"
+            )}>
+              {perspectiveParams.warningLevel}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Non-Orthogonal Tilt Warning Banner */}
+      {perspectiveParams && showTiltWarning && perspectiveParams.warningLevel !== "nominal" && (
+        <div
+          data-testid="skeleton-tilt-warning-banner"
+          className={cn(
+            "absolute bottom-3 inset-x-3 pointer-events-none flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg backdrop-blur-md border text-xs shadow-lg",
+            perspectiveParams.warningLevel === "warning"
+              ? "bg-amber-950/80 border-amber-500/50 text-amber-200"
+              : "bg-rose-950/80 border-rose-500/50 text-rose-200"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            {perspectiveParams.warningLevel === "warning" ? (
+              <AlertTriangle className="size-4 text-amber-400 shrink-0" />
+            ) : (
+              <AlertOctagon className="size-4 text-rose-400 shrink-0" />
+            )}
+            <span className="font-medium text-[11px]">
+              {perspectiveParams.warningLevel === "warning"
+                ? `NON-ORTHOGONAL VIEW: ${perspectiveParams.pitchDeg >= 0 ? "+" : ""}${perspectiveParams.pitchDeg.toFixed(1)}° pitch tilt (${perspectiveParams.obliqueDeviationDeg.toFixed(1)}° deviation)`
+                : `CRITICAL OBLIQUE DISTORTION: ${perspectiveParams.obliqueDeviationDeg.toFixed(1)}° tilt (${((1 - perspectiveParams.foreshorteningFactor) * 100).toFixed(0)}% angle compression)`}
+            </span>
+          </div>
+          <span className="text-[10px] font-mono font-semibold uppercase tracking-wider bg-black/40 px-1.5 py-0.5 rounded">
+            Correction Active
+          </span>
+        </div>
+      )}
     </div>
   );
 }

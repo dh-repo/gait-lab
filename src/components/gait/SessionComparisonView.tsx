@@ -29,6 +29,11 @@ import {
   Info,
   RefreshCw,
   ShieldAlert,
+  Play,
+  Pause,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { listGaitSessions, type GaitSessionRecord } from "@/lib/gait/persistence";
 import type { GaitMetrics } from "@/lib/gait/types";
@@ -40,6 +45,13 @@ import {
   type ResampledNormativePoint,
 } from "@/lib/gait/curveResample";
 import { cn } from "@/lib/utils";
+import {
+  DualAvatarCanvas,
+  type DualAvatarViewMode,
+  type CameraPlaneMode,
+} from "./DualAvatarCanvas";
+import type { TrajectoryJoint } from "@/lib/gait/poseReconstruction";
+import { PERRY_GAIT_PHASES } from "@/lib/gait/phases";
 
 /** Fixed 0–100 integer percent-of-gait-cycle grid every overlaid curve is projected onto. */
 const GAIT_CYCLE_GRID_SIZE = 101;
@@ -264,6 +276,76 @@ export function SessionComparisonView({
     if (initialSessionB && initialSessionB.id === sessionBId) return initialSessionB;
     return sessions.find((s) => s.id === sessionBId) || null;
   }, [sessions, sessionBId, initialSessionB]);
+
+  // Dual 3D Avatar Stage & Playback State
+  const [playbackPhase, setPlaybackPhase] = useState<number>(0);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+  const [dualViewMode, setDualViewMode] = useState<DualAvatarViewMode>("side-by-side");
+  const [dualCameraMode, setDualCameraMode] = useState<CameraPlaneMode>("orbit");
+  const [dualTrajectoryJoint, setDualTrajectoryJoint] = useState<TrajectoryJoint>("none");
+
+  // Synchronized Playback Loop
+  useEffect(() => {
+    if (!isPlaying) return;
+    let animId: number;
+    let lastTime = performance.now();
+
+    const loop = (now: number) => {
+      const deltaSec = (now - lastTime) / 1000;
+      lastTime = now;
+      const cycleDurationSec = 1.1; // 1.1s standard step cycle
+      const phaseDelta = (deltaSec / cycleDurationSec) * 100 * playbackSpeed;
+      setPlaybackPhase((prev) => (prev + phaseDelta) % 100);
+      animId = requestAnimationFrame(loop);
+    };
+
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying, playbackSpeed]);
+
+  // Current Perry Phase Definition at playbackPhase
+  const currentPhaseDef = useMemo(() => {
+    const p = Math.max(0, Math.min(100, playbackPhase));
+    return (
+      PERRY_GAIT_PHASES.find(
+        (phase) => p >= phase.startPct && (p < phase.endPct || (p === 100 && phase.endPct === 100)),
+      ) || PERRY_GAIT_PHASES[0]
+    );
+  }, [playbackPhase]);
+
+  // Live Joint Angle Telemetry at playbackPhase
+  const liveAngleTelemetry = useMemo(() => {
+    if (!sessionA || !sessionB) return null;
+    const ptsA = sessionA.angleAnalysisJson?.normalizedPoints;
+    const ptsB = sessionB.angleAnalysisJson?.normalizedPoints;
+    const idx = Math.max(0, Math.min(100, Math.round(playbackPhase)));
+    const ptA = ptsA && ptsA[idx] ? ptsA[idx] : null;
+    const ptB = ptsB && ptsB[idx] ? ptsB[idx] : null;
+
+    const kneeA = ptA?.kneeAngleLeft ?? ptA?.kneeAngleRight ?? null;
+    const kneeB = ptB?.kneeAngleLeft ?? ptB?.kneeAngleRight ?? null;
+    const hipA = ptA?.hipAngleLeft ?? ptA?.hipAngleRight ?? null;
+    const hipB = ptB?.hipAngleLeft ?? ptB?.hipAngleRight ?? null;
+    const ankleA = ptA?.ankleAngleLeft ?? ptA?.ankleAngleRight ?? null;
+    const ankleB = ptB?.ankleAngleLeft ?? ptB?.ankleAngleRight ?? null;
+
+    const deltaKnee = kneeA != null && kneeB != null ? kneeB - kneeA : null;
+    const deltaHip = hipA != null && hipB != null ? hipB - hipA : null;
+    const deltaAnkle = ankleA != null && ankleB != null ? ankleB - ankleA : null;
+
+    return {
+      kneeA,
+      kneeB,
+      deltaKnee,
+      hipA,
+      hipB,
+      deltaHip,
+      ankleA,
+      ankleB,
+      deltaAnkle,
+    };
+  }, [sessionA, sessionB, playbackPhase]);
 
   const domainDeltas = useMemo(() => {
     if (!sessionA || !sessionB) return [];
@@ -718,6 +800,279 @@ export function SessionComparisonView({
       {/* Main Dual Comparison Content (When both sessions are selected) */}
       {sessionA && sessionB && (
         <>
+          {/* Synchronized Dual 3D Avatar Longitudinal Comparison Stage */}
+          <Card data-testid="dual-avatar-card" className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card overflow-hidden">
+            <CardHeader className="border-b border-[var(--color-border)] bg-[var(--color-bg)] pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Layers className="size-5 text-[var(--color-primary)]" />
+                  <CardTitle className="text-base font-bold text-[var(--color-fg)]">
+                    Synchronized Dual 3D Avatar Comparison
+                  </CardTitle>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <Badge
+                    tone="neutral"
+                    className="bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-fg)] font-mono"
+                  >
+                    Phase: {playbackPhase.toFixed(1)}%
+                  </Badge>
+                  <Badge
+                    style={{ backgroundColor: currentPhaseDef.color }}
+                    className="text-white text-xs font-semibold"
+                  >
+                    {currentPhaseDef.name}
+                  </Badge>
+                </div>
+              </div>
+              <CardDescription className="text-xs text-[var(--color-muted)]">
+                Longitudinal 3D skeletal kinematic visualization comparing Baseline (Session A) and Target (Session B) walking postures synchronized across normalized 0–100% gait cycle.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="p-4 sm:p-6 space-y-4">
+              {/* 3D WebGL Canvas */}
+              <DualAvatarCanvas
+                sessionA={sessionA}
+                sessionB={sessionB}
+                currentPhasePct={playbackPhase}
+                viewMode={dualViewMode}
+                cameraMode={dualCameraMode}
+                activeTrajectoryJoint={dualTrajectoryJoint}
+                isPlaying={isPlaying}
+                onViewModeChange={setDualViewMode}
+                onCameraModeChange={setDualCameraMode}
+                onTrajectoryJointChange={setDualTrajectoryJoint}
+                className="w-full h-[400px]"
+              />
+
+              {/* Playback Controls & Scrubber Toolbar */}
+              <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* Play / Pause & Steppers */}
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant={isPlaying ? "danger" : "default"}
+                      size="sm"
+                      onClick={() => setIsPlaying((p) => !p)}
+                      data-testid="dual-play-pause-btn"
+                      className="h-8 px-3 font-semibold gap-1.5"
+                    >
+                      {isPlaying ? (
+                        <>
+                          <Pause className="w-3.5 h-3.5" /> Pause
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5" /> Play
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPlaybackPhase((p) => Math.max(0, p - 1))}
+                      title="Step Backward -1%"
+                      data-testid="dual-step-back-btn"
+                      className="h-8 px-2 text-xs"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" /> -1%
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPlaybackPhase((p) => Math.min(100, p + 1))}
+                      title="Step Forward +1%"
+                      data-testid="dual-step-forward-btn"
+                      className="h-8 px-2 text-xs"
+                    >
+                      +1% <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsPlaying(false);
+                        setPlaybackPhase(0);
+                      }}
+                      title="Reset to Initial Contact 0%"
+                      data-testid="dual-reset-phase-btn"
+                      className="h-8 px-2 text-xs text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset
+                    </Button>
+                  </div>
+
+                  {/* Playback Speed Buttons */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-[var(--color-muted)] mr-1">Speed:</span>
+                    {[0.25, 0.5, 1.0, 1.5, 2.0].map((spd) => (
+                      <Button
+                        key={spd}
+                        variant={playbackSpeed === spd ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setPlaybackSpeed(spd)}
+                        data-testid={`dual-speed-${spd}x`}
+                        className="h-7 px-2 text-xs font-mono"
+                      >
+                        {spd}x
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Gait Cycle Phase Scrubber Range Slider */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-[var(--color-muted)]">
+                    <span>0% (Initial Contact)</span>
+                    <span className="font-mono font-bold text-[var(--color-fg)] text-sm">
+                      {playbackPhase.toFixed(1)}% Gait Cycle
+                    </span>
+                    <span>100% (Terminal Swing)</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={playbackPhase}
+                    onChange={(e) => setPlaybackPhase(parseFloat(e.target.value))}
+                    data-testid="dual-phase-scrubber"
+                    className="w-full h-2 rounded-lg bg-[var(--color-border)] accent-[var(--color-primary)] cursor-pointer"
+                  />
+                </div>
+
+                {/* Perry 8-Phase Color Ribbon Indicator */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs text-[var(--color-muted)]">
+                    <span className="font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full inline-block shadow-sm"
+                        style={{ backgroundColor: currentPhaseDef.color }}
+                      />
+                      {currentPhaseDef.name} ({currentPhaseDef.startPct}–{currentPhaseDef.endPct}%)
+                    </span>
+                    <span className="text-[11px] uppercase tracking-wider font-semibold text-[var(--color-muted)]">
+                      {currentPhaseDef.period} Period
+                    </span>
+                  </div>
+                  <div className="h-3.5 w-full rounded-full overflow-hidden flex bg-slate-800 border border-slate-700/80 shadow-inner">
+                    {PERRY_GAIT_PHASES.map((phase) => {
+                      const widthPct = phase.endPct - phase.startPct;
+                      const isCurrent = currentPhaseDef.id === phase.id;
+                      return (
+                        <button
+                          key={phase.id}
+                          type="button"
+                          onClick={() => setPlaybackPhase(phase.startPct)}
+                          title={`${phase.name} (${phase.startPct}–${phase.endPct}%): ${phase.description}`}
+                          data-testid={`phase-btn-${phase.id}`}
+                          className={cn(
+                            "h-full transition-all relative cursor-pointer",
+                            isCurrent ? "opacity-100 ring-2 ring-white z-10 brightness-110" : "opacity-65 hover:opacity-90",
+                          )}
+                          style={{
+                            width: `${widthPct}%`,
+                            backgroundColor: phase.color,
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-[var(--color-muted)] italic">
+                    {currentPhaseDef.description}
+                  </p>
+                </div>
+
+                {/* Live Joint Angle Delta Readout */}
+                {liveAngleTelemetry && (
+                  <div
+                    data-testid="dual-live-angles-readout"
+                    className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-[var(--color-border)]"
+                  >
+                    {/* Knee Flexion */}
+                    <div className="p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-semibold text-[var(--color-fg)] block">Knee Flexion</span>
+                        <span className="text-[11px] text-[var(--color-muted)] font-mono">
+                          A: {liveAngleTelemetry.kneeA != null ? `${liveAngleTelemetry.kneeA.toFixed(1)}°` : "—"} · B:{" "}
+                          {liveAngleTelemetry.kneeB != null ? `${liveAngleTelemetry.kneeB.toFixed(1)}°` : "—"}
+                        </span>
+                      </div>
+                      {liveAngleTelemetry.deltaKnee != null && (
+                        <Badge
+                          tone="info"
+                          className={cn(
+                            "font-mono text-xs font-semibold",
+                            Math.abs(liveAngleTelemetry.deltaKnee) > 5
+                              ? "bg-blue-950/40 text-blue-400 border-blue-600/40"
+                              : "bg-slate-800 text-slate-300 border-slate-700",
+                          )}
+                        >
+                          Δ {liveAngleTelemetry.deltaKnee >= 0 ? "+" : ""}
+                          {liveAngleTelemetry.deltaKnee.toFixed(1)}°
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Hip Flexion */}
+                    <div className="p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-semibold text-[var(--color-fg)] block">Hip Angle</span>
+                        <span className="text-[11px] text-[var(--color-muted)] font-mono">
+                          A: {liveAngleTelemetry.hipA != null ? `${liveAngleTelemetry.hipA.toFixed(1)}°` : "—"} · B:{" "}
+                          {liveAngleTelemetry.hipB != null ? `${liveAngleTelemetry.hipB.toFixed(1)}°` : "—"}
+                        </span>
+                      </div>
+                      {liveAngleTelemetry.deltaHip != null && (
+                        <Badge
+                          tone="success"
+                          className={cn(
+                            "font-mono text-xs font-semibold",
+                            Math.abs(liveAngleTelemetry.deltaHip) > 5
+                              ? "bg-emerald-950/40 text-emerald-400 border-emerald-600/40"
+                              : "bg-slate-800 text-slate-300 border-slate-700",
+                          )}
+                        >
+                          Δ {liveAngleTelemetry.deltaHip >= 0 ? "+" : ""}
+                          {liveAngleTelemetry.deltaHip.toFixed(1)}°
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Ankle Angle */}
+                    <div className="p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-semibold text-[var(--color-fg)] block">Ankle Angle</span>
+                        <span className="text-[11px] text-[var(--color-muted)] font-mono">
+                          A: {liveAngleTelemetry.ankleA != null ? `${liveAngleTelemetry.ankleA.toFixed(1)}°` : "—"} · B:{" "}
+                          {liveAngleTelemetry.ankleB != null ? `${liveAngleTelemetry.ankleB.toFixed(1)}°` : "—"}
+                        </span>
+                      </div>
+                      {liveAngleTelemetry.deltaAnkle != null && (
+                        <Badge
+                          tone="accent"
+                          className={cn(
+                            "font-mono text-xs font-semibold",
+                            Math.abs(liveAngleTelemetry.deltaAnkle) > 3
+                              ? "bg-purple-950/40 text-purple-400 border-purple-600/40"
+                              : "bg-slate-800 text-slate-300 border-slate-700",
+                          )}
+                        >
+                          Δ {liveAngleTelemetry.deltaAnkle >= 0 ? "+" : ""}
+                          {liveAngleTelemetry.deltaAnkle.toFixed(1)}°
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Domain Gait Health Scores Summary Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {domainDeltas.map((d) => (
