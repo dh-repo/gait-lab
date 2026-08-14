@@ -41,6 +41,7 @@ export function SOAPNoteModal({ analysis, patientMetadata, trigger, initialOpen 
 CLINICAL GAIT BIOMECHANICS CONSULTATION & SOAP NOTE
 ================================================================================
 PATIENT ID: ${patientId}
+AGE / SEX: ${patientMetadata?.age !== undefined ? `${patientMetadata.age} years old` : "Unspecified"} / ${patientMetadata?.sex || "Unspecified"}
 DATE OF ASSESSMENT: ${sessionDate}
 ASSESSMENT PROTOCOL: ${condition} (Computer Vision Multi-Planar Kinematics)
 FACILITY: Gait Lab Quantitative Biomechanics Suite

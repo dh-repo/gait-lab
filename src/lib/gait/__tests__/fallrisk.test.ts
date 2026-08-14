@@ -548,5 +548,52 @@ describe("Dual Fall Risk Predictive Engine (fallrisk.ts)", () => {
         expect(result.spikeFlags.some(f => f.ruleId === "SWAY_SPIKE_ACUTE")).toBe(false);
       });
     });
+
+    describe("Pediatric Developmental Gait Normatives (Ages < 18)", () => {
+      it("computes LOW fall risk for a 10-year-old girl with normal pediatric gait (speed 0.75 m/s, step CV 6.5%)", () => {
+        const pediatricMetrics = createMockMetrics({
+          cadenceSpm: 112,
+          gaitSpeedMps: 0.75, // Normal casual speed for 10yo with shorter leg length
+          stepTimeCV: 0.065,   // 6.5% normal pediatric motor maturation variability (Hausdorff 1999)
+          doubleSupportPct: 26.0,
+          symmetryAngle: 3.2,
+        });
+
+        const patientMeta = {
+          patientId: "PED-10YO-01",
+          age: 10,
+          sex: "female",
+          heightCm: 138,
+          assessmentDate: "2026-08-14",
+          assessmentCondition: "Single-Task Walk",
+          clinicianNotes: "Healthy 10yo female",
+        };
+
+        const resultA = computeFallRiskModelA(pediatricMetrics, patientMeta);
+        const resultB = computeFallRiskModelB(pediatricMetrics, undefined, undefined, undefined, patientMeta);
+
+        expect(resultA.category).toBe("low");
+        expect(resultA.score).toBeLessThanOrEqual(20);
+        expect(resultA.clinicalSummary).toMatch(/Pediatric Assessment \(Age 10\): LOW fall risk/i);
+        expect(resultA.clinicalSummary).toMatch(/CDC STEADI cutoffs are non-applicable/i);
+
+        expect(resultB.category).toBe("low");
+        expect(resultB.score).toBeLessThanOrEqual(20);
+      });
+
+      it("uses pediatric median stature when height is omitted for age 10", () => {
+        const metrics = createMockMetrics({
+          cadenceSpm: 110,
+          gaitSpeedMps: null,
+          heightMeters: null,
+          stepLength: null,
+        });
+
+        const speed = estimateGaitSpeed(metrics, { age: 10 });
+        // Cadence 110 with age 10 default height 1.38m -> (110 * 0.414 * 1.38 * 2) / 60 = 2.09 m/s or scaled
+        expect(speed).toBeGreaterThan(0.5);
+        expect(speed).toBeLessThan(2.5);
+      });
+    });
   });
 });

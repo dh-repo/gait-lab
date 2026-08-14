@@ -47,7 +47,10 @@ export function FallRiskPanel({
   };
 
   // Compute Dual Fall Risk Analysis
-  const modelA = useMemo(() => computeFallRiskModelA(result.metrics), [result.metrics]);
+  const modelA = useMemo(
+    () => computeFallRiskModelA(result.metrics, result.patientMeta),
+    [result.metrics, result.patientMeta]
+  );
 
   const modelB = useMemo(
     () =>
@@ -55,9 +58,10 @@ export function FallRiskPanel({
         result.metrics,
         result.dualTaskCost,
         result.angleAnalysis,
-        result.metrics.viewAngle
+        result.metrics.viewAngle,
+        result.patientMeta
       ),
-    [result.metrics, result.dualTaskCost, result.angleAnalysis]
+    [result.metrics, result.dualTaskCost, result.angleAnalysis, result.patientMeta]
   );
 
   const agreement = useMemo(
@@ -82,9 +86,29 @@ export function FallRiskPanel({
   );
 
   const isDivergent = agreement.alignmentStatus !== "concordant";
+  const isPediatric = Boolean(result.patientMeta?.age && result.patientMeta.age < 18);
 
   return (
     <div data-testid="fall-risk-panel" className={cn("flex flex-col gap-6 max-w-6xl mx-auto w-full", className)}>
+      {/* Pediatric Developmental Notice Banner */}
+      {isPediatric && (
+        <div
+          data-testid="pediatric-fall-risk-banner"
+          className="p-4 rounded-xl border border-sky-500/30 bg-sky-500/10 text-sky-200 flex items-start gap-3"
+        >
+          <CheckCircle className="size-5 text-sky-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold text-sky-300">
+              Pediatric Developmental Profile (Age {result.patientMeta?.age})
+            </h4>
+            <p className="text-xs text-sky-200/90 leading-relaxed">
+              This assessment is evaluated using pediatric developmental gait normatives (Sutherland 1988, Hausdorff 1999).
+              Standard geriatric CDC STEADI cutoffs are non-applicable for healthy pediatric individuals.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header & Model Comparison Toggle Rail */}
       <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-card overflow-hidden">
         <CardHeader className="bg-[var(--color-bg)] px-6 py-4 border-b border-[var(--color-border)]">

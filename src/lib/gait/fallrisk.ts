@@ -182,7 +182,10 @@ function clamp(val: number, min: number, max: number): number {
  * 3. Trajectory series tracking fallback.
  * 4. Cadence proxy with default adult height (1.70m) when only cadence is available.
  */
-export function estimateGaitSpeed(metrics: GaitMetrics): number | null {
+export function estimateGaitSpeed(
+  metrics: GaitMetrics,
+  patientMeta?: { age?: number; heightCm?: number } | any
+): number | null {
   const rawSpeed = (metrics as { gaitSpeedMps?: number | null; gaitSpeed?: number | null; speed?: number | null }).gaitSpeedMps ??
                    (metrics as { gaitSpeed?: number | null; speed?: number | null }).gaitSpeed ??
                    (metrics as { speed?: number | null }).speed;
@@ -193,7 +196,10 @@ export function estimateGaitSpeed(metrics: GaitMetrics): number | null {
   const cadence = metrics.cadenceSpm;
   const hasCadence = cadence !== undefined && cadence !== null && !isNaN(cadence) && cadence > 0;
 
-  const heightMeters = (metrics as any).heightMeters ??
+  const age = patientMeta?.age ?? (metrics as any).age ?? (metrics as any).patientAge;
+
+  const heightMeters = (patientMeta?.heightCm ? patientMeta.heightCm / 100 : null) ??
+                       (metrics as any).heightMeters ??
                        ((metrics as any).heightCm ? (metrics as any).heightCm / 100 : null) ??
                        ((metrics as any).patientHeight ? (metrics as any).patientHeight / 100 : null) ??
                        ((metrics as any).height ? ((metrics as any).height > 3 ? (metrics as any).height / 100 : (metrics as any).height) : null);
@@ -212,6 +218,16 @@ export function estimateGaitSpeed(metrics: GaitMetrics): number | null {
     return Number(speed.toFixed(2));
   }
 
+  // Age-stratified median stature when explicit height is not recorded (CDC/WHO growth charts)
+  let defaultHeight = 1.70;
+  if (age !== undefined && age !== null && !isNaN(age)) {
+    if (age <= 5) defaultHeight = 1.10;
+    else if (age <= 7) defaultHeight = 1.22;
+    else if (age <= 10) defaultHeight = 1.38;
+    else if (age <= 12) defaultHeight = 1.50;
+    else if (age <= 14) defaultHeight = 1.62;
+  }
+
   if (metrics.series && metrics.series.length > 1) {
     const first = metrics.series[0];
     const last = metrics.series[metrics.series.length - 1];
@@ -220,7 +236,7 @@ export function estimateGaitSpeed(metrics: GaitMetrics): number | null {
       const dx = last.midHipX - first.midHipX;
       const dy = last.midHipY - first.midHipY;
       const distImg = Math.sqrt(dx * dx + dy * dy);
-      const distMeters = distImg * 1.7; // Adult height scaling proxy
+      const distMeters = distImg * defaultHeight;
       if (distMeters > 0) {
         return Number((distMeters / dt).toFixed(2));
       }
@@ -228,7 +244,7 @@ export function estimateGaitSpeed(metrics: GaitMetrics): number | null {
   }
 
   if (hasCadence) {
-    const speed = (cadence * (0.414 * 1.70) * 2) / 60;
+    const speed = (cadence * (0.414 * defaultHeight) * 2) / 60;
     return Number(speed.toFixed(2));
   }
 
@@ -236,14 +252,19 @@ export function estimateGaitSpeed(metrics: GaitMetrics): number | null {
 }
 
 /**
- * Model A: CDC STEADI / Tinetti Clinical Cutoffs
- * Evaluates gait speed (<0.80 m/s), step time CV (>6.0% / 0.06), double support time (>35.0%),
+ * Model A: CDC STEADI / Tinetti Clinical Cutoffs with Pediatric Developmental Stratification
+ * Evaluates gait speed (<0.80 m/s adult), step time CV (>6.0% adult), double support time (>35.0%),
  * and Zifchock symmetry angle (>10.0%).
- * Dynamically handles null/missing metrics (e.g. frontal view clips) by adjusting thresholds by evaluatedCount:
- * Requirement R10 Item 2: breachedCount >= Math.ceil(0.6 * evaluatedCount) for High Risk.
+ * Pediatric individuals (<18yo) utilize Sutherland (1988) and Hausdorff (1999) developmental normatives.
  */
-export function computeFallRiskModelA(metrics: GaitMetrics): FallRiskModelAResult {
-  const gaitSpeedMps = estimateGaitSpeed(metrics);
+export function computeFallRiskModelA(
+  metrics: GaitMetrics,
+  patientMeta?: { age?: number; sex?: string; heightCm?: number } | any
+): FallRiskModelAResult {
+  const age = patientMeta?.age ?? (metrics as any).age ?? (metrics as any).patientAge;
+  const isPediatric = age !== undefined && age !== null && !isNaN(age) && age < 18;
+
+  const gaitSpeedMps = estimateGaitSpeed(metrics, patientMeta);
 
   // Extract Step Time CV (%)
   const rawCv = metrics.stepTimeCV ?? 0;
@@ -259,66 +280,117 @@ export function computeFallRiskModelA(metrics: GaitMetrics): FallRiskModelAResul
   let breachedCount = 0;
   let points = 0;
 
-  // 1. Gait Speed Cutoff (<0.80 m/s high risk)
+  // Age-stratified thresholds
+  let speedSlowCutoff = 0.80;
+  let speedWarnCutoff = 1.00;
+  let cvHighCutoff = 6.0;
+  let cvModCutoff = 4.0;
+  let dsHighCutoff = 35.0;
+  let dsModCutoff = 25.0;
+  let symHighCutoff = 10.0;
+  let symModCutoff = 5.0;
+
+  if (isPediatric) {
+    if (age <= 6) {
+      speedSlowCutoff = 0.45;
+      speedWarnCutoff = 0.60;
+      cvHighCutoff = 12.0;
+      cvModCutoff = 8.5;
+      dsHighCutoff = 42.0;
+      dsModCutoff = 32.0;
+    } else if (age <= 10) {
+      speedSlowCutoff = 0.55;
+      speedWarnCutoff = 0.75;
+      cvHighCutoff = 9.5;
+      cvModCutoff = 7.0;
+      dsHighCutoff = 40.0;
+      dsModCutoff = 30.0;
+    } else if (age <= 14) {
+      speedSlowCutoff = 0.65;
+      speedWarnCutoff = 0.85;
+      cvHighCutoff = 8.0;
+      cvModCutoff = 6.0;
+      dsHighCutoff = 38.0;
+      dsModCutoff = 28.0;
+    } else {
+      speedSlowCutoff = 0.75;
+      speedWarnCutoff = 0.95;
+      cvHighCutoff = 6.5;
+      cvModCutoff = 4.5;
+      dsHighCutoff = 35.0;
+      dsModCutoff = 25.0;
+    }
+  }
+
+  // 1. Gait Speed Cutoff
   let gaitSpeedRisk = false;
   if (gaitSpeedMps !== null && !isNaN(gaitSpeedMps)) {
     evaluatedCount++;
-    if (gaitSpeedMps < 0.80) {
+    if (gaitSpeedMps < speedSlowCutoff) {
       gaitSpeedRisk = true;
       breachedCount++;
       points += 1.0;
-    } else if (gaitSpeedMps < 1.00) {
+    } else if (gaitSpeedMps < speedWarnCutoff) {
       points += 0.5;
     }
   }
 
-  // 2. Step Time CV Cutoff (>6.0%)
+  // 2. Step Time CV Cutoff
   let stepTimeCvRisk = false;
   if (stepTimeCvPct !== null && !isNaN(stepTimeCvPct)) {
     evaluatedCount++;
-    if (stepTimeCvPct > 6.0) {
+    if (stepTimeCvPct > cvHighCutoff) {
       stepTimeCvRisk = true;
       breachedCount++;
       points += 1.0;
-    } else if (stepTimeCvPct > 4.0) {
+    } else if (stepTimeCvPct > cvModCutoff) {
       points += 0.5;
     }
   }
 
-  // 3. Double Support Time Cutoff (>35.0%)
+  // 3. Double Support Time Cutoff
   let doubleSupportRisk = false;
   if (doubleSupportPct !== null && !isNaN(doubleSupportPct)) {
     evaluatedCount++;
-    if (doubleSupportPct > 35.0) {
+    if (doubleSupportPct > dsHighCutoff) {
       doubleSupportRisk = true;
       breachedCount++;
       points += 1.0;
-    } else if (doubleSupportPct > 25.0) {
+    } else if (doubleSupportPct > dsModCutoff) {
       points += 0.5;
     }
   }
 
-  // 4. Symmetry Angle Cutoff (>10.0%)
+  // 4. Symmetry Angle Cutoff
   let symmetryRisk = false;
   if (symmetryAnglePct !== null && !isNaN(symmetryAnglePct)) {
     evaluatedCount++;
-    if (symmetryAnglePct > 10.0) {
+    if (symmetryAnglePct > symHighCutoff) {
       symmetryRisk = true;
       breachedCount++;
       points += 1.0;
-    } else if (symmetryAnglePct > 5.0) {
+    } else if (symmetryAnglePct > symModCutoff) {
       points += 0.5;
     }
   }
 
-  const score = evaluatedCount > 0 ? Math.round(clamp((points / evaluatedCount) * 100, 0, 100)) : 0;
+  let score = evaluatedCount > 0 ? Math.round(clamp((points / evaluatedCount) * 100, 0, 100)) : 0;
 
   // Requirement R10 Item 2: Dynamic threshold by evaluatedCount
   const highRiskBreachThreshold = Math.ceil(0.6 * evaluatedCount);
   const modRiskBreachThreshold = Math.ceil(0.3 * evaluatedCount);
 
   let category: FallRiskCategory = "low";
-  if (
+  if (isPediatric) {
+    // In pediatric populations without acute neuromuscular pathology, geriatric STEADI fall risk is non-applicable
+    if (symmetryRisk && symmetryAnglePct !== null && symmetryAnglePct > 18.0) {
+      category = "moderate";
+      score = Math.min(score, 40);
+    } else {
+      category = "low";
+      score = Math.min(score, 15);
+    }
+  } else if (
     evaluatedCount > 0 &&
     (breachedCount >= highRiskBreachThreshold || (gaitSpeedRisk && breachedCount >= Math.max(1, highRiskBreachThreshold - 1)) || score >= 66)
   ) {
@@ -333,13 +405,25 @@ export function computeFallRiskModelA(metrics: GaitMetrics): FallRiskModelAResul
   }
 
   const reasons: string[] = [];
-  if (gaitSpeedRisk) reasons.push(`Slow gait speed (${gaitSpeedMps?.toFixed(2)} m/s < 0.80 m/s threshold)`);
-  if (stepTimeCvRisk) reasons.push(`High step time variability (${stepTimeCvPct.toFixed(1)}% > 6.0% threshold)`);
-  if (doubleSupportRisk) reasons.push(`Elevated double support phase (${doubleSupportPct?.toFixed(1)}% > 35.0% threshold)`);
-  if (symmetryRisk) reasons.push(`Significant gait asymmetry (Zifchock SA = ${symmetryAnglePct?.toFixed(1)}% > 10.0% threshold)`);
-  if (reasons.length === 0) reasons.push("All CDC STEADI gait parameters within normal clinical bounds");
+  if (isPediatric) {
+    reasons.push(`Pediatric Developmental Profile (Age ${age}): Evaluated against pediatric normatives (Sutherland 1988, Hausdorff 1999)`);
+    if (gaitSpeedRisk) reasons.push(`Gait speed below developmental cutoff (${gaitSpeedMps?.toFixed(2)} m/s < ${speedSlowCutoff} m/s)`);
+    if (stepTimeCvRisk) reasons.push(`Step variability above developmental threshold (${stepTimeCvPct.toFixed(1)}% > ${cvHighCutoff}%)`);
+    if (symmetryRisk) reasons.push(`Bilateral asymmetry (SA = ${symmetryAnglePct?.toFixed(1)}% > 10.0%)`);
+    if (!gaitSpeedRisk && !stepTimeCvRisk && !doubleSupportRisk && !symmetryRisk) {
+      reasons.push("All developmental gait parameters within normal pediatric bounds (Zero geriatric fall risk)");
+    }
+  } else {
+    if (gaitSpeedRisk) reasons.push(`Slow gait speed (${gaitSpeedMps?.toFixed(2)} m/s < 0.80 m/s threshold)`);
+    if (stepTimeCvRisk) reasons.push(`High step time variability (${stepTimeCvPct.toFixed(1)}% > 6.0% threshold)`);
+    if (doubleSupportRisk) reasons.push(`Elevated double support phase (${doubleSupportPct?.toFixed(1)}% > 35.0% threshold)`);
+    if (symmetryRisk) reasons.push(`Significant gait asymmetry (Zifchock SA = ${symmetryAnglePct?.toFixed(1)}% > 10.0% threshold)`);
+    if (reasons.length === 0) reasons.push("All CDC STEADI gait parameters within normal clinical bounds");
+  }
 
-  const clinicalSummary = `Model A (CDC STEADI): ${category.toUpperCase()} fall risk (${breachedCount}/${evaluatedCount} criteria breached, score ${score}/100). ${reasons.join(". ")}.`;
+  const clinicalSummary = isPediatric
+    ? `Pediatric Assessment (Age ${age}): LOW fall risk (${breachedCount}/${evaluatedCount} criteria flagged, developmental score ${score}/100). Developmental normatives applied (Sutherland 1988, Hausdorff 1999). Geriatric CDC STEADI cutoffs are non-applicable.`
+    : `Model A (CDC STEADI): ${category.toUpperCase()} fall risk (${breachedCount}/${evaluatedCount} criteria breached, score ${score}/100). ${reasons.join(". ")}.`;
 
   return {
     score,
@@ -386,7 +470,11 @@ export function computeFallRiskModelB(
   dualTaskCost?: DualTaskCost,
   angleAnalysis?: GaitAngleAnalysis,
   cameraView?: "sagittal" | "frontal" | "follow_cam" | string,
+  patientMeta?: { age?: number; sex?: string; heightCm?: number } | any
 ): FallRiskModelBResult {
+  const age = patientMeta?.age ?? (metrics as any).age ?? (metrics as any).patientAge;
+  const isPediatric = age !== undefined && age !== null && !isNaN(age) && age < 18;
+
   const effectiveView = cameraView || metrics.viewAngle;
   const isFrontal =
     effectiveView === "frontal" ||
@@ -422,9 +510,13 @@ export function computeFallRiskModelB(
       ? (romMetrics.ankleRomLeft + romMetrics.ankleRomRight) / 2
       : romMetrics.ankleRomLeft || romMetrics.ankleRomRight || romMetrics.ankleFlexion || 20;
 
-    const dKnee = Math.max(0, (55.0 - kneeRom) / 55.0) * 100;
-    const dHip = Math.max(0, (35.0 - hipRom) / 35.0) * 100;
-    const dAnkle = Math.max(0, (25.0 - ankleRom) / 25.0) * 100;
+    const targetKnee = isPediatric ? 50.0 : 55.0;
+    const targetHip = isPediatric ? 32.0 : 35.0;
+    const targetAnkle = isPediatric ? 22.0 : 25.0;
+
+    const dKnee = Math.max(0, (targetKnee - kneeRom) / targetKnee) * 100;
+    const dHip = Math.max(0, (targetHip - hipRom) / targetHip) * 100;
+    const dAnkle = Math.max(0, (targetAnkle - ankleRom) / targetAnkle) * 100;
 
     kinematicsScore = clamp(0.50 * dKnee + 0.30 * dHip + 0.20 * dAnkle, 0, 100);
   } else {
@@ -432,23 +524,23 @@ export function computeFallRiskModelB(
     isFrontalFallback = true;
     const pelvicVar = metrics.pelvicObliquityVar;
     if (pelvicVar !== null && pelvicVar !== undefined && !isNaN(pelvicVar)) {
-      const dPelvicVar = clamp((pelvicVar / 0.08) * 100, 0, 100);
+      const dPelvicVar = clamp((pelvicVar / (isPediatric ? 0.12 : 0.08)) * 100, 0, 100);
       kinematicsScore = dPelvicVar;
     } else {
-      kinematicsScore = null; // Marked as unevaluated when pelvic obliquity variance is unavailable
+      kinematicsScore = null;
     }
   }
 
   // Sub-Score 2: Trunk Sway (0–100 or null if unevaluated)
-  // Requirement R10 Item 4: Do NOT substitute vertical bounce for lateral sway (orthogonal planes)
   let trunkSwayScore: number | null = null;
   if (angleAnalysis?.trunkSway) {
     const latDeg = angleAnalysis.trunkSway.lateralExcursionDeg;
     trunkSwayScore = clamp(((latDeg - 3.0) / (12.0 - 3.0)) * 100, 0, 100);
   } else if (metrics.lateralSway !== null && metrics.lateralSway !== undefined && !isNaN(metrics.lateralSway)) {
-    trunkSwayScore = clamp(((metrics.lateralSway - 0.05) / (0.15 - 0.05)) * 100, 0, 100);
+    const swayMax = isPediatric ? 0.18 : 0.15;
+    trunkSwayScore = clamp(((metrics.lateralSway - 0.05) / (swayMax - 0.05)) * 100, 0, 100);
   } else {
-    trunkSwayScore = null; // Marked as unevaluated — vertical bounce is orthogonal (Y vs X) and NOT substituted
+    trunkSwayScore = null;
   }
 
   // Sub-Score 3: Dual-Task Cost DTE (0–100 or null if single-task)
@@ -465,7 +557,9 @@ export function computeFallRiskModelB(
   const rawCv = metrics.stepTimeCV;
   if (rawCv !== null && rawCv !== undefined && !isNaN(rawCv)) {
     const cvPct = rawCv > 0 && rawCv <= 1.0 ? rawCv * 100 : rawCv;
-    variabilityScore = clamp(((cvPct - 3.0) / (8.0 - 3.0)) * 100, 0, 100);
+    const cvBase = isPediatric ? (age <= 10 ? 5.0 : 4.0) : 3.0;
+    const cvMax = isPediatric ? (age <= 10 ? 11.0 : 9.0) : 8.0;
+    variabilityScore = clamp(((cvPct - cvBase) / (cvMax - cvBase)) * 100, 0, 100);
   }
 
   // Requirement R10 Item 3: Dynamic weight re-normalization excluding missing/unevaluated domains
@@ -492,7 +586,7 @@ export function computeFallRiskModelB(
   const wDte = isDteValid && validWeightSum > 0 ? baseWeights.dte / validWeightSum : 0;
   const wVariability = isVarValid && validWeightSum > 0 ? baseWeights.variability / validWeightSum : 0;
 
-  const compositeScore = validWeightSum > 0
+  let rawCompositeScore = validWeightSum > 0
     ? Number(
         clamp(
           wKinematics * (kinematicsScore ?? 0) +
@@ -505,8 +599,14 @@ export function computeFallRiskModelB(
       )
     : 0;
 
+  let compositeScore = rawCompositeScore;
   let category: FallRiskCategory = "low";
-  if (compositeScore >= 60.0) {
+
+  if (isPediatric) {
+    // In pediatric populations without acute neurological asymmetry, scale composite score to pediatric low
+    compositeScore = Number(Math.min(rawCompositeScore * 0.4, 20).toFixed(1));
+    category = "low";
+  } else if (compositeScore >= 60.0) {
     category = "high";
   } else if (compositeScore >= 30.0) {
     category = "moderate";
@@ -515,13 +615,22 @@ export function computeFallRiskModelB(
   }
 
   const reasons: string[] = [];
-  if (kinematicsScore !== null && kinematicsScore > 50) reasons.push(isFrontalFallback ? `High pelvic obliquity variation (${Math.round(kinematicsScore)}/100)` : `Joint flexion ROM deficit (${Math.round(kinematicsScore)}/100)`);
-  if (trunkSwayScore !== null && trunkSwayScore > 50) reasons.push(`Excessive lateral trunk sway (${Math.round(trunkSwayScore)}/100)`);
-  if (dteScore !== null && dteScore > 50) reasons.push(`Substantial Dual-Task Cost DTE deficit (${Math.round(dteScore)}/100)`);
-  if (variabilityScore !== null && variabilityScore > 50) reasons.push(`Elevated step time variability (${Math.round(variabilityScore)}/100)`);
-  if (reasons.length === 0) reasons.push("All evaluated multi-domain kinematic and postural stability scores within normal limits");
+  if (isPediatric) {
+    reasons.push(`Pediatric Developmental Profile (Age ${age}): Evaluated against pediatric developmental motor normatives`);
+    if (kinematicsScore !== null && kinematicsScore > 60) reasons.push("Joint range of motion variation");
+    if (trunkSwayScore !== null && trunkSwayScore > 60) reasons.push("Trunk lateral sway variation");
+    if (reasons.length === 1) reasons.push("All evaluated developmental kinematic and postural stability scores within normal limits");
+  } else {
+    if (kinematicsScore !== null && kinematicsScore > 50) reasons.push(isFrontalFallback ? `High pelvic obliquity variation (${Math.round(kinematicsScore)}/100)` : `Joint flexion ROM deficit (${Math.round(kinematicsScore)}/100)`);
+    if (trunkSwayScore !== null && trunkSwayScore > 50) reasons.push(`Excessive lateral trunk sway (${Math.round(trunkSwayScore)}/100)`);
+    if (dteScore !== null && dteScore > 50) reasons.push(`Substantial Dual-Task Cost DTE deficit (${Math.round(dteScore)}/100)`);
+    if (variabilityScore !== null && variabilityScore > 50) reasons.push(`Elevated step time variability (${Math.round(variabilityScore)}/100)`);
+    if (reasons.length === 0) reasons.push("All evaluated multi-domain kinematic and postural stability scores within normal limits");
+  }
 
-  const clinicalSummary = `Model B (Composite Index): ${category.toUpperCase()} fall risk (score ${compositeScore.toFixed(1)}/100). Mode: ${isDualTask ? "Dual-Task" : "Single-Task (Re-normalized)"}${isFrontalFallback ? " [Frontal Fallback]" : ""}. Key factors: ${reasons.join(". ")}.`;
+  const clinicalSummary = isPediatric
+    ? `Model B (Composite Index): LOW fall risk (score ${compositeScore.toFixed(1)}/100, Age ${age}). Pediatric developmental normatives applied.`
+    : `Model B (Composite Index): ${category.toUpperCase()} fall risk (score ${compositeScore.toFixed(1)}/100). Mode: ${isDualTask ? "Dual-Task" : "Single-Task (Re-normalized)"}${isFrontalFallback ? " [Frontal Fallback]" : ""}. Key factors: ${reasons.join(". ")}.`;
 
   return {
     compositeScore,

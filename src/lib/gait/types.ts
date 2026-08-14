@@ -10,6 +10,10 @@ export type PatientMetadata = {
   clinicianNotes: string;
   assessmentDate: string;
   assessmentCondition: string;
+  age?: number;
+  sex?: "male" | "female" | "other" | string;
+  heightCm?: number;
+  weightKg?: number;
 };
 
 export type Landmark = {

@@ -165,23 +165,32 @@ export function generateHomeExerciseProgram(
   const clinician = options?.prescribingClinician || "Attending Physical Therapist";
   const today = patientMetadata?.assessmentDate || new Date().toISOString().split("T")[0];
   const maxExercises = options?.maxExercisesPerProgram ?? 6;
-  const patientAge = options?.patientAge ?? 65;
+  const patientAge = options?.patientAge ?? patientMetadata?.age ?? 35;
+  const isPediatric = patientAge < 18;
 
   // Determine fall risk category
   let fallRisk: "low" | "moderate" | "high" = options?.fallRiskCategory ?? "moderate";
   if (!options?.fallRiskCategory) {
-    if (
-      (metrics.stepTimeCV ?? 0) > 0.06 ||
-      (metrics.stabilityScore ?? 100) < 60 ||
-      anomalies.some((a) => a.severity === "severe")
-    ) {
-      fallRisk = "high";
-    } else if (
-      (metrics.stepTimeCV ?? 0) < 0.035 &&
-      (metrics.stabilityScore ?? 100) >= 75 &&
-      !anomalies.some((a) => a.severity === "severe" || a.severity === "moderate")
-    ) {
-      fallRisk = "low";
+    if (isPediatric) {
+      if (anomalies.some((a) => a.severity === "severe") || (metrics.stabilityScore ?? 100) < 40) {
+        fallRisk = "moderate";
+      } else {
+        fallRisk = "low";
+      }
+    } else {
+      if (
+        (metrics.stepTimeCV ?? 0) > 0.06 ||
+        (metrics.stabilityScore ?? 100) < 60 ||
+        anomalies.some((a) => a.severity === "severe")
+      ) {
+        fallRisk = "high";
+      } else if (
+        (metrics.stepTimeCV ?? 0) < 0.035 &&
+        (metrics.stabilityScore ?? 100) >= 75 &&
+        !anomalies.some((a) => a.severity === "severe" || a.severity === "moderate")
+      ) {
+        fallRisk = "low";
+      }
     }
   }
 

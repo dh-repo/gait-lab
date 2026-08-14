@@ -41,6 +41,10 @@ export type PatientMetadata = {
   clinicianNotes: string;
   assessmentDate: string;
   assessmentCondition: string;
+  age?: number;
+  sex?: "male" | "female" | "other" | string;
+  heightCm?: number;
+  weightKg?: number;
 };
 
 export interface ClinicalReportViewProps {
@@ -88,12 +92,13 @@ export function ClinicalReportView({
 
   const derivedFallRisk = useMemo(() => {
     if (externalFallRisk) return externalFallRisk;
-    const modelA = computeFallRiskModelA(result.metrics);
+    const modelA = computeFallRiskModelA(result.metrics, patientMeta);
     const modelB = computeFallRiskModelB(
       result.metrics,
       result.dualTaskCost,
       derivedAngleAnalysis,
-      result.metrics.viewAngle
+      result.metrics.viewAngle,
+      patientMeta
     );
     const agreement = evaluatePredictiveAgreement(modelA, modelB);
     return {
@@ -103,7 +108,7 @@ export function ClinicalReportView({
       activeModelToggle: "comparison" as const,
       timestamp: new Date().toISOString(),
     };
-  }, [externalFallRisk, result.metrics, result.dualTaskCost, derivedAngleAnalysis]);
+  }, [externalFallRisk, result.metrics, result.dualTaskCost, derivedAngleAnalysis, patientMeta]);
 
   const derivedBaseline = useMemo(() => {
     if (externalBaseline) return externalBaseline;
@@ -232,6 +237,64 @@ export function ClinicalReportView({
                 placeholder="e.g. Single-Task Walk"
                 data-testid="assessment-condition-input"
                 aria-label="Assessment Condition"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] print:border-gray-300 print:bg-[var(--color-surface)] print:text-black"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="patient-age-input" className="text-xs text-[var(--color-muted)] print:text-gray-700">
+                Age (years)
+              </label>
+              <input
+                id="patient-age-input"
+                type="number"
+                min={1}
+                max={120}
+                value={patientMeta.age ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
+                  onUpdateMeta?.({ age: val });
+                }}
+                placeholder="e.g. 10"
+                data-testid="patient-age-input"
+                aria-label="Patient Age"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] print:border-gray-300 print:bg-[var(--color-surface)] print:text-black"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="patient-sex-input" className="text-xs text-[var(--color-muted)] print:text-gray-700">
+                Sex
+              </label>
+              <select
+                id="patient-sex-input"
+                value={patientMeta.sex ?? ""}
+                onChange={(e) => onUpdateMeta?.({ sex: e.target.value || undefined })}
+                data-testid="patient-sex-input"
+                aria-label="Patient Sex"
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] print:border-gray-300 print:bg-[var(--color-surface)] print:text-black"
+              >
+                <option value="">Select Sex...</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other / Non-binary</option>
+              </select>
+            </div>
+            <div className="space-y-1 sm:col-span-2 lg:col-span-2">
+              <label htmlFor="patient-height-input" className="text-xs text-[var(--color-muted)] print:text-gray-700">
+                Height (cm)
+              </label>
+              <input
+                id="patient-height-input"
+                type="number"
+                min={40}
+                max={250}
+                value={patientMeta.heightCm ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                  onUpdateMeta?.({ heightCm: val });
+                }}
+                placeholder="e.g. 138"
+                data-testid="patient-height-input"
+                aria-label="Patient Height"
                 className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] print:border-gray-300 print:bg-[var(--color-surface)] print:text-black"
               />
             </div>
