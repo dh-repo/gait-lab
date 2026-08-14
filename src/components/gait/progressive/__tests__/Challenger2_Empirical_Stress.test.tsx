@@ -152,7 +152,7 @@ describe("Challenger 2: Empirical Stress-Test Suite — Level 3 Specialist, Expo
         symmetryScore: Number.NaN,
         rhythmScore: null as any,
         automaticityScore: undefined as any,
-      };
+      } as any;
 
       const csv = exportGaitMetricsAsCsv(emptyMetrics);
       expect(typeof csv).toBe("string");
