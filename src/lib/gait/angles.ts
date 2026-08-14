@@ -422,14 +422,15 @@ export function computeGaitAngleAnalysis(
   const ankleL = frames.length >= 10 ? zeroPhaseButterworth(rawAnkleL, fps, 6.0) : rawAnkleL;
   const ankleR = frames.length >= 10 ? zeroPhaseButterworth(rawAnkleR, fps, 6.0) : rawAnkleR;
 
-  const leftHS = (events || [])
+  const eventList = Array.isArray(events) ? events : [];
+  const leftHS = eventList
     .filter((e) => e.type === "heel_strike" && e.side === "left")
     .sort((a, b) => a.timeSec - b.timeSec);
-  const rightHS = (events || [])
+  const rightHS = eventList
     .filter((e) => e.type === "heel_strike" && e.side === "right")
     .sort((a, b) => a.timeSec - b.timeSec);
-  const leftTO = (events || []).filter((e) => e.type === "toe_off" && e.side === "left");
-  const rightTO = (events || []).filter((e) => e.type === "toe_off" && e.side === "right");
+  const leftTO = eventList.filter((e) => e.type === "toe_off" && e.side === "left");
+  const rightTO = eventList.filter((e) => e.type === "toe_off" && e.side === "right");
 
   const buildStridesForSide = (
     side: "left" | "right",

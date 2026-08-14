@@ -35,6 +35,18 @@ import { DigitalTwinCanvas } from "./DigitalTwinCanvas";
 import { GaitTimelineScrubber } from "./GaitTimelineScrubber";
 import { LiveBiofeedbackHUD } from "./LiveBiofeedbackHUD";
 import { SOAPNoteModal } from "./SOAPNoteModal";
+import {
+  HumanCenteredSummary,
+  ProgressiveDisclosureNav,
+  Level1PatientView,
+  Level2BiomechanicsView,
+  Level3SpecialistView,
+  ResponsiveMediaViewport,
+  ViewportHUD,
+  deriveMobilitySummaryData,
+  type DisclosureTier,
+} from "./progressive";
+import { HepEditorModal } from "./rehab/HepEditorModal";
 import { segmentGaitPhases } from "@/lib/gait/phases";
 import {
   computeDualTaskCost,
@@ -222,6 +234,8 @@ export function GaitApp() {
   const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
   const [scanPoses, setScanPoses] = useState<{ id: number; landmarks: Landmark[] }[]>([]);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [selectedTier, setSelectedTier] = useState<DisclosureTier>("level1_patient");
+  const [hepEditorOpen, setHepEditorOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("report");
   const [dragOver, setDragOver] = useState(false);
   const [taskMode, setTaskMode] = useState<TaskMode>("single");
@@ -433,6 +447,16 @@ export function GaitApp() {
     if (totalFrames > 1) return (currentFrameIndex / (totalFrames - 1)) * 100;
     return 0;
   }, [currentFrameInfo, currentFrameIndex, totalFrames]);
+
+  const mobilitySummary = useMemo(() => {
+    if (!result) return null;
+    return deriveMobilitySummaryData(
+      result.metrics,
+      result.angleAnalysis,
+      result.guesses,
+      result.dualTaskCost,
+    );
+  }, [result]);
 
   // Derived 4-stage workflow step
   const computedStage: WorkflowStage = useMemo(() => {
@@ -2008,9 +2032,9 @@ export function GaitApp() {
           </section>
         )}
 
-        {/* STAGE 3 — true workstation: sticky video | findings */}
+        {/* STAGE 3 — Progressive Disclosure Workstation */}
         {computedStage === 3 && result && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div className="space-y-1 min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--color-subtle)]">
@@ -2034,6 +2058,11 @@ export function GaitApp() {
                 <p className="text-[11px] text-[var(--color-subtle)]">
                   Research / educational output · Not a diagnosis
                 </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[var(--color-muted)] pt-1">
+                  <span className="tabular">Pace: {Math.round(result.metrics.mobilityScore)}/100</span>
+                  <span className="tabular">Symmetry: {Math.round(result.metrics.symmetryScore)}/100</span>
+                  <span className="tabular">Stability: {Math.round(result.metrics.stabilityScore)}/100</span>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="mr-1 hidden flex-wrap gap-1.5 sm:flex">
@@ -2046,6 +2075,29 @@ export function GaitApp() {
                   <Badge tone="neutral" className="tabular">
                     ~{Math.floor(result.metrics.stepCount / 2)} strides
                   </Badge>
+                  {(() => {
+                    const cadenceDte = result.dualTaskCost
+                      ? resolveDteValues(result.dualTaskCost).cadenceDte
+                      : null;
+                    return (
+                      <Badge
+                        tone={
+                          cadenceDte != null
+                            ? Math.abs(cadenceDte) < 5
+                              ? "success"
+                              : "warn"
+                            : "neutral"
+                        }
+                      >
+                        Dual-Task:{" "}
+                        {cadenceDte != null
+                          ? `${cadenceDte.toFixed(1)}%`
+                          : result.taskMode === "dual"
+                            ? "unavailable"
+                            : "Baseline"}
+                      </Badge>
+                    );
+                  })()}
                 </div>
                 <Button
                   variant="outline"
@@ -2096,6 +2148,33 @@ export function GaitApp() {
               </div>
             </div>
 
+            {/* A dual-task run with no paired single-task baseline yields no DTE. */}
+            {result.taskMode === "dual" && !result.dualTaskCost && (
+              <Card className="border-[color-mix(in_oklab,var(--color-warn,var(--color-danger))_35%,var(--color-border))]">
+                <CardContent className="p-4 text-xs leading-relaxed text-[var(--color-muted)]">
+                  <p className="text-sm font-semibold text-[var(--color-fg)]">
+                    No single-task baseline recorded — dual-task cost unavailable
+                  </p>
+                  <p className="mt-1">
+                    Dual-task effect is a comparison, so it cannot be computed from this run
+                    alone. The metrics below describe the walk under cognitive load only; they
+                    are not a measure of interference. Baselines are held in the current page
+                    session only, so a reload clears them. Run a Single-Task (Walk Only)
+                    assessment and then repeat the dual-task walk without reloading.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Level 1 Layman Summary Hero Banner */}
+            {mobilitySummary && (
+              <HumanCenteredSummary
+                data={mobilitySummary}
+                onOpenHep={() => setHepEditorOpen(true)}
+                onSelectTier={setSelectedTier}
+              />
+            )}
+
             {/* Underline tabs — scroll on narrow screens so all remain reachable */}
             <div
               role="tablist"
@@ -2119,51 +2198,64 @@ export function GaitApp() {
               </TabBtn>
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start">
-              {/* Sticky video — person + overlays live in the same chrome */}
-              <section
-                aria-label="Video Canvas Viewer and Playback Controls"
-                className="flex flex-col lg:sticky lg:top-24"
-              >
-                <Card className="overflow-hidden border-[var(--color-border)] p-0 shadow-none">
-                  {/* Viewport Mode Switcher Header */}
-                  <div className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs">
-                    <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-sky-400" />
-                      Biomechanical Kinematic Viewport
-                    </span>
-                    <div className="flex items-center gap-1 bg-slate-900/60 p-0.5 rounded-lg border border-slate-800">
-                      <Button
-                        variant={viewportMode === "2d" ? "default" : "ghost"}
-                        size="sm"
-                        className="h-6 px-2 text-[11px]"
-                        onClick={() => setViewportMode("2d")}
-                      >
-                        2D Stream
-                      </Button>
-                      <Button
-                        variant={viewportMode === "3d" ? "default" : "ghost"}
-                        size="sm"
-                        className="h-6 px-2 text-[11px]"
-                        onClick={() => setViewportMode("3d")}
-                      >
-                        3D Twin
-                      </Button>
-                      <Button
-                        variant={viewportMode === "split" ? "default" : "ghost"}
-                        size="sm"
-                        className="h-6 px-2 text-[11px]"
-                        onClick={() => setViewportMode("split")}
-                      >
-                        Dual View
-                      </Button>
-                    </div>
-                  </div>
+            {/* Tab-driven Content: if not in "clusters", show the dedicated deep-dive tab panel */}
+            {tab === "metrics" ? (
+              <MetricsPanel metrics={result.metrics} />
+            ) : tab === "guesses" ? (
+              <GuessesPanel guesses={result.guesses} dualTaskCost={result.dualTaskCost} />
+            ) : tab === "fallrisk" ? (
+              <FallRiskPanel result={result} />
+            ) : tab === "guide" ? (
+              <GuidePanel />
+            ) : (
+              /* When in Findings ("clusters"), show the Progressive Disclosure Architecture */
+              <>
+                {/* Progressive Disclosure Navigation (3 Tiers) */}
+                <ProgressiveDisclosureNav
+                  activeTier={selectedTier}
+                  onSelectTier={setSelectedTier}
+                  anomalyCount={result.guesses?.length ?? 0}
+                />
 
-                  {/* Viewport Canvas Surfaces */}
-                  <div className={cn("relative bg-black", viewportMode === "split" ? "grid grid-cols-1 md:grid-cols-2" : "aspect-video")}>
-                    {(viewportMode === "2d" || viewportMode === "split") && (
-                      <div className="relative aspect-video bg-black">
+                {/* Active Tier Views */}
+                {selectedTier === "level1_patient" && (
+                  <Level1PatientView
+                    analysis={result}
+                    currentTimeSec={totalFrames > 0 && effectiveFps > 0 ? currentFrameIndex / effectiveFps : 0}
+                    isPlaying={isPlaying}
+                    onTogglePlay={togglePlay}
+                    onOpenHepModal={() => setHepEditorOpen(true)}
+                  />
+                )}
+
+                {selectedTier === "level2_biomechanics" && (
+                  <div className="space-y-6">
+                    <ResponsiveMediaViewport
+                      aspectRatio="16:9"
+                      hudOverlay={
+                        <ViewportHUD
+                          fps={effectiveFps}
+                          confidence={result.metrics.viewConfidence ?? 0.95}
+                          pitchDeg={cameraPerspective?.pitchDeg}
+                          rollDeg={cameraPerspective?.rollDeg}
+                          cameraPerspective={cameraPerspective ?? undefined}
+                          isCollapsible={true}
+                          currentPhase={currentFrameInfo?.leftPhase || currentFrameInfo?.rightPhase || "Initial Contact"}
+                          isPlaying={isPlaying}
+                          onTogglePlay={togglePlay}
+                          onStepFrame={stepFrame}
+                          currentFrameIndex={currentFrameIndex}
+                          totalFrames={totalFrames}
+                          showSkeleton={overlaySkeleton}
+                          onToggleSkeleton={setOverlaySkeleton}
+                          showJointArcs={overlayJointArcs}
+                          onToggleJointArcs={setOverlayJointArcs}
+                          showSwayVector={overlaySwayVector}
+                          onToggleSwayVector={setOverlaySwayVector}
+                        />
+                      }
+                    >
+                      <div className="relative w-full h-full bg-black">
                         <SkeletonCanvas
                           video={videoRef.current}
                           poses={currentFramePoses}
@@ -2174,165 +2266,54 @@ export function GaitApp() {
                           showJointArcs={overlayJointArcs}
                           showSwayVector={overlaySwayVector}
                           perspectiveParams={cameraPerspective ?? undefined}
-                          showSpiritLevel={true}
-                          showTiltWarning={true}
+                          showSpiritLevel={false}
+                          showTiltWarning={false}
                         />
                       </div>
-                    )}
-                    {(viewportMode === "3d" || viewportMode === "split") && (
-                      <div className="relative aspect-video bg-slate-950 flex items-center justify-center">
-                        <DigitalTwinCanvas
-                          landmarks={currentFramePoses[0]?.landmarks}
-                          allFrames={allLandmarkFrames}
-                          currentFrameIndex={currentFrameIndex}
-                          isPlaying={isPlaying}
-                        />
-                      </div>
-                    )}
-                  </div>
+                    </ResponsiveMediaViewport>
 
-                  {/* GaitTimelineScrubber with Perry 8-Phase Ribbon */}
-                  <div className="p-3 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
-                    <GaitTimelineScrubber
-                      currentFrame={currentFrameIndex}
-                      totalFrames={totalFrames}
-                      isPlaying={isPlaying}
-                      onPlayToggle={togglePlay}
-                      onFrameChange={(f) => seekToTime(f / effectiveFps)}
-                      onStepBack={() => stepFrame(-1)}
-                      onStepForward={() => stepFrame(1)}
-                      fps={effectiveFps}
-                      phaseTimeline={phaseSegmentation?.frameTimeline}
-                    />
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-border)] mt-3 pt-2 text-[11px] text-[var(--color-muted)]">
-                      <span className="truncate font-medium text-[var(--color-fg)]">
-                        {fileName ?? "Video clip"}
-                      </span>
-                      {people.length > 1 && (
-                        <div role="listbox" aria-label="Person tracks" className="flex flex-wrap gap-1">
-                          {people.map((p, i) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              role="option"
-                              aria-selected={selectedPersonId === p.id}
-                              aria-label={`Select Person track ${i + 1}`}
-                              onClick={() => {
-                                setSelectedPersonId(p.id);
-                                void runAnalysis();
-                              }}
-                              className={cn(
-                                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors",
-                                selectedPersonId === p.id
-                                  ? "border-[var(--color-primary)] bg-[var(--color-info-bg)] font-semibold text-[var(--color-info-text)]"
-                                  : "border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)]",
-                              )}
-                            >
-                              <span
-                                className="size-1.5 rounded-full"
-                                style={{ background: p.color || PERSON_COLORS[i % PERSON_COLORS.length] }}
-                              />
-                              P{i + 1}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      <div className="ml-auto flex flex-wrap items-center gap-3">
-                        <label className="inline-flex cursor-pointer items-center gap-1.5">
-                          <input type="checkbox" checked={overlaySkeleton} onChange={(e) => setOverlaySkeleton(e.target.checked)} aria-label="Toggle skeleton overlay" className="rounded border-[var(--color-border)] accent-[var(--color-primary)]" />
-                          Skeleton
-                        </label>
-                        <label className="inline-flex cursor-pointer items-center gap-1.5">
-                          <input type="checkbox" checked={overlayJointArcs} onChange={(e) => setOverlayJointArcs(e.target.checked)} aria-label="Toggle joint arcs overlay" className="rounded border-[var(--color-border)] accent-[var(--color-primary)]" />
-                          Arcs
-                        </label>
-                        <label className="inline-flex cursor-pointer items-center gap-1.5">
-                          <input type="checkbox" checked={overlaySwayVector} onChange={(e) => setOverlaySwayVector(e.target.checked)} aria-label="Toggle sway vector overlay" className="rounded border-[var(--color-border)] accent-[var(--color-primary)]" />
-                          Sway
-                        </label>
-                        <Button variant="ghost" size="sm" onClick={() => void runAnalysis()} className="h-7 text-[11px]">
-                          Re-run
-                        </Button>
-                      </div>
+                    {/* GaitTimelineScrubber with Perry 8-Phase Ribbon */}
+                    <div className="p-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
+                      <GaitTimelineScrubber
+                        currentFrame={currentFrameIndex}
+                        totalFrames={totalFrames}
+                        isPlaying={isPlaying}
+                        onPlayToggle={togglePlay}
+                        onFrameChange={(f) => seekToTime(f / effectiveFps)}
+                        onStepBack={() => stepFrame(-1)}
+                        onStepForward={() => stepFrame(1)}
+                        fps={effectiveFps}
+                        phaseTimeline={phaseSegmentation?.frameTimeline}
+                      />
                     </div>
+
+                    <Level2BiomechanicsView
+                      analysis={result}
+                      currentTimeSec={totalFrames > 0 && effectiveFps > 0 ? currentFrameIndex / effectiveFps : 0}
+                      isPlaying={isPlaying}
+                      onTogglePlay={togglePlay}
+                    />
                   </div>
-                </Card>
-              </section>
-
-              <section aria-label="Findings and domain metrics" className="flex min-w-0 flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-[var(--color-muted)]">
-                  <span className="tabular font-semibold text-[var(--color-fg)]">
-                    {Math.round(result.metrics.overallScore)}
-                    <span className="font-normal text-[var(--color-subtle)]">/100</span>
-                  </span>
-                  <span className="tabular">Pace: {Math.round(result.metrics.mobilityScore)}/100</span>
-                  <span className="tabular">Symmetry: {Math.round(result.metrics.symmetryScore)}/100</span>
-                  <span className="tabular">Stability: {Math.round(result.metrics.stabilityScore)}/100</span>
-                  {(() => {
-                    const cadenceDte = result.dualTaskCost
-                      ? resolveDteValues(result.dualTaskCost).cadenceDte
-                      : null;
-                    return (
-                      <Badge
-                        tone={
-                          cadenceDte != null
-                            ? Math.abs(cadenceDte) < 5
-                              ? "success"
-                              : "warn"
-                            : "neutral"
-                        }
-                      >
-                        Dual-Task:{" "}
-                        {cadenceDte != null
-                          ? `${cadenceDte.toFixed(1)}%`
-                          : result.taskMode === "dual"
-                            ? "unavailable"
-                            : "Baseline"}
-                      </Badge>
-                    );
-                  })()}
-                </div>
-
-                {/* A dual-task run with no paired single-task baseline yields no DTE.
-                    Say so explicitly instead of leaving the reader with a bare badge. */}
-                {result.taskMode === "dual" && !result.dualTaskCost && (
-                  <Card className="border-[color-mix(in_oklab,var(--color-warn,var(--color-danger))_35%,var(--color-border))]">
-                    <CardContent className="p-4 text-xs leading-relaxed text-[var(--color-muted)]">
-                      <p className="text-sm font-semibold text-[var(--color-fg)]">
-                        No single-task baseline recorded — dual-task cost unavailable
-                      </p>
-                      <p className="mt-1">
-                        Dual-task effect is a comparison, so it cannot be computed from this run
-                        alone. The metrics below describe the walk under cognitive load only; they
-                        are not a measure of interference. Baselines are held in the current page
-                        session only, so a reload clears them. Run a Single-Task (Walk Only)
-                        assessment and then repeat the dual-task walk without reloading.
-                      </p>
-                    </CardContent>
-                  </Card>
                 )}
 
-                {/* Tab Content Output */}
-                {tab === "clusters" ? (
-                  <CognitiveClusters
-                    metrics={result.metrics}
-                    dualTaskCost={result.dualTaskCost}
-                    taskMode={result.taskMode}
-                    angleAnalysis={result.angleAnalysis}
-                    currentGaitCyclePct={currentGaitCyclePct}
+                {selectedTier === "level3_specialist" && (
+                  <Level3SpecialistView
+                    analysis={result}
+                    patientMeta={patientMeta}
+                    onOpenCalibration={() => setCameraCalibrationOpen(true)}
                   />
-                ) : tab === "guesses" ? (
-                  <GuessesPanel guesses={result.guesses} dualTaskCost={result.dualTaskCost} />
-                ) : tab === "metrics" ? (
-                  <MetricsPanel metrics={result.metrics} />
-                ) : tab === "fallrisk" ? (
-                  <FallRiskPanel result={result} />
-                ) : (
-                  <GuidePanel />
                 )}
-              </section>
-            </div>
+              </>
+            )}
+
+            {/* HEP Editor Modal */}
+            <HepEditorModal
+              isOpen={hepEditorOpen}
+              onClose={() => setHepEditorOpen(false)}
+              metrics={result.metrics}
+              angleAnalysis={result.angleAnalysis}
+              patientMetadata={patientMeta}
+            />
           </div>
         )}
 

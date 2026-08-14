@@ -183,7 +183,7 @@ export function MovementAnalysisProfile({
               {gps.overallGPS.toFixed(1)}°
             </span>
             <span className="text-[10px] text-[var(--color-muted)] block mt-0.5">
-              Control: &lt;{gps.controlThresholdDeg.toFixed(1)}°
+              Normative: &lt;{gps.controlThresholdDeg.toFixed(1)} deg
             </span>
           </div>
 
@@ -219,7 +219,7 @@ export function MovementAnalysisProfile({
               {gps.evaluatedVariableCount} / 9
             </span>
             <span className="text-[10px] text-[var(--color-muted)] block mt-0.5">
-              MCID: ≥{gps.mcidThresholdDeg.toFixed(1)}°
+              Multi-planar coverage
             </span>
           </div>
         </div>
@@ -307,11 +307,7 @@ export function MovementAnalysisProfile({
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-0.5 bg-[#EA4335] border-t border-dashed" />
-              <span>Control (5.2°)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-0.5 bg-[#FBBC04] border-t border-dotted" />
-              <span>MCID (1.6°)</span>
+              <span>Control (5.2°) &amp; MCID (1.6°)</span>
             </div>
           </div>
         </div>
@@ -374,26 +370,14 @@ export function MovementAnalysisProfile({
                 y={GPS_CONTROL_THRESHOLD_DEG}
                 stroke="#EA4335"
                 strokeDasharray="4 4"
-                label={{
-                  value: "Control (5.2°)",
-                  fill: "#EA4335",
-                  fontSize: 10,
-                  position: "insideTopRight",
-                }}
               />
               <ReferenceLine
                 y={GPS_MCID_THRESHOLD_DEG}
                 stroke="#FBBC04"
                 strokeDasharray="2 2"
-                label={{
-                  value: "MCID (1.6°)",
-                  fill: "#B06000",
-                  fontSize: 9,
-                  position: "insideBottomRight",
-                }}
               />
-              <Bar dataKey="leftGVS" name="Left GVS (°)" fill="#1A73E8" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="rightGVS" name="Right GVS (°)" fill="#34A853" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="leftGVS" name="Left GVS" fill="#1A73E8" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="rightGVS" name="Right GVS" fill="#34A853" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -445,13 +429,13 @@ export function MovementAnalysisProfile({
                             </span>
                           </td>
                           <td className="tabular text-right text-[#1A73E8] font-semibold">
-                            {entry.leftGVS !== null ? `${entry.leftGVS.toFixed(1)}°` : "—"}
+                            {entry.leftGVS !== null ? `${entry.leftGVS.toFixed(1)}` : "—"}
                           </td>
                           <td className="tabular text-right text-[#34A853] font-semibold">
-                            {entry.rightGVS !== null ? `${entry.rightGVS.toFixed(1)}°` : "—"}
+                            {entry.rightGVS !== null ? `${entry.rightGVS.toFixed(1)}` : "—"}
                           </td>
                           <td className="tabular text-right font-bold text-[var(--color-fg)]">
-                            {entry.overallGVS !== null ? `${entry.overallGVS.toFixed(1)}°` : "—"}
+                            {entry.overallGVS !== null ? `${entry.overallGVS.toFixed(1)}` : "—"}
                           </td>
                           <td className="text-center">
                             <Badge

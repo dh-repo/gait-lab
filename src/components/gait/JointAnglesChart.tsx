@@ -17,8 +17,12 @@ import type { GaitAngleAnalysis } from "@/lib/gait/angles";
 import { cn } from "@/lib/utils";
 
 export interface JointAnglesChartProps {
-  angleAnalysis: GaitAngleAnalysis;
+  angleAnalysis?: GaitAngleAnalysis | null;
+  currentTimeSec?: number;
+  isPlaying?: boolean;
+  onTogglePlay?: () => void;
   currentGaitCyclePct?: number;
+  title?: string;
   className?: string;
 }
 
@@ -66,7 +70,15 @@ function CustomTooltip({ active, payload, label }: any) {
   return null;
 }
 
-export function JointAnglesChart({ angleAnalysis, currentGaitCyclePct, className }: JointAnglesChartProps) {
+export function JointAnglesChart({
+  angleAnalysis,
+  currentTimeSec = 0,
+  isPlaying = false,
+  onTogglePlay,
+  currentGaitCyclePct,
+  title = "Joint Kinematic Angle Trajectories",
+  className,
+}: JointAnglesChartProps) {
   const [activeJoint, setActiveJoint] = useState<JointTab>("knee");
 
   const chartData = useMemo(() => {
@@ -197,7 +209,7 @@ export function JointAnglesChart({ angleAnalysis, currentGaitCyclePct, className
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-[var(--color-primary)]" />
-            <CardTitle className="text-base font-medium text-[var(--color-fg)]">Joint Kinematic Angle Trajectories</CardTitle>
+            <CardTitle className="text-base font-medium text-[var(--color-fg)]">{title}</CardTitle>
           </div>
           <div className="inline-flex items-center p-1 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)]">
             <button
