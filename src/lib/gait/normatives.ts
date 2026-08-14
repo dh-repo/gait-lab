@@ -297,6 +297,88 @@ const BOVI_NORMATIVES: Record<string, { label: string; unit: string; data: BoviA
       },
     },
   },
+  gaitSpeed: {
+    label: "Gait Speed",
+    unit: "m/s",
+    data: {
+      pediatric: {
+        male: { mean: 1.15, sd: 0.14 },
+        female: { mean: 1.12, sd: 0.13 },
+        combined: { mean: 1.135, sd: 0.135 },
+      },
+      young: {
+        male: { mean: 1.40, sd: 0.14 },
+        female: { mean: 1.34, sd: 0.13 },
+        combined: { mean: 1.37, sd: 0.135 },
+      },
+      middle: {
+        male: { mean: 1.35, sd: 0.15 },
+        female: { mean: 1.28, sd: 0.14 },
+        combined: { mean: 1.315, sd: 0.145 },
+      },
+      elderly: {
+        male: { mean: 1.22, sd: 0.18 },
+        female: { mean: 1.18, sd: 0.17 },
+        combined: { mean: 1.20, sd: 0.175 },
+      },
+      advanced_75_84: {
+        male: { mean: 1.08, sd: 0.20 },
+        female: { mean: 1.02, sd: 0.19 },
+        combined: { mean: 1.05, sd: 0.195 },
+      },
+      advanced_85_plus: {
+        male: { mean: 0.92, sd: 0.22 },
+        female: { mean: 0.88, sd: 0.21 },
+        combined: { mean: 0.90, sd: 0.215 },
+      },
+      combined: {
+        male: { mean: 1.32, sd: 0.16 },
+        female: { mean: 1.26, sd: 0.15 },
+        combined: { mean: 1.29, sd: 0.155 },
+      },
+    },
+  },
+  stepLength: {
+    label: "Step Length",
+    unit: "m",
+    data: {
+      pediatric: {
+        male: { mean: 0.55, sd: 0.06 },
+        female: { mean: 0.53, sd: 0.05 },
+        combined: { mean: 0.54, sd: 0.055 },
+      },
+      young: {
+        male: { mean: 0.72, sd: 0.06 },
+        female: { mean: 0.66, sd: 0.05 },
+        combined: { mean: 0.69, sd: 0.055 },
+      },
+      middle: {
+        male: { mean: 0.70, sd: 0.06 },
+        female: { mean: 0.64, sd: 0.05 },
+        combined: { mean: 0.67, sd: 0.055 },
+      },
+      elderly: {
+        male: { mean: 0.65, sd: 0.07 },
+        female: { mean: 0.59, sd: 0.06 },
+        combined: { mean: 0.62, sd: 0.065 },
+      },
+      advanced_75_84: {
+        male: { mean: 0.58, sd: 0.08 },
+        female: { mean: 0.53, sd: 0.07 },
+        combined: { mean: 0.555, sd: 0.075 },
+      },
+      advanced_85_plus: {
+        male: { mean: 0.50, sd: 0.09 },
+        female: { mean: 0.46, sd: 0.08 },
+        combined: { mean: 0.48, sd: 0.085 },
+      },
+      combined: {
+        male: { mean: 0.68, sd: 0.06 },
+        female: { mean: 0.62, sd: 0.05 },
+        combined: { mean: 0.65, sd: 0.055 },
+      },
+    },
+  },
 };
 
 /** Calculates z-score: (value - mean) / sd. Returns 0 if invalid or sd <= 0. */

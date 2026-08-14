@@ -199,15 +199,29 @@ export function Level1PatientView({
 
     if (!metrics) return list;
 
+    const age = patientMeta?.age ?? currentAnalysis?.patientMeta?.age;
+    const isPediatric = age !== undefined && age !== null && age < 18;
+
+    if (isPediatric) {
+      list.push({
+        id: "pediatric-dev-obs",
+        title: `Pediatric Profile (Age ${age})`,
+        text: "Walking tempo and step kinematics are evaluated against pediatric developmental normatives (Sutherland 1988).",
+        iconTone: "success",
+      });
+    }
+
     // 1. Cadence observation
-    if (metrics.cadenceSpm >= 100 && metrics.cadenceSpm <= 125) {
+    const cadenceTargetMin = isPediatric ? 105 : 100;
+    const cadenceTargetMax = isPediatric ? 140 : 125;
+    if (metrics.cadenceSpm >= cadenceTargetMin && metrics.cadenceSpm <= cadenceTargetMax) {
       list.push({
         id: "cadence-obs",
         title: "Active Rhythm",
         text: `Your walking pace (${metrics.cadenceSpm.toFixed(0)} spm) is within standard active limits.`,
         iconTone: "success",
       });
-    } else if (metrics.cadenceSpm < 95) {
+    } else if (metrics.cadenceSpm < (isPediatric ? 95 : 95)) {
       list.push({
         id: "cadence-obs-slow",
         title: "Cautious Pace",

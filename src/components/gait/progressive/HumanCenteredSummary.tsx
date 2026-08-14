@@ -139,7 +139,7 @@ export function HumanCenteredSummary({
             </div>
 
             <div className="flex flex-col items-center sm:items-start text-center sm:text-left space-y-1.5">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-subtle)]">
                   Overall Readiness
                 </span>
@@ -150,6 +150,15 @@ export function HumanCenteredSummary({
                 >
                   {currentSummary.readinessLabel}
                 </Badge>
+                {analysis?.patientMeta?.age && analysis.patientMeta.age < 18 && (
+                  <Badge
+                    tone="info"
+                    data-testid="pediatric-summary-badge"
+                    className="px-2 py-0.5 text-[10px] font-semibold border-sky-500/40 text-sky-400 bg-sky-500/10"
+                  >
+                    Pediatric (Age {analysis.patientMeta.age})
+                  </Badge>
+                )}
               </div>
 
               <p className="text-xs text-[var(--color-muted)] max-w-xs leading-relaxed">

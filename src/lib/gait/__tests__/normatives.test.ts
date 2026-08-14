@@ -335,15 +335,19 @@ describe("normatives.ts", () => {
       expect(adv90Ref.citation).toBe("Bovi et al. (2011)");
     });
 
-    it("supports expanded normative parameters (gaitSpeed, stepLength, hipRom, ankleRom)", () => {
-      const speedRef = getNormativeReference("gaitSpeed");
-      expect(speedRef.mean).toBe(1.35);
-      expect(speedRef.sd).toBe(0.15);
+    it("supports pediatric stratified gait speed and step length (Bovi et al. 2011)", () => {
+      const pedSpeed = getNormativeReference("gaitSpeed", 10, "female");
+      expect(pedSpeed.citation).toBe("Bovi et al. (2011)");
+      expect(pedSpeed.mean).toBe(1.12);
+      expect(pedSpeed.sd).toBe(0.13);
 
-      const stepLenRef = getNormativeReference("stepLength");
-      expect(stepLenRef.mean).toBe(0.68);
-      expect(stepLenRef.sd).toBe(0.06);
+      const pedStepLen = getNormativeReference("stepLength", 10, "female");
+      expect(pedStepLen.citation).toBe("Bovi et al. (2011)");
+      expect(pedStepLen.mean).toBe(0.53);
+      expect(pedStepLen.sd).toBe(0.05);
+    });
 
+    it("supports baseline normative parameters (hipRom, ankleRom)", () => {
       const hipRomRef = getNormativeReference("hipRom");
       expect(hipRomRef.mean).toBe(42.0);
 
