@@ -792,7 +792,9 @@ export function GaitApp() {
         setBaselineSingle(metrics);
       }
 
-      const perspectiveParams = estimateCameraPerspective(uniformFrames);
+      const perspectiveParams = estimateCameraPerspective(uniformFrames, {
+        targetView: metrics.viewAngle === "frontal" ? "frontal" : "sagittal",
+      });
       setCameraPerspective(perspectiveParams);
       const framesForAngles =
         perspectiveCorrectionEnabled && !perspectiveParams.isOrthogonal
@@ -1160,7 +1162,9 @@ export function GaitApp() {
       if (taskMode === "single") {
         setBaselineSingle(metrics);
       }
-      const perspectiveParams = estimateCameraPerspective(frames);
+      const perspectiveParams = estimateCameraPerspective(frames, {
+        targetView: metrics.viewAngle === "frontal" ? "frontal" : "sagittal",
+      });
       setCameraPerspective(perspectiveParams);
       const framesForAngles =
         perspectiveCorrectionEnabled && !perspectiveParams.isOrthogonal

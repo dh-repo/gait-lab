@@ -165,10 +165,15 @@ export function estimateGroundPlaneNormal(frames: PoseFrame[]): {
     return { normal: [0, -1, 0], pitchFloorDeg: 0, rollFloorDeg: 0 };
   }
 
+  // Check if we have true 3D worldLandmarks with depth variation
+  const has3D = frames.some(
+    (f) => f.worldLandmarks && f.worldLandmarks.length >= 33 && f.worldLandmarks.some((p) => Math.abs(p.z ?? 0) > 0.01)
+  );
+
   const footPts: [number, number, number][] = [];
 
   for (const f of frames) {
-    const lm = f.worldLandmarks && f.worldLandmarks.length >= 33 ? f.worldLandmarks : f.landmarks;
+    const lm = has3D && f.worldLandmarks && f.worldLandmarks.length >= 33 ? f.worldLandmarks : f.landmarks;
     if (!lm || lm.length < 33) continue;
 
     // Collect left and right ankle, heel, foot landmarks
@@ -182,6 +187,32 @@ export function estimateGroundPlaneNormal(frames: PoseFrame[]): {
 
   if (footPts.length < 4) {
     return { normal: [0, -1, 0], pitchFloorDeg: 0, rollFloorDeg: 0 };
+  }
+
+  // If we only have 2D screen coordinates (where Z is relative landmark depth, not world position):
+  // Screen Y increases as subject approaches camera on a level floor due to 1/Z perspective projection.
+  // We must not fit a global 3D plane treating screen Y as physical elevation.
+  if (!has3D) {
+    // In 2D, estimate camera in-plane roll from average bilateral foot contact slope
+    let rollSum = 0;
+    let rollCount = 0;
+    for (const f of frames) {
+      const lm = f.landmarks;
+      if (!lm || lm.length < 33) continue;
+      const lAnk = lm[LM.L_ANKLE];
+      const rAnk = lm[LM.R_ANKLE];
+      if (lAnk && rAnk && (lAnk.visibility ?? 1) >= 0.4 && (rAnk.visibility ?? 1) >= 0.4) {
+        const dx = rAnk.x - lAnk.x;
+        const dy = rAnk.y - lAnk.y;
+        if (Math.abs(dx) > 0.05) {
+          const roll = (Math.atan2(dy, dx) * 180) / Math.PI;
+          rollSum += roll;
+          rollCount++;
+        }
+      }
+    }
+    const rollFloorDeg = rollCount > 0 ? Number((rollSum / rollCount).toFixed(2)) : 0;
+    return { normal: [0, -1, 0], pitchFloorDeg: 0, rollFloorDeg };
   }
 
   // Compute centroid
@@ -209,14 +240,11 @@ export function estimateGroundPlaneNormal(frames: PoseFrame[]): {
   }
 
   // Robust analytical cross product from principle ground spanning vectors
-  // Progression vector along Z/X and mediolateral vector along X/Z
   let nx = 0;
   let ny = -1;
   let nz = 0;
 
-  // If we have depth variation
   if (Math.abs(zz) > 1e-6 || Math.abs(yz) > 1e-6) {
-    // Normal vector pointing upwards: in standard camera coordinates, +Y is down, so floor normal points along -Y
     const det = xx * zz - xz * xz;
     if (Math.abs(det) > 1e-6) {
       nx = (xy * zz - yz * xz) / det;
@@ -230,11 +258,12 @@ export function estimateGroundPlaneNormal(frames: PoseFrame[]): {
   ny /= norm;
   nz /= norm;
 
-  // Camera pitch angle is the elevation angle of the ground plane normal relative to vertical -Y
-  // For pitch down (P > 0), points further in Z appear higher on screen (smaller Y), so nz < 0 and -nz > 0
-  const pitchFloorDeg = (Math.atan2(-nz, -ny) * 180) / Math.PI;
-  // Camera roll angle is the in-plane tilt angle of the ground plane normal relative to vertical -Y
-  const rollFloorDeg = (Math.atan2(nx, -ny) * 180) / Math.PI;
+  const rawPitchFloorDeg = (Math.atan2(-nz, -ny) * 180) / Math.PI;
+  const rawRollFloorDeg = (Math.atan2(nx, -ny) * 180) / Math.PI;
+
+  // Clamp realistic floor plane pitch to [-35°, 35°]
+  const pitchFloorDeg = Math.max(-35, Math.min(35, rawPitchFloorDeg));
+  const rollFloorDeg = Math.max(-35, Math.min(35, rawRollFloorDeg));
 
   return {
     normal: [nx, ny, nz],
@@ -457,11 +486,14 @@ export function estimateCameraPerspective(
   frames: PoseFrame[],
   options: CalibrationOptions = {}
 ): CameraPerspectiveParams {
-  const targetView = options.targetView || "sagittal";
   const tiltThresholdDeg = options.tiltThresholdDeg || DEFAULT_TILT_THRESHOLD_DEG;
   const criticalThresholdDeg = options.criticalThresholdDeg || DEFAULT_CRITICAL_THRESHOLD_DEG;
   const subjectHeightM = options.subjectHeightM || DEFAULT_SUBJECT_HEIGHT_M;
   const focalLengthNorm = options.normalizedFocalLength || DEFAULT_FOCAL_LENGTH_NORM;
+
+  // Auto-detect view plane if not explicitly passed
+  const initialYaw = estimateCameraYaw(frames, options.targetView || "sagittal");
+  const targetView = options.targetView || (initialYaw.yawDeg < 45 ? "frontal" : "sagittal");
 
   if (!frames || frames.length === 0) {
     const defaultGuidance: AlignmentGuidance = {
@@ -480,7 +512,7 @@ export function estimateCameraPerspective(
       isOrthogonal: true,
       obliqueDeviationDeg: 0,
       warningLevel: "nominal",
-      warningMessage: "Camera is optimally aligned within the orthogonal plane (Pitch: 0.0°, Yaw: 90.0°).",
+      warningMessage: `Camera is optimally aligned within the orthogonal plane (Pitch: 0.0°, Yaw: ${targetView === "sagittal" ? "90.0" : "0.0"}°).`,
       guidance: defaultGuidance,
       anthropometrics: {
         thighShankRatio: NORMATIVE_THIGH_SHANK_RATIO,

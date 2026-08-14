@@ -316,22 +316,41 @@ function computeGaitMetricsCore(
     stepEvents = estimateStepsFromOscillation(midHipY, times, durationSec);
   }
 
-  // Frontal: choose between Zeni and hip-Y oscillation by how close cadence is to walk band.
+  // Frontal: choose between Zeni, scale-normalized hip-Y oscillation, and bilateral ankle differential
   if (isFrontal) {
     const times = series.map((s) => s.t);
     const zeniHs = stepEvents.filter((e) => e.type === "heel_strike");
-    const osc = estimateStepsFromOscillation(midHipY, times, durationSec);
-    const oscHs = osc.filter((e) => e.type === "heel_strike");
+    
+    // Scale-normalized vertical hip movement (distance invariant)
+    const normHipY = series.map((s) => s.midHipY / Math.max(0.05, s.torso));
+    const oscHip = estimateStepsFromOscillation(normHipY, times, durationSec);
+    const oscHipHs = oscHip.filter((e) => e.type === "heel_strike");
+
+    // Scale-normalized alternating bilateral ankle vertical separation
+    const normAnkleDiff = series.map((s) => (s.leftAnkleY - s.rightAnkleY) / Math.max(0.05, s.torso));
+    const oscAnkle = estimateStepsFromOscillation(normAnkleDiff, times, durationSec);
+    const oscAnkleHs = oscAnkle.filter((e) => e.type === "heel_strike");
+
     const cad = (n: number) => (durationSec > 0 ? (n / durationSec) * 60 : 0);
     const zCad = cad(zeniHs.length);
-    const oCad = cad(oscHs.length);
+    const hCad = cad(oscHipHs.length);
+    const aCad = cad(oscAnkleHs.length);
+
     const walkFit = (c: number) => {
-      if (c < 40 || c > 140) return -1e9;
-      // peak preference ~100–115 spm
+      if (c < 35 || c > 160) return -1e9;
+      // Preference around standard physiological walk band (95–120 spm)
       return -Math.abs(c - 108);
     };
-    if (oscHs.length >= 4 && walkFit(oCad) > walkFit(zCad)) {
-      stepEvents = osc;
+
+    const candidates = [
+      { events: oscHip, fit: walkFit(hCad), count: oscHipHs.length },
+      { events: oscAnkle, fit: walkFit(aCad), count: oscAnkleHs.length },
+      { events: stepEvents, fit: walkFit(zCad), count: zeniHs.length },
+    ].sort((a, b) => b.fit - a.fit);
+
+    const best = candidates.find((c) => c.count >= 4 && c.fit > -1e8);
+    if (best) {
+      stepEvents = best.events;
     }
   }
 
